@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GenApps | La Genovesa</title>
+
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#e01f36">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="icon.svg">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+    tailwind.config = { 
+        darkMode: 'class',
+        theme: {
+            extend: {
+                fontFamily: {
+                    sans: ['Outfit', 'sans-serif'],
+                },
+                colors: {
+                    brand: {
+                        50: '#fef2f2',
+                        100: '#fee2e2',
+                        500: '#ef4444',
+                        600: '#dc2626',
+                        700: '#e01f36',
+                        800: '#991b1b',
+                        900: '#7f1d1d',
+                    }
+                }
+            }
+        }
+    }
+</script>
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 flex h-screen overflow-hidden font-sans transition-colors duration-300">
+
+<main id="login-view" class="w-full h-full flex flex-col items-center justify-center absolute inset-0 bg-gray-50/50 dark:bg-gray-900 z-50 hidden transition-opacity duration-500 overflow-hidden">
+    <!-- Fondos Abstractos Animados -->
+    <div class="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-brand-500/20 dark:bg-brand-900/40 rounded-full blur-[100px] animate-[pulse_8s_ease-in-out_infinite]"></div>
+    <div class="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-amber-400/20 dark:bg-amber-700/30 rounded-full blur-[120px] animate-[pulse_10s_ease-in-out_infinite_reverse]"></div>
+
+    <!-- Contenedor Glassmorphism -->
+    <div class="relative z-10 bg-white/70 dark:bg-gray-800/60 backdrop-blur-2xl p-8 sm:p-12 rounded-[2.5rem] shadow-[0_8px_32px_0_rgba(31,38,135,0.05)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] w-full max-w-md text-center border border-white/60 dark:border-gray-700/50 transition-all">
+        
+        <div class="w-28 h-28 mx-auto mb-6 drop-shadow-xl hover:scale-105 transition-transform duration-500">
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
+<defs>
+<radialGradient id="a" cx="50%" cy="30%" r="80%" fx="50%" fy="30%"><stop offset="0%" style="stop-color:#e01f36;stop-opacity:1"/><stop offset="100%" style="stop-color:#a5081b;stop-opacity:1"/></radialGradient>
+<linearGradient id="b" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#fad7a0;stop-opacity:1"/><stop offset="50%" style="stop-color:#b08d57;stop-opacity:1"/><stop offset="100%" style="stop-color:#8c6e3f;stop-opacity:1"/></linearGradient>
+<filter id="c" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur in="SourceAlpha" stdDeviation="2" result="blur"/><feOffset in="blur" dy="2" result="offsetBlur"/><feComponentTransfer><feFuncA type="linear" slope=".3"/></feComponentTransfer><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs>
+<rect x="2.5" y="2.5" width="195" height="195" rx="45" ry="45" fill="url(#a)"/>
+<g fill="none" stroke="url(#b)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"><path d="m15 45 85-30 85 30"/><path d="m15 155 85 30 85-30"/></g>
+<g fill="#fff" font-family="Outfit, sans-serif" font-weight="900" filter="url(#c)"><text x="98" y="122" font-size="110" text-anchor="middle" letter-spacing="-5">Gen</text><text x="198" y="150" font-size="40" text-anchor="end" letter-spacing="1">Apps</text></g>
+</svg>
+        </div>
+        
+        <h2 class="text-3xl font-black text-gray-800 dark:text-white mb-2 tracking-tight">Acceso Corporativo</h2>
+        <p class="text-gray-500 dark:text-gray-400 text-sm mb-8 font-medium">Autenticación segura GenApps</p>
+        
+        <form id="loginForm" class="space-y-4">
+            <div class="relative group">
+                <div class="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none text-gray-400 group-focus-within:text-brand-600 transition-colors">
+                    <i class="ph ph-user text-xl"></i>
+                </div>
+                <input type="text" id="username" autocomplete="username" placeholder="Usuario" required class="w-full pl-11 pr-4 py-3.5 bg-white/50 dark:bg-gray-900/50 dark:text-white border border-gray-200 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 focus:outline-none focus:bg-white dark:focus:bg-gray-800 transition-all font-medium placeholder-gray-400">
+            </div>
+            
+            <div class="relative group">
+                <div class="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none text-gray-400 group-focus-within:text-brand-600 transition-colors">
+                    <i class="ph ph-lock-key text-xl"></i>
+                </div>
+                <input type="password" id="password" autocomplete="current-password" placeholder="Contraseña" required class="w-full pl-11 pr-4 py-3.5 bg-white/50 dark:bg-gray-900/50 dark:text-white border border-gray-200 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 focus:outline-none focus:bg-white dark:focus:bg-gray-800 transition-all font-medium placeholder-gray-400">
+            </div>
+            
+            <button type="submit" id="btnSubmit" class="w-full bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-700 hover:to-brand-600 text-white font-bold py-4 rounded-2xl shadow-lg hover:shadow-brand-500/30 transition-all flex justify-center items-center gap-2 transform hover:-translate-y-0.5 active:translate-y-0 mt-2">
+                <span>Ingresar</span>
+                <i class="ph ph-arrow-right font-bold"></i>
+            </button>
+            <p id="errorMsg" class="text-brand-600 bg-brand-50 dark:bg-brand-900/40 dark:text-brand-400 text-sm hidden mt-4 font-bold p-3 rounded-xl animate-pulse"></p>
+        </form>
+    </div>
+</main>
+
+<div id="hub-view" class="w-full h-full flex flex-col hidden relative">
+<header class="h-16 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-b border-white/40 dark:border-gray-800/60 shadow-[0_4px_30px_rgba(0,0,0,0.03)] flex items-center justify-between px-4 sm:px-6 z-[60] relative transition-all duration-300">
+<div class="flex items-center gap-4">
+                <button onclick="handleLogoClick()" class="w-10 h-10 focus:outline-none transition-all duration-500 hover:scale-110 active:scale-95 group" aria-label="Menú e Inicio">
+                    <svg id="main-logo" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" class="w-full h-full drop-shadow-sm transition-transform duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)]">
+                        <defs>
+                            <radialGradient id="bg-header" cx="50%" cy="30%" r="80%" fx="50%" fy="30%">
+                                <stop offset="0%" style="stop-color:#e01f36;stop-opacity:1"/>
+                                <stop offset="100%" style="stop-color:#a5081b;stop-opacity:1"/>
+                            </radialGradient>
+                            <linearGradient id="stroke-header" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#fad7a0;stop-opacity:1"/>
+                                <stop offset="50%" style="stop-color:#b08d57;stop-opacity:1"/>
+                                <stop offset="100%" style="stop-color:#8c6e3f;stop-opacity:1"/>
+                            </linearGradient>
+                            <filter id="shadow-header" x="-20%" y="-20%" width="140%" height="140%">
+                                <feGaussianBlur in="SourceAlpha" stdDeviation="2" result="blur"/>
+                                <feOffset in="blur" dy="2" result="offsetBlur"/>
+                                <feComponentTransfer><feFuncA type="linear" slope=".3"/></feComponentTransfer>
+                                <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+                            </filter>
+                        </defs>
+                        <rect x="2.5" y="2.5" width="195" height="195" rx="45" ry="45" fill="url(#bg-header)"/>
+                        <g fill="none" stroke="url(#stroke-header)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="m15 45 85-30 85 30"/><path d="m15 155 85 30 85-30"/>
+                        </g>
+                        <g fill="#fff" font-family="Arial, Helvetica, sans-serif" font-weight="900" filter="url(#shadow-header)">
+                            <text x="98" y="122" font-size="110" text-anchor="middle" letter-spacing="-5">Gen</text>
+                            <text x="198" y="150" font-size="40" text-anchor="end" letter-spacing="1">Apps</text>
+                        </g>
+                    </svg>
+                </button>
+                <h1 id="appTitle" class="text-lg font-bold text-gray-700 dark:text-white hidden sm:block ml-2">Inicio</h1>
+            </div>
+<div class="flex items-center gap-6">
+<div class="text-right hidden sm:block">
+<p id="userName" class="text-sm font-bold text-gray-800 dark:text-white leading-tight">Cargando...</p>
+<p id="userRole" class="text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">--</p>
+</div>
+<div class="h-10 w-auto">
+<svg class="h-full w-full" viewBox="0 0 284 164" xmlns="http://www.w3.org/2000/svg"><path d="m142 7 135 47v56l-135 47-135-47V54z" fill="#C50D23" stroke="#C50D23" stroke-width="10" stroke-linejoin="round"></path><path d="m142 7 135 47v56l-135 47-135-47V54z" fill="none" stroke="#B08D57" stroke-width="2" stroke-linejoin="round"></path><text x="142" y="68" font-family="Times, serif" font-size="36" font-weight="bold" text-anchor="middle" fill="#404040">LA</text><text x="142" y="67" font-family="Times, serif" font-size="36" font-weight="bold" text-anchor="middle" fill="#FFF">LA</text><text x="142" y="103" font-family="Times, serif" font-size="42" font-weight="bold" text-anchor="middle" fill="#404040">GENOVESA</text><text x="142" y="102" font-family="Times, serif" font-size="42" font-weight="bold" text-anchor="middle" fill="#FFF">GENOVESA</text><text x="142" y="127" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#FFF" letter-spacing="3">DESDE 1977</text></svg>
+</div>
+</div>
+</header>
+
+<div class="flex flex-1 relative overflow-hidden">
+<aside id="sidebar" class="fixed inset-y-0 left-0 w-64 pt-16 bg-white/90 dark:bg-gray-900/90 backdrop-blur-2xl border-r border-white/50 dark:border-gray-800/50 z-50 shadow-[4px_0_24px_rgba(0,0,0,0.02)] dark:shadow-[4px_0_24px_rgba(0,0,0,0.2)] transform -translate-x-full transition-transform duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] flex flex-col">
+<nav id="appMenu" class="flex-1 overflow-y-auto py-4 px-4 space-y-1 mt-2"></nav>
+<footer class="p-4 border-t border-gray-100 dark:border-gray-800 space-y-2 bg-gradient-to-t from-gray-50/80 to-transparent dark:from-gray-900/80">
+<button id="theme-toggle-btn" class="w-full flex items-center gap-3 p-3 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-800 shadow-sm hover:shadow transition-all" onclick="toggleTheme()"></button>
+<button class="w-full flex items-center gap-3 p-3 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-800 shadow-sm hover:shadow transition-all" onclick="openCredentialsModal()">
+<i class="ph ph-key text-xl"></i><span class="font-medium text-sm">Editar Credenciales</span>
+</button>
+<button class="w-full flex items-center gap-3 p-3 rounded-xl text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/20 shadow-sm hover:shadow transition-all mt-3" onclick="logout()">
+<i class="ph ph-sign-out text-xl"></i><span class="font-bold text-sm">Cerrar Sesión</span>
+</button>
+</footer>
+</aside>
+<div id="sidebarOverlay" class="fixed inset-0 bg-gray-900/40 dark:bg-black/60 z-40 hidden backdrop-blur-sm transition-opacity duration-500" onclick="toggleMenu()"></div>
+
+<main class="flex-1 flex flex-col relative bg-gray-50 dark:bg-gray-950 w-full h-full overflow-hidden transition-colors">
+                
+                <section id="home-dashboard" class="absolute inset-0 flex flex-col z-10 bg-transparent transition-all duration-500">
+                    
+                    <!-- Banner flotante fuera del flujo de layout -->
+                    <div class="absolute top-0 inset-x-0 z-40 pointer-events-none px-4 sm:px-10 pt-6 sm:pt-8 transition-all duration-500">
+                        <div id="welcome-banner" class="pointer-events-none"></div>
+                    </div>
+
+                    <!-- Contenedor del scroll de tarjetas -->
+                    <div class="flex-1 overflow-y-auto w-full h-full px-4 sm:px-10 pt-36 sm:pt-48 pb-10" id="dashboard-scroll">
+                        <div id="cards-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 sm:gap-8 pb-4"></div>
+                        
+                        <!-- Footer Institucional -->
+                        <footer class="mt-8 border-t border-gray-200 dark:border-gray-800 pt-8 pb-10 flex flex-col md:flex-row items-center justify-between gap-4 text-center md:text-left transition-colors duration-300">
+                            <div class="flex items-center justify-center md:justify-start gap-4 opacity-80 hover:opacity-100 transition-opacity">
+                                <div class="h-12 w-auto mix-blend-multiply dark:mix-blend-normal">
+                                    <svg class="h-full w-full drop-shadow-sm transition-transform hover:scale-105 duration-300" viewBox="0 0 284 164" xmlns="http://www.w3.org/2000/svg"><path d="m142 7 135 47v56l-135 47-135-47V54z" fill="#C50D23" stroke="#C50D23" stroke-width="10" stroke-linejoin="round"></path><path d="m142 7 135 47v56l-135 47-135-47V54z" fill="none" stroke="#B08D57" stroke-width="2" stroke-linejoin="round"></path><text x="142" y="68" font-family="Times, serif" font-size="36" font-weight="bold" text-anchor="middle" fill="#404040">LA</text><text x="142" y="67" font-family="Times, serif" font-size="36" font-weight="bold" text-anchor="middle" fill="#FFF">LA</text><text x="142" y="103" font-family="Times, serif" font-size="42" font-weight="bold" text-anchor="middle" fill="#404040">GENOVESA</text><text x="142" y="102" font-family="Times, serif" font-size="42" font-weight="bold" text-anchor="middle" fill="#FFF">GENOVESA</text><text x="142" y="127" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#FFF" letter-spacing="3">DESDE 1977</text></svg>
+                                </div>
+                                <div>
+                                    <h4 class="font-black text-gray-800 dark:text-gray-200 text-lg tracking-tight">La Genovesa Agroindustrias S.A.</h4>
+                                    <p class="text-[12px] font-bold text-gray-500 dark:text-gray-400 mt-0.5 tracking-wider uppercase">Tacna - Perú • Tradición e Innovación</p>
+                                </div>
+                            </div>
+                            <div class="text-[11px] font-bold text-gray-400 dark:text-gray-500 tracking-wider">
+                                &copy; 2026 GENAPPS CORP PLATFORM<br><span class="opacity-70">Desarrollo Exclusivo</span>
+                            </div>
+                        </footer>
+                    </div>
+
+                </section>
+
+                <section id="iframe-container" class="absolute inset-0 z-0 hidden">
+                    <div id="loader" class="absolute inset-0 bg-white/60 dark:bg-gray-900/70 backdrop-blur-md flex flex-col items-center justify-center z-50 hidden">
+                        <i class="ph ph-spinner-gap animate-spin text-5xl text-brand-600 mb-4 drop-shadow-md"></i>
+                        <p class="text-gray-700 dark:text-gray-200 font-bold tracking-wide">Cargando módulo...</p>
+                    </div>
+                    <iframe id="appViewer" 
+                            class="w-full h-full border-none shadow-inner bg-white dark:bg-gray-800" 
+                            src="about:blank"
+                            allow="camera; microphone; geolocation; clipboard-read; clipboard-write; display-capture">
+                    </iframe>
+                </section>
+                
+            </main>
+</div>
+</div>
+
+<div id="onboardingModal" class="fixed inset-0 bg-gray-900/40 dark:bg-black/60 z-[100] hidden items-center justify-center backdrop-blur-xl transition-opacity duration-300">
+<div class="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-[2.5rem] shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] w-full max-w-md p-10 transform scale-95 transition-all duration-500 border border-white/50 dark:border-gray-700/50">
+<div class="w-20 h-20 bg-gradient-to-br from-brand-100 to-brand-50 dark:from-brand-900/50 dark:to-brand-800/30 text-brand-600 dark:text-brand-400 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-sm border border-brand-200/50 dark:border-brand-700/30">
+<i class="ph ph-user-focus text-4xl"></i>
+</div>
+<h3 class="text-2xl font-black text-center text-gray-800 dark:text-white mb-2">Completa tu Perfil</h3>
+<p class="text-sm text-center text-gray-500 dark:text-gray-400 mb-6">Necesitamos tu Nombre y Correo Institucional antes de darte acceso al sistema.</p>
+<form id="formOnboarding" class="space-y-5">
+<input type="hidden" id="onboardUserTemp">
+<div>
+<label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Nombre Completo</label>
+<input type="text" id="onboardNombre" placeholder="Ej: Juan Pérez" class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 dark:text-white rounded-xl focus:ring-2 focus:ring-red-600 focus:outline-none" required>
+</div>
+<div>
+<label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Correo Electrónico</label>
+<input type="email" id="onboardCorreo" placeholder="tu.correo@empresa.com" class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 dark:text-white rounded-xl focus:ring-2 focus:ring-red-600 focus:outline-none" required>
+</div>
+<button type="submit" id="btnOnboardSubmit" class="w-full bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-700 hover:to-brand-600 text-white font-bold py-4 rounded-2xl shadow-lg hover:shadow-brand-500/30 transition-all flex items-center justify-center gap-2 mt-6">
+Guardar y Continuar <i class="ph ph-arrow-right"></i>
+</button>
+</form>
+</div>
+</div>
+
+<div id="credentialsModal" class="fixed inset-0 bg-gray-900/40 dark:bg-black/60 z-[70] hidden items-center justify-center backdrop-blur-xl transition-opacity duration-300">
+<div class="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-[2rem] shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] w-full max-w-sm p-8 transform scale-95 transition-all duration-500 border border-white/50 dark:border-gray-700/50">
+<div class="flex justify-between items-center mb-4">
+<h3 class="text-lg font-bold text-gray-800 dark:text-white">Actualizar Credenciales</h3>
+<button onclick="closeCredentialsModal()" class="text-gray-400 hover:text-gray-800 dark:hover:text-white"><i class="ph ph-x text-xl"></i></button>
+</div>
+<form id="formCredenciales" class="space-y-4">
+<div>
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nuevo Usuario</label>
+<input type="text" id="newUsername" autocomplete="username" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 dark:text-white rounded-lg focus:ring-2 focus:ring-brand-600 focus:outline-none" required>
+</div>
+<div>
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nueva Contraseña</label>
+<input type="password" id="newPassword" autocomplete="new-password" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 dark:text-white rounded-lg focus:ring-2 focus:ring-brand-600 focus:outline-none" required>
+</div>
+<button type="submit" class="w-full bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-700 hover:to-brand-600 text-white font-bold py-3.5 mt-4 rounded-xl shadow-md hover:shadow-brand-500/30 transition-all">Guardar Cambios</button>
+</form>
+</div>
+</div>
+
+<!-- Asesor IA Modal/Drawer -->
+<div id="aiChatModal" class="fixed inset-y-0 right-0 w-full sm:w-[450px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-3xl shadow-[-20px_0_50px_rgba(0,0,0,0.1)] dark:shadow-[-20px_0_50px_rgba(0,0,0,0.5)] z-[80] transform translate-x-full transition-transform duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] flex flex-col border-l border-white/40 dark:border-gray-700/50">
+    <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100 dark:border-gray-800 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 dark:from-indigo-900/40 dark:to-purple-900/40">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30">
+                <i class="ph-fill ph-magic-wand text-2xl animate-pulse"></i>
+            </div>
+            <div>
+                <h3 class="font-black text-gray-800 dark:text-white text-lg leading-tight tracking-tight">Guía HUB</h3>
+                <p class="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest flex items-center gap-1 mt-0.5"><span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Compañero Operativo</p>
+            </div>
+        </div>
+        <button onclick="toggleAIChat()" class="w-10 h-10 rounded-full bg-white/50 dark:bg-gray-800/50 text-gray-600 dark:text-gray-300 flex items-center justify-center hover:bg-brand-50 dark:hover:bg-brand-900/40 hover:text-brand-600 dark:hover:text-brand-400 transition-colors shadow-sm">
+            <i class="ph ph-x"></i>
+        </button>
+    </div>
+    
+    <div id="ai-chat-messages" class="flex-1 overflow-y-auto p-6 space-y-6 scroll-smooth bg-gray-50/30 dark:bg-transparent">
+        <!-- Message Initial -->
+        <div class="flex gap-4 max-w-[90%]">
+            <div class="w-10 h-10 flex-shrink-0 rounded-[14px] bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/40 dark:to-purple-900/40 flex items-center justify-center text-indigo-600 dark:text-indigo-400 border border-indigo-200/50 dark:border-indigo-700/50 shadow-sm">
+                <i class="ph-fill ph-robot text-xl"></i>
+            </div>
+            <div class="bg-white dark:bg-gray-800 p-5 rounded-[1.5rem] rounded-tl-sm shadow-[0_4px_20px_rgba(0,0,0,0.02)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.2)] border border-gray-100 dark:border-gray-700/60">
+                <p class="text-[14px] text-gray-700 dark:text-gray-200 font-medium leading-relaxed">¡Hola equipo! 👋 Soy tu <strong>Guía HUB</strong>.<br><br>Mi rol principal es apoyarte de manera cercana y directa, recordándote las mejores prácticas operativas y fortaleciendo nuestras <b>habilidades blandas</b> como un solo cuerpo.<br><br><span class="font-bold text-indigo-600 dark:text-indigo-400 mt-2 block">Cuenten conmigo para resolver dudas sobre controles de Trazabilidad, Puntos Críticos HACCP, formulaciones y manejo de personal operativo. ¿En qué proceso puedo echarnos una mano hoy?</span></p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="p-5 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-t border-gray-100 dark:border-gray-800">
+        <form id="ai-chat-form" onsubmit="handleAIChatSubmit(event)" class="relative group">
+            <input type="text" id="ai-chat-input" placeholder="Escribe tu consulta sobre trazabilidad, embutidos o HACCP..." class="w-full pl-5 pr-14 py-4 bg-gray-100/80 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 text-sm font-medium dark:text-white placeholder-gray-400 transition-all shadow-inner" autocomplete="off">
+            <button type="submit" class="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center text-white bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 rounded-xl transition-all shadow-[0_4px_10px_rgba(99,102,241,0.3)] transform hover:scale-105 active:scale-95 group-focus-within:shadow-[0_4px_15px_rgba(99,102,241,0.4)]">
+                <i class="ph-fill ph-paper-plane-right"></i>
+            </button>
+        </form>
+        <p class="text-center text-[10px] text-gray-400 dark:text-gray-500 font-bold mt-4 tracking-widest uppercase">Modelo de IA especializado para La Genovesa S.A.</p>
+    </div>
+</div>
+<div id="aiChatOverlay" class="fixed inset-0 bg-gray-900/30 dark:bg-black/50 z-[75] hidden backdrop-blur-sm transition-opacity duration-500" onclick="toggleAIChat()"></div>
+
+<script src="script.js"></script>
+</body>
+</html>
