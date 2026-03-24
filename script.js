@@ -339,13 +339,13 @@ function renderWelcomeBanner(nombre) {
                 </a>
 
                 <!-- Asesor IA (Desktop Only, en Móvil está en menú lateral) -->
-                <button onclick="toggleAIChat()" class="hidden sm:flex items-center gap-3 bg-gradient-to-br from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 px-5 py-3 rounded-2xl shadow-[0_4px_20px_rgba(99,102,241,0.3)] hover:shadow-[0_8px_25px_rgba(99,102,241,0.5)] transition-all group transform hover:-translate-y-1 duration-300 ml-2">
-                    <div class="flex items-center justify-center text-white group-hover:scale-110 group-hover:rotate-12 transition-transform duration-300">
-                        <i class="ph-fill ph-magic-wand text-2xl"></i>
+                <button onclick="toggleAIChat()" class="hidden sm:flex items-center gap-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl border border-white/60 dark:border-gray-700/50 hover:bg-white dark:hover:bg-gray-800 px-4 py-2 rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-lg transition-all group transform hover:-translate-y-1 duration-300 ml-2">
+                    <div class="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center border border-indigo-200 shadow-inner overflow-hidden group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
+                        <img src="guia.svg" class="w-full h-full object-contain" alt="Guia HUB" onerror="this.src='icon.svg'">
                     </div>
                     <div class="flex flex-col text-left">
-                        <span class="text-[9px] font-bold text-indigo-100 uppercase tracking-widest">Powered By AI</span>
-                        <span class="text-[14px] font-black text-white leading-tight">Guía HUB</span>
+                        <span class="text-[9px] font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-widest flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> IA Asesor</span>
+                        <span class="text-[14px] font-black text-gray-800 dark:text-gray-100 leading-tight">Guía HUB</span>
                     </div>
                 </button>
             </div>
@@ -516,9 +516,9 @@ function toggleAIChat() {
 
 // === LÓGICA DEL ASESOR INTELIGENTE IA (CONEXIÓN API GEMINI) ===
 
-// ⚠️ IMPORTANTÍSIMO: Por seguridad operativa, esta clave de API no debe ser expuesta a terceros. 
-// Para el entorno de producción final, esta solicitud debe realizarse desde un servidor Backend (App Script).
-const GEMINI_API_KEY = "AIzaSyAmAwGqukhouREJtVPn6NelRD2NRf_S1eQ";
+// ⚠️ MIGRACIÓN A BACKEND COMPLETADA: 
+// La API Key ahora debe residir exclusivamente en las 'Propiedades de Script' de Google Apps Script.
+// El aplicativo se conectará al proxy del Backend.
 
 const SYSTEM_PROMPT = `Eres el "Guía HUB", el compañero Inteligente de La Genovesa Agroindustrias S.A. Tu objetivo es guiar a los colaboradores hacia nuestra Visión 2030, asegurando la excelencia técnica, la integridad ética y la transformación digital.
 
@@ -560,53 +560,45 @@ async function handleAIChatSubmit(e) {
     // Agregamos al historial el input del usuario
     chatHistory.push({ role: "user", parts: [{ text: msg }] });
 
-    // Mostrar indicador "escribiendo..."
-    const typingId = appendTypingIndicator();
+    // Ya no requerimos validación local de API KEY porque se maneja en el Backend seguro.
+    // Enviaremos la petición completa a Google Apps Script (nuestro API_URL proxy).
 
-    // Validación de llave
-    if (!GEMINI_API_KEY || GEMINI_API_KEY.includes("TU_API_KEY") || GEMINI_API_KEY.length < 15) {
-        setTimeout(() => {
-            removeTypingIndicator(typingId);
-            appendChatMessage("### ⚠️ API de Asesor Desconectada \n\n**Diagnóstico de Conexión:**\nActualmente me encuentro en estado de simulación (mock interface). Para encender mi 'Cerebro' de IA, la API Key introducida no parece ser válida.", 'ai');
-        }, 1000);
-        return;
-    }
 
     try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                systemInstruction: {
-                    parts: [{ text: SYSTEM_PROMPT }]
-                },
-                contents: chatHistory,
-                generationConfig: {
-                    temperature: 0.4, // Tono altamente ejecutivo y analítico
-                    maxOutputTokens: 3500 // 🚀 Incrementado de 800 a 3500 para evitar interrupciones 
-                }
-            })
+        const payload = {
+            action: 'askAI',
+            history: chatHistory,
+            prompt: SYSTEM_PROMPT // Instrucción del rol para el proxy de Google AS
+        };
+
+        const response = await fetch(API_URL, {
+            method: 'POST', // Usar HTTP POST text/plain recomendado para Apps Script CORS
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify(payload)
         });
 
         const data = await response.json();
         removeTypingIndicator(typingId);
 
-        if (data.candidates && data.candidates.length > 0) {
-            const aiText = data.candidates[0].content.parts[0].text;
+        if (data.status === 'success' && data.response) {
+            const aiText = data.response;
 
             // Agregar al historial conversacional (el rol es 'model')
             chatHistory.push({ role: "model", parts: [{ text: aiText }] });
-
             appendChatMessage(aiText, 'ai');
         } else {
-            console.error("Respuesta anómala de Gemini:", data);
-            appendChatMessage("### ❌ Error de Procesamiento \nLa IA conectada no devolvió ningún candidato de respuesta válido. Inténtalo de nuevo.", 'ai');
+            console.error("Respuesta anómala de Backend/Gemini:", data);
+            let errorDetails = "El proxy corporativo de La Genovesa no devolvió una IA válida.";
+            if (data.message) {
+                errorDetails += `\n**Detalles del servidor proxy:** ${data.message}`;
+            }
+            appendChatMessage(`### ❌ Error de Procesamiento \n${errorDetails}\n\nRevisa la configuración del Administrador de Apps Script.`, 'ai');
         }
 
     } catch (error) {
         removeTypingIndicator(typingId);
-        console.error("Error al conectar con el servidor LLM:", error);
-        appendChatMessage("### ⚠️ Error de Red\n\nNo tengo conexión con el servidor. Verifica que tu entorno tenga acceso de red y no haya bloqueos de CORS.", 'ai');
+        console.error("Error al conectar con el servidor Apps Script:", error);
+        appendChatMessage("### ⚠️ Error de Red\n\nNo tengo conexión con el servidor interno de Apps Script. Verifica tu conexión de red o los permisos de ejecución del Macro.", 'ai');
     }
 }
 
