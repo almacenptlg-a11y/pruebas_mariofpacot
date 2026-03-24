@@ -1,23 +1,13 @@
 /* ==========================================================================
+   0. CONFIGURACIÓN BASE MÓVIL (NUEVO)
+   ========================================================================== */
+body {
+    overscroll-behavior-y: none; /* Previene Pull-to-Refresh en Android/iOS */
+}
+
+/* ==========================================================================
    1. CUSTOM SCROLLBAR (MENÚ LATERAL)
    ========================================================================== */
-
-/* Optimizaciones Móviles Generales */
-body {
-    overscroll-behavior-y: none;
-}
-
-.tap-transparent {
-    -webkit-tap-highlight-color: transparent;
-}
-
-.no-scrollbar::-webkit-scrollbar {
-    display: none;
-}
-.no-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-}
 
 /* Para navegadores basados en Webkit (Chrome, Safari, Edge) */
 #appMenu::-webkit-scrollbar {

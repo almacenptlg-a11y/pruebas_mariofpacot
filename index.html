@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GenApps | La Genovesa</title>
 
 <link rel="icon" type="image/svg+xml" href="icon.svg">
@@ -93,7 +93,7 @@
 </main>
 
 <div id="hub-view" class="w-full h-full flex flex-col hidden relative">
-<header id="main-header" class="h-16 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-b border-white/40 dark:border-gray-800/60 shadow-[0_4px_30px_rgba(0,0,0,0.03)] flex items-center justify-between px-4 sm:px-6 z-[60] relative transition-all duration-500">
+<header class="h-16 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-b border-white/40 dark:border-gray-800/60 shadow-[0_4px_30px_rgba(0,0,0,0.03)] flex items-center justify-between px-4 sm:px-6 z-[60] relative transition-all duration-300">
 <div class="flex items-center gap-4">
                 <button onclick="handleLogoClick()" class="w-10 h-10 focus:outline-none transition-all duration-500 hover:scale-110 active:scale-95 group" aria-label="Menú e Inicio">
                     <svg id="main-logo" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" class="w-full h-full drop-shadow-sm transition-transform duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)]">
@@ -131,6 +131,16 @@
 <p id="userName" class="text-sm font-bold text-gray-800 dark:text-white leading-tight">Cargando...</p>
 <p id="userRole" class="text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">--</p>
 </div>
+<!-- Desktop Header Actions (Tema, Credenciales, Salir) -->
+<div class="hidden sm:flex items-center gap-2 border-r border-gray-200 dark:border-gray-700 pr-5 mr-3">
+    <button id="theme-toggle-btn-desktop" onclick="toggleTheme()" class="w-10 h-10 rounded-full flex items-center justify-center bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition shadow-inner" title="Cambiar Tema"></button>
+    <button onclick="openCredentialsModal()" class="w-10 h-10 rounded-full flex items-center justify-center bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition shadow-inner" title="Credenciales">
+        <i class="ph-fill ph-key text-xl"></i>
+    </button>
+    <button onclick="logout()" class="w-10 h-10 rounded-full flex items-center justify-center bg-brand-50 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400 hover:bg-brand-100 dark:hover:bg-brand-800/60 transition shadow-inner cursor-pointer" title="Cerrar Sesión">
+        <i class="ph-fill ph-sign-out text-lg"></i>
+    </button>
+</div>
 <div class="h-10 w-auto">
 <svg class="h-full w-full" viewBox="0 0 284 164" xmlns="http://www.w3.org/2000/svg"><path d="m142 7 135 47v56l-135 47-135-47V54z" fill="#C50D23" stroke="#C50D23" stroke-width="10" stroke-linejoin="round"></path><path d="m142 7 135 47v56l-135 47-135-47V54z" fill="none" stroke="#B08D57" stroke-width="2" stroke-linejoin="round"></path><text x="142" y="68" font-family="Times, serif" font-size="36" font-weight="bold" text-anchor="middle" fill="#404040">LA</text><text x="142" y="67" font-family="Times, serif" font-size="36" font-weight="bold" text-anchor="middle" fill="#FFF">LA</text><text x="142" y="103" font-family="Times, serif" font-size="42" font-weight="bold" text-anchor="middle" fill="#404040">GENOVESA</text><text x="142" y="102" font-family="Times, serif" font-size="42" font-weight="bold" text-anchor="middle" fill="#FFF">GENOVESA</text><text x="142" y="127" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#FFF" letter-spacing="3">DESDE 1977</text></svg>
 </div>
@@ -139,17 +149,25 @@
 
 <div class="flex flex-1 relative overflow-hidden">
 <aside id="sidebar" class="fixed inset-y-0 left-0 w-64 pt-16 bg-white/90 dark:bg-gray-900/90 backdrop-blur-2xl border-r border-white/50 dark:border-gray-800/50 z-50 shadow-[4px_0_24px_rgba(0,0,0,0.02)] dark:shadow-[4px_0_24px_rgba(0,0,0,0.2)] transform -translate-x-full transition-transform duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] flex flex-col">
-<div class="px-4 pt-4 sm:hidden">
-    <button class="w-full flex items-center justify-center gap-3 p-3.5 rounded-2xl text-white dark:text-white bg-gradient-to-r from-indigo-600 to-indigo-500 shadow-[0_4px_15px_rgba(79,70,229,0.3)] hover:shadow-[0_4px_25px_rgba(79,70,229,0.5)] transition-all active:scale-95 group" onclick="toggleAIChat()">
-        <div class="relative w-8 h-8 overflow-hidden rounded-full bg-slate-50 flex items-center justify-center border border-indigo-200">
-            <img src="guia.svg" class="w-full h-full object-contain group-hover:scale-110 transition-transform" alt="Guia HUB" onerror="this.src='icon.svg'">
-        </div>
-        <span class="font-bold text-sm tracking-wide">Guía HUB (IA)</span>
+<!-- Mobile Logo (Solo visible en móviles cuando el iframe tapa el header) -->
+<div id="sidebar-logo" class="hidden items-center gap-3 px-6 py-5 border-b border-brand-100/50 dark:border-gray-800 bg-brand-50/50 dark:bg-brand-900/10 backdrop-blur-sm">
+    <button onclick="handleLogoClick()" class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center shadow-lg shadow-brand-500/30 transform hover:scale-105 transition-transform" aria-label="Volver a Inicio">
+        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 drop-shadow-sm">
+            <g fill="#fff" font-family="Outfit, sans-serif" font-weight="900">
+                <text x="98" y="122" font-size="110" text-anchor="middle" letter-spacing="-5">Gen</text>
+                <text x="198" y="150" font-size="40" text-anchor="end" letter-spacing="1">Apps</text>
+            </g>
+        </svg>
     </button>
+    <div class="flex flex-col">
+        <span class="font-black text-gray-800 dark:text-white leading-tight tracking-tight">GenApps</span>
+        <span class="text-[9px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest leading-none mt-1">HUB Móvil</span>
+    </div>
 </div>
-<nav id="appMenu" class="flex-1 overflow-y-auto py-2 px-4 space-y-1 mt-1"></nav>
-<footer class="p-4 border-t border-gray-100 dark:border-gray-800 space-y-2 bg-gradient-to-t from-gray-50/80 to-transparent dark:from-gray-900/80">
-<button id="theme-toggle-btn" class="w-full flex items-center gap-3 p-3 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-800 shadow-sm hover:shadow transition-all" onclick="toggleTheme()"></button>
+
+<nav id="appMenu" class="flex-1 overflow-y-auto py-4 px-4 space-y-1 mt-2"></nav>
+<footer class="sm:hidden p-4 border-t border-gray-100 dark:border-gray-800 space-y-2 bg-gradient-to-t from-gray-50/80 to-transparent dark:from-gray-900/80">
+<button id="theme-toggle-btn-mobile" class="w-full flex items-center gap-3 p-3 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-800 shadow-sm hover:shadow transition-all" onclick="toggleTheme()"></button>
 <button class="w-full flex items-center gap-3 p-3 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-800 shadow-sm hover:shadow transition-all" onclick="openCredentialsModal()">
 <i class="ph ph-key text-xl"></i><span class="font-medium text-sm">Editar Credenciales</span>
 </button>
@@ -170,8 +188,8 @@
                     </div>
 
                     <!-- Contenedor del scroll de tarjetas -->
-                    <div class="flex-1 overflow-y-auto w-full h-full px-4 sm:px-10 pt-48 sm:pt-48 pb-10" id="dashboard-scroll">
-                        <div id="cards-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-8 pb-4"></div>
+                    <div class="flex-1 overflow-y-auto w-full h-full px-4 sm:px-10 pt-36 sm:pt-48 pb-10" id="dashboard-scroll">
+                        <div id="cards-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 sm:gap-8 pb-4"></div>
                         
                         <!-- Footer Institucional -->
                         <footer class="mt-8 border-t border-gray-200 dark:border-gray-800 pt-8 pb-10 flex flex-col md:flex-row items-center justify-between gap-4 text-center md:text-left transition-colors duration-300">
@@ -197,20 +215,14 @@
                         <i class="ph ph-spinner-gap animate-spin text-5xl text-brand-600 mb-4 drop-shadow-md"></i>
                         <p class="text-gray-700 dark:text-gray-200 font-bold tracking-wide">Cargando módulo...</p>
                     </div>
-                    <div id="iframe-touch-sensor" class="absolute inset-0 z-40 bg-transparent" onclick="hideHeaderOnInteraction()" ontouchstart="hideHeaderOnInteraction()"></div>
                     <iframe id="appViewer" 
                             class="w-full h-full border-none shadow-inner bg-white dark:bg-gray-800" 
                             src="about:blank"
                             allow="camera; microphone; geolocation; clipboard-read; clipboard-write; display-capture">
                     </iframe>
-                    
-                    <!-- Floating Mobile Return Button (appears when header hides) -->
-                    <button id="floating-back-btn" onclick="showHome()" class="fixed top-4 left-4 z-50 hidden w-12 h-12 rounded-full bg-white/90 dark:bg-gray-800/90 shadow-lg border border-gray-200 dark:border-gray-700 items-center justify-center text-brand-600 dark:text-brand-400 active:scale-95 transition-transform backdrop-blur-md">
-                        <i class="ph-bold ph-arrow-left text-xl"></i>
-                    </button>
                 </section>
                 
-</main>
+            </main>
 </div>
 </div>
 
@@ -262,8 +274,8 @@ Guardar y Continuar <i class="ph ph-arrow-right"></i>
 <div id="aiChatModal" class="fixed inset-y-0 right-0 w-full sm:w-[450px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-3xl shadow-[-20px_0_50px_rgba(0,0,0,0.1)] dark:shadow-[-20px_0_50px_rgba(0,0,0,0.5)] z-[80] transform translate-x-full transition-transform duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] flex flex-col border-l border-white/40 dark:border-gray-700/50">
     <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100 dark:border-gray-800 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 dark:from-indigo-900/40 dark:to-purple-900/40">
         <div class="flex items-center gap-4">
-            <div class="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center border border-indigo-200 shadow-md overflow-hidden">
-                <img src="guia.svg" class="w-full h-full object-contain" alt="Guia HUB" onerror="this.src='icon.svg'">
+            <div class="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/40 dark:to-purple-900/40 flex items-center justify-center shadow-lg shadow-indigo-500/30 overflow-hidden p-0.5 border border-indigo-200 dark:border-indigo-700">
+                <img src="guia.svg" alt="Guía HUB Avatar" class="w-full h-full object-cover rounded-full">
             </div>
             <div>
                 <h3 class="font-black text-gray-800 dark:text-white text-lg leading-tight tracking-tight">Guía HUB</h3>
@@ -278,11 +290,11 @@ Guardar y Continuar <i class="ph ph-arrow-right"></i>
     <div id="ai-chat-messages" class="flex-1 overflow-y-auto p-6 space-y-6 scroll-smooth bg-gray-50/30 dark:bg-transparent">
         <!-- Message Initial -->
         <div class="flex gap-4 max-w-[90%]">
-            <div class="w-12 h-12 flex-shrink-0 rounded-[16px] bg-slate-50 dark:bg-slate-800 flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-inner overflow-hidden">
-                <img src="guia.svg" class="w-full h-full object-contain hover:animate-bounce" alt="Tech Guide" onerror="this.src='icon.svg'">
+            <div class="w-10 h-10 flex-shrink-0 rounded-[14px] bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/40 dark:to-purple-900/40 flex items-center justify-center overflow-hidden border border-indigo-200/50 dark:border-indigo-700/50 shadow-sm p-0.5">
+                <img src="guia.svg" alt="Guía HUB" class="w-full h-full object-cover rounded-xl">
             </div>
             <div class="bg-white dark:bg-gray-800 p-5 rounded-[1.5rem] rounded-tl-sm shadow-[0_4px_20px_rgba(0,0,0,0.02)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.2)] border border-gray-100 dark:border-gray-700/60">
-                <p class="text-[14px] text-gray-700 dark:text-gray-200 font-medium leading-relaxed">¡Hola equipo! 👋 Soy tu <strong>Guía HUB</strong>.<br><br>Mi rol principal es apoyarte de manera cercana y directa, recordándote las mejores prácticas operativas y fortaleciendo nuestras <b>habilidades blandas</b> como un solo cuerpo.<br><br><span class="font-bold text-indigo-600 dark:text-indigo-400 mt-2 block">Cuenten conmigo para resolver dudas sobre controles operacionales y manejo de personal. ¿Te ayudo con algo hoy?</span></p>
+                <p class="text-[14px] text-gray-700 dark:text-gray-200 font-medium leading-relaxed">¡Hola equipo! 👋 Soy tu <strong>Guía HUB</strong>.<br><br>Mi rol principal es apoyarte de manera cercana y directa, recordándote las mejores prácticas operativas y fortaleciendo nuestras <b>habilidades blandas</b> como un solo cuerpo.<br><br><span class="font-bold text-indigo-600 dark:text-indigo-400 mt-2 block">Cuenten conmigo para resolver dudas sobre controles de Trazabilidad, Puntos Críticos HACCP, formulaciones y manejo de personal operativo. ¿En qué proceso puedo echarnos una mano hoy?</span></p>
             </div>
         </div>
     </div>

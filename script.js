@@ -19,6 +19,8 @@ function initTheme() {
     const isDark = localStorage.getItem('genTheme') === 'dark';
     if (isDark) document.documentElement.classList.add('dark');
     actualizarIconoTema(isDark);
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (metaTheme) metaTheme.setAttribute("content", isDark ? "#111827" : "#e01f36");
 }
 
 function toggleTheme() {
@@ -26,6 +28,8 @@ function toggleTheme() {
     const themeStr = isDark ? 'dark' : 'light';
     localStorage.setItem('genTheme', isDark ? 'dark' : 'light');
     actualizarIconoTema(isDark);
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (metaTheme) metaTheme.setAttribute("content", isDark ? "#111827" : "#e01f36");
     const iframe = document.getElementById('appViewer');
     if (iframe && iframe.contentWindow) {
         iframe.contentWindow.postMessage({ type: 'THEME_UPDATE', theme: themeStr }, '*');
@@ -33,11 +37,20 @@ function toggleTheme() {
 }
 
 function actualizarIconoTema(isDark) {
-    const themeBtn = document.getElementById('theme-toggle-btn');
-    if (!themeBtn) return;
-    themeBtn.innerHTML = isDark
-        ? `<i class="ph ph-sun text-xl text-amber-400"></i><span class="font-medium text-sm text-gray-200">Tema Claro</span>`
-        : `<i class="ph ph-moon text-xl text-gray-600"></i><span class="font-medium text-sm">Tema Oscuro</span>`;
+    const mobileBtn = document.getElementById('theme-toggle-btn-mobile');
+    const desktopBtn = document.getElementById('theme-toggle-btn-desktop');
+    
+    if (mobileBtn) {
+        mobileBtn.innerHTML = isDark
+            ? `<i class="ph ph-sun text-xl text-amber-400"></i><span class="font-medium text-sm text-gray-200">Tema Claro</span>`
+            : `<i class="ph ph-moon text-xl text-gray-600"></i><span class="font-medium text-sm">Tema Oscuro</span>`;
+    }
+    
+    if (desktopBtn) {
+        desktopBtn.innerHTML = isDark
+            ? `<i class="ph-fill ph-sun text-xl text-amber-400 pointer-events-none"></i>`
+            : `<i class="ph-fill ph-moon text-xl text-gray-500 pointer-events-none"></i>`;
+    }
 }
 
 // === MÁQUINA DE ESTADOS ===
@@ -58,13 +71,6 @@ function checkAuthState() {
     }
 }
 
-// === FEEDBACK HÁPTICO (UX MÓVIL) ===
-function triggerHaptic(duration = 50) {
-    if (navigator.vibrate) {
-        navigator.vibrate(duration);
-    }
-}
-
 // === LOGIN ===
 function bindLoginEvents() {
     const form = document.getElementById('loginForm');
@@ -72,13 +78,14 @@ function bindLoginEvents() {
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
+        if (document.activeElement) document.activeElement.blur(); // Ocultar teclado en móviles
+        
         const btn = document.getElementById('btnSubmit');
         const err = document.getElementById('errorMsg');
 
         btn.innerHTML = '<i class="ph ph-spinner animate-spin text-xl"></i> Conectando...';
         btn.disabled = true;
         err.classList.add('hidden');
-        triggerHaptic(50);
 
         const payload = {
             action: 'login',
@@ -222,8 +229,14 @@ function initHub(currentUser) {
     cardsContainer.innerHTML = '';
     renderWelcomeBanner(currentUser.nombre.split(' ')[0]);
 
-    // NUEVO BLOQUE (Sin el botón de inicio redundante)
+    // Botón de Inicio restaurado en Sidebar para casos donde se oculta la cabecera
     menu.innerHTML += `
+        <button onclick="showHome(); toggleMenu();" class="flex sm:hidden w-full items-center gap-3 p-2.5 mb-4 rounded-2xl text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 font-black transition-all group">
+            <div class="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-brand-600 dark:text-brand-500 group-hover:scale-110 transition-transform">
+                <i class="ph-fill ph-house text-xl"></i>
+            </div>
+            Menú Principal
+        </button>
         <p class="px-3 mt-2 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">Módulos Activos</p>
     `;
 
@@ -240,25 +253,25 @@ function initHub(currentUser) {
         // APLICANDO DISEÑO CINEMATOGRÁFICO EN LAS TARJETAS (Adaptado a tema oscuro y claro)
         const card = document.createElement('div');
         card.className = 'group relative aspect-[4/5] sm:aspect-[3/4] bg-white dark:bg-gray-900 rounded-[2rem] sm:rounded-[2.5rem] overflow-hidden shadow-lg hover:shadow-[0_20px_50px_-10px_rgba(224,31,54,0.15)] dark:hover:shadow-[0_20px_50px_-10px_rgba(0,0,0,0.5)] cursor-pointer transition-all duration-700 ease-[cubic-bezier(0.25,1,0.5,1)] border border-gray-200 dark:border-white/10 flex flex-col justify-end transform hover:-translate-y-3';
-        card.onclick = () => { triggerHaptic(30); loadApp(app, currentUser); };
+        card.onclick = () => loadApp(app, currentUser);
         card.innerHTML = `
             <!-- Fondo Cinematográfico (Imagen con zoom) -->
             <div class="absolute inset-0 z-0 transition-transform duration-700 ease-[cubic-bezier(0.25,1,0.5,1)] group-hover:scale-110 flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-950">
-                <img src="${urlImagenOptimizada}" alt="${app.titulo}" class="w-full h-full object-cover opacity-100 lg:opacity-80 dark:lg:opacity-60 lg:group-hover:opacity-100 transition-opacity duration-700 mix-blend-multiply dark:mix-blend-normal" style="image-rendering: crisp-edges;" onerror="this.outerHTML='<i class=\\'ph ph-app-window text-6xl text-brand-500/30 group-hover:text-brand-400 transition-colors duration-700\\'></i>'">
+                <img src="${urlImagenOptimizada}" alt="${app.titulo}" class="w-full h-full object-cover opacity-80 dark:opacity-60 group-hover:opacity-100 transition-opacity duration-700 mix-blend-multiply dark:mix-blend-normal" style="image-rendering: crisp-edges;" onerror="this.outerHTML='<i class=\\'ph ph-app-window text-6xl text-brand-500/30 group-hover:text-brand-400 transition-colors duration-700\\'></i>'">
             </div>
             
             <!-- Gradiente Inferior para Alto Contraste -->
             <div class="absolute inset-x-0 bottom-0 h-[80%] bg-gradient-to-t from-white/95 via-white/80 dark:from-black/95 dark:via-black/50 to-transparent z-10"></div>
             
             <!-- Contenido de la Tarjeta -->
-            <div class="relative z-20 p-6 sm:p-8 translate-y-0 lg:translate-y-4 lg:group-hover:translate-y-0 transition-transform duration-700 ease-[cubic-bezier(0.25,1,0.5,1)] flex flex-col justify-end h-full w-full">
+            <div class="relative z-20 p-6 sm:p-8 translate-y-4 group-hover:translate-y-0 transition-transform duration-700 ease-[cubic-bezier(0.25,1,0.5,1)] flex flex-col justify-end h-full w-full">
                 <!-- Línea decorativa -->
-                <div class="w-8 h-1 bg-brand-500 rounded-full mb-4 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-700 delay-100"></div>
+                <div class="w-8 h-1 bg-brand-500 rounded-full mb-4 opacity-0 group-hover:opacity-100 transition-opacity duration-700 delay-100"></div>
                 
                 <h3 class="font-black text-xl sm:text-2xl text-gray-800 dark:text-white leading-tight mb-2 tracking-wide drop-shadow-sm group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors duration-300 w-full line-clamp-2">${app.titulo}</h3>
                 
-                <div class="grid grid-rows-[1fr] lg:grid-rows-[0fr] lg:group-hover:grid-rows-[1fr] transition-all duration-700 ease-[cubic-bezier(0.25,1,0.5,1)] w-full">
-                    <p class="overflow-hidden text-[13px] sm:text-[14px] text-gray-600 dark:text-gray-300 font-medium leading-relaxed opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-500 delay-150 line-clamp-3 w-full">
+                <div class="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-all duration-700 ease-[cubic-bezier(0.25,1,0.5,1)] w-full">
+                    <p class="overflow-hidden text-[13px] sm:text-[14px] text-gray-600 dark:text-gray-300 font-medium leading-relaxed opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-150 line-clamp-3 w-full">
                         ${app.info || 'Gestión centralizada de este módulo operativo para La Genovesa.'}
                     </p>
                 </div>
@@ -314,38 +327,38 @@ function renderWelcomeBanner(nombre) {
                 </div>
             </div>
             
-            <!-- Widgets Laterales Premium (Efecto Ruleta en Móviles) -->
-            <div class="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide lg:overflow-visible lg:flex-nowrap mt-5 md:mt-0 items-center gap-3 sm:gap-4 z-10 w-full md:w-auto justify-start md:justify-end pb-2 pointer-events-auto" style="-webkit-overflow-scrolling: touch;">
+            <!-- Widgets Laterales Premium -->
+            <div class="hidden lg:flex items-center gap-3 sm:gap-4 z-10 pr-2 pb-2 pointer-events-auto">
                 <!-- Clima -->
-                <a href="https://open-meteo.com/" target="_blank" title="Datos por Open-Meteo" class="snap-start shrink-0 w-[85%] sm:w-auto flex flex-1 md:flex-initial items-center justify-start gap-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl px-4 py-3 rounded-2xl border border-white/60 dark:border-gray-700/50 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-lg transition-all group">
+                <a href="https://open-meteo.com/" target="_blank" title="Datos por Open-Meteo" class="flex items-center gap-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl px-4 py-3 rounded-2xl border border-white/60 dark:border-gray-700/50 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.2)] hover:shadow-lg transition-all group transform hover:-translate-y-1 duration-300">
                     <div class="w-10 h-10 rounded-[12px] bg-sky-100 dark:bg-sky-900/40 flex items-center justify-center text-sky-500 dark:text-sky-400 group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300 shadow-inner">
                         <i id="weather-icon" class="ph ph-cloud-sun text-2xl animate-pulse"></i>
                     </div>
-                    <div class="flex flex-col text-left">
-                        <span class="text-[10px] sm:text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest flex items-center gap-1">Tacna <i class="ph ph-drop text-sky-400"></i><span id="weather-hum">--%</span></span>
-                        <span id="weather-temp" class="text-[18px] sm:text-[16px] font-black text-gray-800 dark:text-gray-100 leading-tight">--°C</span>
+                    <div class="flex flex-col">
+                        <span class="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest flex items-center gap-1">Tacna <i class="ph ph-drop text-sky-400"></i><span id="weather-hum">--%</span></span>
+                        <span id="weather-temp" class="text-[16px] font-black text-gray-800 dark:text-gray-100 leading-tight">--°C</span>
                     </div>
                 </a>
                 
                 <!-- Divisas -->
-                <a href="https://www.exchangerate-api.com" target="_blank" title="Datos por ExchangeRate-API" class="snap-start shrink-0 w-[85%] sm:w-auto flex flex-1 md:flex-initial items-center justify-start gap-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl px-4 py-3 rounded-2xl border border-white/60 dark:border-gray-700/50 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-lg transition-all group">
+                <a href="https://www.exchangerate-api.com" target="_blank" title="Datos por ExchangeRate-API" class="flex items-center gap-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl px-4 py-3 rounded-2xl border border-white/60 dark:border-gray-700/50 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.2)] hover:shadow-lg transition-all group transform hover:-translate-y-1 duration-300">
                     <div class="w-10 h-10 rounded-[12px] bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:scale-110 group-hover:-rotate-6 transition-transform duration-300 shadow-inner">
                         <i class="ph ph-currency-dollar text-2xl"></i>
                     </div>
-                    <div class="flex flex-col text-left">
-                        <span class="text-[10px] sm:text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">USD/PEN</span>
-                        <span id="currency-rate" class="text-[18px] sm:text-[16px] font-black text-gray-800 dark:text-gray-100 leading-tight">S/ --</span>
+                    <div class="flex flex-col">
+                        <span class="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">USD/PEN</span>
+                        <span id="currency-rate" class="text-[16px] font-black text-gray-800 dark:text-gray-100 leading-tight">S/ --</span>
                     </div>
                 </a>
 
-                <!-- Asesor IA (Desktop Only, en Móvil está en menú lateral) -->
-                <button onclick="toggleAIChat()" class="hidden sm:flex items-center gap-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl border border-white/60 dark:border-gray-700/50 hover:bg-white dark:hover:bg-gray-800 px-4 py-2 rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-lg transition-all group transform hover:-translate-y-1 duration-300 ml-2">
-                    <div class="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center border border-indigo-200 shadow-inner overflow-hidden group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
-                        <img src="guia.svg" class="w-full h-full object-contain" alt="Guia HUB" onerror="this.src='icon.svg'">
+                <!-- Asesor IA -->
+                <button onclick="toggleAIChat()" class="flex items-center gap-3 bg-gradient-to-br from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 px-5 py-3 rounded-2xl shadow-[0_4px_20px_rgba(99,102,241,0.3)] hover:shadow-[0_8px_25px_rgba(99,102,241,0.5)] transition-all group transform hover:-translate-y-1 duration-300 ml-2">
+                    <div class="w-10 h-10 flex items-center justify-center bg-white/20 rounded-full overflow-hidden group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300 p-[2px] backdrop-blur-sm">
+                        <img src="guia.svg" alt="Guía" class="w-full h-full object-cover rounded-full drop-shadow-md">
                     </div>
                     <div class="flex flex-col text-left">
-                        <span class="text-[9px] font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-widest flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> IA Asesor</span>
-                        <span class="text-[14px] font-black text-gray-800 dark:text-gray-100 leading-tight">Guía HUB</span>
+                        <span class="text-[9px] font-bold text-indigo-100 uppercase tracking-widest">Powered By AI</span>
+                        <span class="text-[14px] font-black text-white leading-tight">Guía HUB</span>
                     </div>
                 </button>
             </div>
@@ -381,17 +394,28 @@ async function fetchWidgetsData() {
 function showHome(desdeBotonAtras = false) {
     document.getElementById('home-dashboard').classList.remove('hidden');
     document.getElementById('iframe-container').classList.add('hidden');
-    
-    // Restaurar el Header
-    const header = document.getElementById('main-header');
-    if (header) header.classList.remove('-translate-y-full');
-    const floatBtn = document.getElementById('floating-back-btn');
-    if (floatBtn) floatBtn.classList.add('hidden');
-    
     document.getElementById('appTitle').textContent = "Inicio";
     document.getElementById('appViewer').src = "about:blank";
     document.querySelectorAll('.menu-btn').forEach(btn => btn.classList.remove('bg-red-50', 'text-red-700', 'border-red-100', 'dark:bg-gray-800'));
     sessionStorage.removeItem('genCurrentApp');
+
+    // Restaurar header en móviles
+    const headerEl = document.querySelector('header');
+    const sidebar = document.getElementById('sidebar');
+    const sidebarLogo = document.getElementById('sidebar-logo');
+    
+    if (headerEl) {
+        headerEl.classList.add('flex');
+        headerEl.classList.remove('hidden', 'sm:flex');
+    }
+    
+    if (sidebarLogo) {
+        sidebarLogo.classList.add('hidden');
+        sidebarLogo.classList.remove('flex');
+    }
+    
+    // Devolvemos el margen superior al menú para que baje por debajo del Header central
+    if (sidebar) sidebar.classList.add('pt-16');
 
     // MAGIA: Registramos el estado "Home" en el historial del celular
     if (!desdeBotonAtras) {
@@ -433,10 +457,24 @@ function loadApp(app, user) {
     // === RENDERIZADO EN IFRAME (Solo para módulos propios de Apps Script) ===
     document.getElementById('home-dashboard').classList.add('hidden');
     document.getElementById('iframe-container').classList.remove('hidden');
+
+    // Ocultar header en móviles para dar 100% de espacio
+    const headerEl = document.querySelector('header');
+    const sidebar = document.getElementById('sidebar');
+    const sidebarLogo = document.getElementById('sidebar-logo');
     
-    // Reactivar sensor táctil en móviles para ocultar header
-    const touchSensor = document.getElementById('iframe-touch-sensor');
-    if (touchSensor) touchSensor.classList.remove('hidden');
+    if (headerEl) {
+        headerEl.classList.remove('flex');
+        headerEl.classList.add('hidden', 'sm:flex');
+    }
+    
+    if (sidebarLogo) {
+        sidebarLogo.classList.remove('hidden');
+        sidebarLogo.classList.add('flex');
+    }
+    
+    // Reducimos el margen superior de la franja lateral ya que la bloqueamos
+    if (sidebar) sidebar.classList.remove('pt-16');
 
     const iframe = document.getElementById('appViewer');
     const loader = document.getElementById('loader');
@@ -468,7 +506,6 @@ function handleLogoClick() {
         toggleMenu();
     } else {
         // 2. Si el menú ya está abierto -> El logo sirve para IR A INICIO y CERRARLO
-        triggerHaptic(30);
         showHome();
 
         // Efecto visual de regreso al HUB
@@ -516,9 +553,8 @@ function toggleAIChat() {
 
 // === LÓGICA DEL ASESOR INTELIGENTE IA (CONEXIÓN API GEMINI) ===
 
-// ⚠️ MIGRACIÓN A BACKEND COMPLETADA: 
-// La API Key ahora debe residir exclusivamente en las 'Propiedades de Script' de Google Apps Script.
-// El aplicativo se conectará al proxy del Backend.
+// ⚠️ Conexión Inteligente Enrutada a través del Servidor Backend (Google Apps Script)
+// El API Key ahora vive protegido en las Properties del servidor (GAS Backend).
 
 const SYSTEM_PROMPT = `Eres el "Guía HUB", el compañero Inteligente de La Genovesa Agroindustrias S.A. Tu objetivo es guiar a los colaboradores hacia nuestra Visión 2030, asegurando la excelencia técnica, la integridad ética y la transformación digital.
 
@@ -560,19 +596,18 @@ async function handleAIChatSubmit(e) {
     // Agregamos al historial el input del usuario
     chatHistory.push({ role: "user", parts: [{ text: msg }] });
 
-    // Ya no requerimos validación local de API KEY porque se maneja en el Backend seguro.
-    // Enviaremos la petición completa a Google Apps Script (nuestro API_URL proxy).
-
+    // Mostrar indicador "escribiendo..."
+    const typingId = appendTypingIndicator();
 
     try {
         const payload = {
             action: 'askAI',
             history: chatHistory,
-            prompt: SYSTEM_PROMPT // Instrucción del rol para el proxy de Google AS
+            prompt: SYSTEM_PROMPT
         };
 
         const response = await fetch(API_URL, {
-            method: 'POST', // Usar HTTP POST text/plain recomendado para Apps Script CORS
+            method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify(payload)
         });
@@ -585,20 +620,17 @@ async function handleAIChatSubmit(e) {
 
             // Agregar al historial conversacional (el rol es 'model')
             chatHistory.push({ role: "model", parts: [{ text: aiText }] });
+
             appendChatMessage(aiText, 'ai');
         } else {
-            console.error("Respuesta anómala de Backend/Gemini:", data);
-            let errorDetails = "El proxy corporativo de La Genovesa no devolvió una IA válida.";
-            if (data.message) {
-                errorDetails += `\n**Detalles del servidor proxy:** ${data.message}`;
-            }
-            appendChatMessage(`### ❌ Error de Procesamiento \n${errorDetails}\n\nRevisa la configuración del Administrador de Apps Script.`, 'ai');
+            console.error("Respuesta de error del Servidor Apps Script:", data);
+            appendChatMessage(`### ❌ Error del Backend \nEl servidor encontró un inconveniente al consultar a la IA. Motivo: ${data.message || 'Desconocido'}. Inténtalo de nuevo.`, 'ai');
         }
 
     } catch (error) {
         removeTypingIndicator(typingId);
-        console.error("Error al conectar con el servidor Apps Script:", error);
-        appendChatMessage("### ⚠️ Error de Red\n\nNo tengo conexión con el servidor interno de Apps Script. Verifica tu conexión de red o los permisos de ejecución del Macro.", 'ai');
+        console.error("Error al conectar con el servidor LLM:", error);
+        appendChatMessage("### ⚠️ Error de Red\n\nNo tengo conexión con el servidor. Verifica que tu entorno tenga acceso de red y no haya bloqueos de CORS.", 'ai');
     }
 }
 
@@ -632,8 +664,8 @@ function appendChatMessage(text, sender) {
 
         div.className = 'flex gap-4 max-w-[90%] w-full group';
         div.innerHTML = `
-            <div class="w-12 h-12 flex-shrink-0 rounded-[16px] bg-slate-50 dark:bg-slate-800 flex items-center justify-center shadow-inner overflow-hidden border border-slate-200 dark:border-slate-700">
-                <img src="guia.svg" class="w-full h-full object-contain group-hover:scale-110 transition-transform" alt="Tech Guide" onerror="this.src=\\'icon.svg\\'">
+            <div class="w-10 h-10 flex-shrink-0 rounded-[14px] bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/50 dark:to-purple-900/50 flex items-center justify-center overflow-hidden shadow-lg shadow-indigo-500/20 transform group-hover:scale-105 transition-transform p-0.5 border border-indigo-200/50 dark:border-indigo-700/50">
+                <img src="guia.svg" alt="Guía" class="w-full h-full object-cover rounded-xl">
             </div>
             <div class="bg-white dark:bg-gray-800 p-5 rounded-[1.5rem] rounded-tl-sm shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] border border-gray-100 dark:border-gray-700/60 transition-all duration-300 transform scale-100">
                 <div class="text-[14px] text-gray-700 dark:text-gray-300 font-medium leading-relaxed">${formattedText}</div>
@@ -651,8 +683,8 @@ function appendTypingIndicator() {
     div.id = id;
     div.className = 'flex gap-4 max-w-[90%]';
     div.innerHTML = `
-        <div class="w-12 h-12 flex-shrink-0 rounded-[16px] bg-slate-50 dark:bg-slate-800 flex items-center justify-center shadow-inner overflow-hidden border border-slate-200 dark:border-slate-700">
-            <img src="guia.svg" class="w-full h-full object-contain animate-bounce" alt="Tech Guide" onerror="this.src=\\'icon.svg\\'">
+        <div class="w-10 h-10 flex-shrink-0 rounded-[14px] bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/40 dark:to-purple-900/40 flex items-center justify-center overflow-hidden border border-indigo-200/50 dark:border-indigo-700/50 shadow-sm p-0.5">
+            <img src="guia.svg" alt="Guía" class="w-full h-full object-cover rounded-xl">
         </div>
         <div class="bg-white dark:bg-gray-800 px-5 py-4 rounded-[1.5rem] rounded-tl-sm shadow-[0_4px_20px_rgba(0,0,0,0.02)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.2)] border border-gray-100 dark:border-gray-700/60 flex items-center gap-1.5 h-[52px]">
             <span class="w-2.5 h-2.5 bg-indigo-500/70 rounded-full animate-bounce" style="animation-delay: -0.3s"></span>
@@ -728,15 +760,61 @@ window.addEventListener('popstate', (event) => {
     showHome(true);
 });
 
-// === IFRAME INTERACTIONS ===
-function hideHeaderOnInteraction() {
-    if (window.innerWidth < 640) {
-        const header = document.getElementById('main-header');
-        if (header) header.classList.add('-translate-y-full');
-        
-        const floatBtn = document.getElementById('floating-back-btn');
-        if (floatBtn) floatBtn.classList.remove('hidden');
+// === GESTOS TÁCTILES (SWIPE NATIVO) ===
+let touchStartX = 0;
+let touchStartY = 0;
+
+document.addEventListener('touchstart', e => {
+    touchStartX = e.changedTouches[0].screenX;
+    touchStartY = e.changedTouches[0].screenY;
+}, {passive: true});
+
+document.addEventListener('touchend', e => {
+    const touchEndX = e.changedTouches[0].screenX;
+    const touchEndY = e.changedTouches[0].screenY;
+    handleSwipeGesture(touchEndX, touchEndY);
+}, {passive: true});
+
+function handleSwipeGesture(endX, endY) {
+    const diffX = endX - touchStartX;
+    const diffY = endY - touchStartY;
+    const absDiffX = Math.abs(diffX);
+    const absDiffY = Math.abs(diffY);
+    
+    // Si el movimiento fue más vertical que horizontal (ej. scrolling natural)
+    if (absDiffY > absDiffX) {
+        return;
     }
-    const touchSensor = document.getElementById('iframe-touch-sensor');
-    if (touchSensor) touchSensor.classList.add('hidden');
+
+    // Umbral mínimo de swipe (evita toques accidentales)
+    if (absDiffX < 50) return;
+
+    const sidebar = document.getElementById('sidebar');
+    const aiChat = document.getElementById('aiChatModal');
+    
+    // Verificamos si los modales existen en el DOM
+    if (!sidebar || !aiChat) return;
+
+    const isSidebarOpen = !sidebar.classList.contains('-translate-x-full');
+    const isAiChatOpen = !aiChat.classList.contains('translate-x-full');
+
+    if (diffX > 0) {
+        // SWIPE RIGHT (Hacia la derecha -> )
+        if (isAiChatOpen) {
+            // Cerrar AI Chat arrastrándolo a la derecha
+            toggleAIChat();
+        } else if (!isSidebarOpen && touchStartX < 30) {
+            // Abrir menú principal arrastrando desde el borde izquierdo
+            toggleMenu();
+        }
+    } else {
+        // SWIPE LEFT (Hacia la izquierda <- )
+        if (isSidebarOpen) {
+            // Cerrar menú principal arrastrándolo a la izquierda
+            toggleMenu();
+        } else if (!isAiChatOpen && touchStartX > window.innerWidth - 30) {
+            // Abrir AI Chat arrastrando desde el borde derecho
+            toggleAIChat();
+        }
+    }
 }
