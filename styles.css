@@ -2,6 +2,23 @@
    1. CUSTOM SCROLLBAR (MENÚ LATERAL)
    ========================================================================== */
 
+/* Optimizaciones Móviles Generales */
+body {
+    overscroll-behavior-y: none;
+}
+
+.tap-transparent {
+    -webkit-tap-highlight-color: transparent;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
 /* Para navegadores basados en Webkit (Chrome, Safari, Edge) */
 #appMenu::-webkit-scrollbar {
     width: 4px;

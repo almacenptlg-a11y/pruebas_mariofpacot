@@ -58,6 +58,13 @@ function checkAuthState() {
     }
 }
 
+// === FEEDBACK HÁPTICO (UX MÓVIL) ===
+function triggerHaptic(duration = 50) {
+    if (navigator.vibrate) {
+        navigator.vibrate(duration);
+    }
+}
+
 // === LOGIN ===
 function bindLoginEvents() {
     const form = document.getElementById('loginForm');
@@ -71,6 +78,7 @@ function bindLoginEvents() {
         btn.innerHTML = '<i class="ph ph-spinner animate-spin text-xl"></i> Conectando...';
         btn.disabled = true;
         err.classList.add('hidden');
+        triggerHaptic(50);
 
         const payload = {
             action: 'login',
@@ -232,7 +240,7 @@ function initHub(currentUser) {
         // APLICANDO DISEÑO CINEMATOGRÁFICO EN LAS TARJETAS (Adaptado a tema oscuro y claro)
         const card = document.createElement('div');
         card.className = 'group relative aspect-[4/5] sm:aspect-[3/4] bg-white dark:bg-gray-900 rounded-[2rem] sm:rounded-[2.5rem] overflow-hidden shadow-lg hover:shadow-[0_20px_50px_-10px_rgba(224,31,54,0.15)] dark:hover:shadow-[0_20px_50px_-10px_rgba(0,0,0,0.5)] cursor-pointer transition-all duration-700 ease-[cubic-bezier(0.25,1,0.5,1)] border border-gray-200 dark:border-white/10 flex flex-col justify-end transform hover:-translate-y-3';
-        card.onclick = () => loadApp(app, currentUser);
+        card.onclick = () => { triggerHaptic(30); loadApp(app, currentUser); };
         card.innerHTML = `
             <!-- Fondo Cinematográfico (Imagen con zoom) -->
             <div class="absolute inset-0 z-0 transition-transform duration-700 ease-[cubic-bezier(0.25,1,0.5,1)] group-hover:scale-110 flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-950">
@@ -449,6 +457,7 @@ function handleLogoClick() {
         toggleMenu();
     } else {
         // 2. Si el menú ya está abierto -> El logo sirve para IR A INICIO y CERRARLO
+        triggerHaptic(30);
         showHome();
 
         // Efecto visual de regreso al HUB
