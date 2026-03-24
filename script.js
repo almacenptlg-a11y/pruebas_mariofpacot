@@ -587,7 +587,59 @@ window.addEventListener('popstate', (event) => {
     showHome(true);
 });
 
-// === GESTOS TÁCTILES (SWIPE NATIVO) ===
+// === BOTÓN FLOTANTE DRAGGABLE (MÓVILES) ===
+const floatBtn = document.getElementById('floating-menu-btn');
+if (floatBtn) {
+    let isBtnDragging = false;
+    let startBtnTouchX, startBtnTouchY;
+    let startBtnX, startBtnY;
+
+    floatBtn.addEventListener('touchstart', (e) => {
+        isBtnDragging = false;
+        startBtnTouchX = e.touches[0].clientX;
+        startBtnTouchY = e.touches[0].clientY;
+        
+        const rect = floatBtn.getBoundingClientRect();
+        startBtnX = rect.left;
+        startBtnY = rect.top;
+        
+        floatBtn.style.transition = 'none'; // Quitar transición al arrastrar para seguir el dedo instantaneamente
+    }, {passive: true});
+
+    floatBtn.addEventListener('touchmove', (e) => {
+        const dx = e.touches[0].clientX - startBtnTouchX;
+        const dy = e.touches[0].clientY - startBtnTouchY;
+        
+        // Umbral de 8px para considerar que es un "arrastre" y no un "toque rápido"
+        if (!isBtnDragging && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+            isBtnDragging = true;
+        }
+
+        if (isBtnDragging) {
+            e.preventDefault(); // Evitar scroll de la página debajo
+            let newX = startBtnX + dx;
+            let newY = startBtnY + dy;
+            
+            // Delimitar coordenadas dentro de la pantalla
+            const maxX = window.innerWidth - floatBtn.offsetWidth;
+            const maxY = window.innerHeight - floatBtn.offsetHeight;
+            
+            floatBtn.style.left = `${Math.max(0, Math.min(newX, maxX))}px`;
+            floatBtn.style.top = `${Math.max(0, Math.min(newY, maxY))}px`;
+            floatBtn.style.right = 'auto'; // Anular right absoluto
+            floatBtn.style.bottom = 'auto'; // Anular bottom absoluto
+        }
+    }, {passive: false});
+
+    floatBtn.addEventListener('touchend', (e) => {
+        floatBtn.style.transition = ''; // Recuperar transiciones fluidas de clases CSS
+        if (!isBtnDragging) {
+            toggleMenu(); // Si solo tocó el botón, abre el panel
+        }
+    });
+}
+
+// === GESTOS TÁCTILES (SWIPE NATIVO LATERAL PARA PANELES) ===
 let touchStartX = 0;
 let touchStartY = 0;
 

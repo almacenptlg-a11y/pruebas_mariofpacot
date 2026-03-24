@@ -93,9 +93,10 @@
 </main>
 
 <div id="hub-view" class="w-full h-full flex flex-col hidden relative">
-<!-- Botón Flotante Móvil (Solo visible en iframes) -->
-<button id="floating-menu-btn" onclick="toggleMenu()" class="fixed top-4 left-4 z-[75] w-12 h-12 rounded-2xl bg-white/90 dark:bg-gray-800/90 backdrop-blur-md shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-white/50 dark:border-gray-700/50 hidden sm:hidden items-center justify-center transform hover:scale-105 active:scale-95 transition-all focus:outline-none focus:ring-2 focus:ring-brand-500/50 group">
-    <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 drop-shadow-sm group-active:scale-95 transition-transform">
+<!-- Botón Flotante Móvil (Arrastrable y a full color) -->
+<button id="floating-menu-btn" class="fixed top-4 left-4 z-[75] w-14 h-14 rounded-[1.25rem] shadow-[0_8px_25px_rgba(224,31,54,0.35)] hidden sm:hidden items-center justify-center transform active:scale-95 transition-transform focus:outline-none touch-none">
+    <!-- SVGs con pointer-events-none para delegar eventos solo a la etiqueta button -->
+    <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" class="w-full h-full drop-shadow-md pointer-events-none">
         <rect x="2.5" y="2.5" width="195" height="195" rx="45" ry="45" fill="url(#bg-header)"/>
         <g fill="none" stroke="url(#stroke-header)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round">
             <path d="m15 45 85-30 85 30"/><path d="m15 155 85 30 85-30"/>
@@ -105,7 +106,7 @@
             <text x="198" y="150" font-size="40" text-anchor="end" letter-spacing="1">Apps</text>
         </g>
     </svg>
-    <span class="absolute top-0 right-0 w-3 h-3 bg-brand-500 border-2 border-white dark:border-gray-800 rounded-full animate-pulse"></span>
+    <span class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-500 border-2 border-white dark:border-gray-800 rounded-full animate-pulse pointer-events-none shadow-sm"></span>
 </button>
 
 <header class="h-16 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-b border-white/40 dark:border-gray-800/60 shadow-[0_4px_30px_rgba(0,0,0,0.03)] flex items-center justify-between px-4 sm:px-6 z-[60] relative transition-all duration-300">
