@@ -244,21 +244,21 @@ function initHub(currentUser) {
         card.innerHTML = `
             <!-- Fondo Cinematográfico (Imagen con zoom) -->
             <div class="absolute inset-0 z-0 transition-transform duration-700 ease-[cubic-bezier(0.25,1,0.5,1)] group-hover:scale-110 flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-950">
-                <img src="${urlImagenOptimizada}" alt="${app.titulo}" class="w-full h-full object-cover opacity-80 dark:opacity-60 group-hover:opacity-100 transition-opacity duration-700 mix-blend-multiply dark:mix-blend-normal" style="image-rendering: crisp-edges;" onerror="this.outerHTML='<i class=\\'ph ph-app-window text-6xl text-brand-500/30 group-hover:text-brand-400 transition-colors duration-700\\'></i>'">
+                <img src="${urlImagenOptimizada}" alt="${app.titulo}" class="w-full h-full object-cover opacity-100 lg:opacity-80 dark:lg:opacity-60 lg:group-hover:opacity-100 transition-opacity duration-700 mix-blend-multiply dark:mix-blend-normal" style="image-rendering: crisp-edges;" onerror="this.outerHTML='<i class=\\'ph ph-app-window text-6xl text-brand-500/30 group-hover:text-brand-400 transition-colors duration-700\\'></i>'">
             </div>
             
             <!-- Gradiente Inferior para Alto Contraste -->
             <div class="absolute inset-x-0 bottom-0 h-[80%] bg-gradient-to-t from-white/95 via-white/80 dark:from-black/95 dark:via-black/50 to-transparent z-10"></div>
             
             <!-- Contenido de la Tarjeta -->
-            <div class="relative z-20 p-6 sm:p-8 translate-y-4 group-hover:translate-y-0 transition-transform duration-700 ease-[cubic-bezier(0.25,1,0.5,1)] flex flex-col justify-end h-full w-full">
+            <div class="relative z-20 p-6 sm:p-8 translate-y-0 lg:translate-y-4 lg:group-hover:translate-y-0 transition-transform duration-700 ease-[cubic-bezier(0.25,1,0.5,1)] flex flex-col justify-end h-full w-full">
                 <!-- Línea decorativa -->
-                <div class="w-8 h-1 bg-brand-500 rounded-full mb-4 opacity-0 group-hover:opacity-100 transition-opacity duration-700 delay-100"></div>
+                <div class="w-8 h-1 bg-brand-500 rounded-full mb-4 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-700 delay-100"></div>
                 
                 <h3 class="font-black text-xl sm:text-2xl text-gray-800 dark:text-white leading-tight mb-2 tracking-wide drop-shadow-sm group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors duration-300 w-full line-clamp-2">${app.titulo}</h3>
                 
-                <div class="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-all duration-700 ease-[cubic-bezier(0.25,1,0.5,1)] w-full">
-                    <p class="overflow-hidden text-[13px] sm:text-[14px] text-gray-600 dark:text-gray-300 font-medium leading-relaxed opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-150 line-clamp-3 w-full">
+                <div class="grid grid-rows-[1fr] lg:grid-rows-[0fr] lg:group-hover:grid-rows-[1fr] transition-all duration-700 ease-[cubic-bezier(0.25,1,0.5,1)] w-full">
+                    <p class="overflow-hidden text-[13px] sm:text-[14px] text-gray-600 dark:text-gray-300 font-medium leading-relaxed opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-500 delay-150 line-clamp-3 w-full">
                         ${app.info || 'Gestión centralizada de este módulo operativo para La Genovesa.'}
                     </p>
                 </div>
@@ -315,11 +315,11 @@ function renderWelcomeBanner(nombre) {
             </div>
             
             <!-- Widgets Laterales Premium -->
-            <div class="hidden lg:flex items-center gap-3 sm:gap-4 z-10 pr-2 pb-2 pointer-events-auto">
+            <div class="flex flex-wrap lg:flex-nowrap mt-4 md:mt-0 items-center gap-2 sm:gap-4 z-10 w-full md:w-auto justify-start md:justify-end pb-2 pointer-events-auto">
                 <!-- Clima -->
-                <a href="https://open-meteo.com/" target="_blank" title="Datos por Open-Meteo" class="flex items-center gap-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl px-4 py-3 rounded-2xl border border-white/60 dark:border-gray-700/50 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.2)] hover:shadow-lg transition-all group transform hover:-translate-y-1 duration-300">
-                    <div class="w-10 h-10 rounded-[12px] bg-sky-100 dark:bg-sky-900/40 flex items-center justify-center text-sky-500 dark:text-sky-400 group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300 shadow-inner">
-                        <i id="weather-icon" class="ph ph-cloud-sun text-2xl animate-pulse"></i>
+                <a href="https://open-meteo.com/" target="_blank" title="Datos por Open-Meteo" class="flex flex-1 md:flex-initial items-center justify-center md:justify-start gap-2 sm:gap-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl px-3 sm:px-4 py-2 sm:py-3 rounded-2xl border border-white/60 dark:border-gray-700/50 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-lg transition-all group">
+                    <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-[10px] sm:rounded-[12px] bg-sky-100 dark:bg-sky-900/40 flex items-center justify-center text-sky-500 dark:text-sky-400 group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300 shadow-inner">
+                        <i id="weather-icon" class="ph ph-cloud-sun text-xl sm:text-2xl animate-pulse"></i>
                     </div>
                     <div class="flex flex-col">
                         <span class="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest flex items-center gap-1">Tacna <i class="ph ph-drop text-sky-400"></i><span id="weather-hum">--%</span></span>
@@ -328,9 +328,9 @@ function renderWelcomeBanner(nombre) {
                 </a>
                 
                 <!-- Divisas -->
-                <a href="https://www.exchangerate-api.com" target="_blank" title="Datos por ExchangeRate-API" class="flex items-center gap-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl px-4 py-3 rounded-2xl border border-white/60 dark:border-gray-700/50 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.2)] hover:shadow-lg transition-all group transform hover:-translate-y-1 duration-300">
-                    <div class="w-10 h-10 rounded-[12px] bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:scale-110 group-hover:-rotate-6 transition-transform duration-300 shadow-inner">
-                        <i class="ph ph-currency-dollar text-2xl"></i>
+                <a href="https://www.exchangerate-api.com" target="_blank" title="Datos por ExchangeRate-API" class="flex flex-1 md:flex-initial items-center justify-center md:justify-start gap-2 sm:gap-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl px-3 sm:px-4 py-2 sm:py-3 rounded-2xl border border-white/60 dark:border-gray-700/50 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-lg transition-all group">
+                    <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-[10px] sm:rounded-[12px] bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:scale-110 group-hover:-rotate-6 transition-transform duration-300 shadow-inner">
+                        <i class="ph ph-currency-dollar text-xl sm:text-2xl"></i>
                     </div>
                     <div class="flex flex-col">
                         <span class="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">USD/PEN</span>
@@ -338,8 +338,8 @@ function renderWelcomeBanner(nombre) {
                     </div>
                 </a>
 
-                <!-- Asesor IA -->
-                <button onclick="toggleAIChat()" class="flex items-center gap-3 bg-gradient-to-br from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 px-5 py-3 rounded-2xl shadow-[0_4px_20px_rgba(99,102,241,0.3)] hover:shadow-[0_8px_25px_rgba(99,102,241,0.5)] transition-all group transform hover:-translate-y-1 duration-300 ml-2">
+                <!-- Asesor IA (Desktop Only, en Móvil está en menú lateral) -->
+                <button onclick="toggleAIChat()" class="hidden sm:flex items-center gap-3 bg-gradient-to-br from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 px-5 py-3 rounded-2xl shadow-[0_4px_20px_rgba(99,102,241,0.3)] hover:shadow-[0_8px_25px_rgba(99,102,241,0.5)] transition-all group transform hover:-translate-y-1 duration-300 ml-2">
                     <div class="flex items-center justify-center text-white group-hover:scale-110 group-hover:rotate-12 transition-transform duration-300">
                         <i class="ph-fill ph-magic-wand text-2xl"></i>
                     </div>
@@ -629,8 +629,8 @@ function appendChatMessage(text, sender) {
 
         div.className = 'flex gap-4 max-w-[90%] w-full group';
         div.innerHTML = `
-            <div class="w-10 h-10 flex-shrink-0 rounded-[14px] bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30 transform group-hover:scale-105 transition-transform">
-                <i class="ph-fill ph-magic-wand text-xl"></i>
+            <div class="w-12 h-12 flex-shrink-0 rounded-[16px] bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/40 dark:to-purple-900/40 flex items-center justify-center shadow-sm overflow-hidden border border-indigo-200/50 dark:border-indigo-700/50">
+                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Guide&accessories=glasses&clotheType=blazerShirt" class="w-10 h-10 group-hover:scale-110 transition-transform" alt="Tech Guide">
             </div>
             <div class="bg-white dark:bg-gray-800 p-5 rounded-[1.5rem] rounded-tl-sm shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] border border-gray-100 dark:border-gray-700/60 transition-all duration-300 transform scale-100">
                 <div class="text-[14px] text-gray-700 dark:text-gray-300 font-medium leading-relaxed">${formattedText}</div>
@@ -648,8 +648,8 @@ function appendTypingIndicator() {
     div.id = id;
     div.className = 'flex gap-4 max-w-[90%]';
     div.innerHTML = `
-        <div class="w-10 h-10 flex-shrink-0 rounded-[14px] bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/40 dark:to-purple-900/40 flex items-center justify-center text-indigo-600 dark:text-indigo-400 border border-indigo-200/50 dark:border-indigo-700/50 shadow-sm">
-            <i class="ph-fill ph-robot text-xl"></i>
+        <div class="w-12 h-12 flex-shrink-0 rounded-[16px] bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/40 dark:to-purple-900/40 flex items-center justify-center shadow-sm overflow-hidden border border-indigo-200/50 dark:border-indigo-700/50">
+            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Guide&accessories=glasses&clotheType=blazerShirt" class="w-10 h-10 animate-bounce" alt="Tech Guide">
         </div>
         <div class="bg-white dark:bg-gray-800 px-5 py-4 rounded-[1.5rem] rounded-tl-sm shadow-[0_4px_20px_rgba(0,0,0,0.02)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.2)] border border-gray-100 dark:border-gray-700/60 flex items-center gap-1.5 h-[52px]">
             <span class="w-2.5 h-2.5 bg-indigo-500/70 rounded-full animate-bounce" style="animation-delay: -0.3s"></span>

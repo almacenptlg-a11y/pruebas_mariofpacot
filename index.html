@@ -145,6 +145,12 @@
 <button class="w-full flex items-center gap-3 p-3 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-800 shadow-sm hover:shadow transition-all" onclick="openCredentialsModal()">
 <i class="ph ph-key text-xl"></i><span class="font-medium text-sm">Editar Credenciales</span>
 </button>
+<button class="w-full sm:hidden flex items-center gap-3 p-3 rounded-xl text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 shadow-sm hover:shadow transition-all mt-3" onclick="toggleAIChat()">
+<div class="relative w-6 h-6 overflow-hidden rounded-full bg-gradient-to-br from-indigo-200 to-purple-200 flex items-center justify-center">
+    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Guide&accessories=glasses" class="w-5 h-5 animate-pulse" alt="Guia">
+</div>
+<span class="font-bold text-sm">Guía HUB (IA)</span>
+</button>
 <button class="w-full flex items-center gap-3 p-3 rounded-xl text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/20 shadow-sm hover:shadow transition-all mt-3" onclick="logout()">
 <i class="ph ph-sign-out text-xl"></i><span class="font-bold text-sm">Cerrar Sesión</span>
 </button>
@@ -162,7 +168,7 @@
                     </div>
 
                     <!-- Contenedor del scroll de tarjetas -->
-                    <div class="flex-1 overflow-y-auto w-full h-full px-4 sm:px-10 pt-36 sm:pt-48 pb-24 sm:pb-10" id="dashboard-scroll">
+                    <div class="flex-1 overflow-y-auto w-full h-full px-4 sm:px-10 pt-48 sm:pt-48 pb-10" id="dashboard-scroll">
                         <div id="cards-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-8 pb-4"></div>
                         
                         <!-- Footer Institucional -->
@@ -198,24 +204,6 @@
                 
 </main>
 </div>
-
-<!-- Mobile Bottom Navigation (Native Feel) -->
-<nav id="bottom-nav" class="sm:hidden fixed bottom-0 w-full bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border-t border-gray-200 dark:border-gray-800 flex items-center justify-around pb-[env(safe-area-inset-bottom)] pt-2 px-2 z-[60] shadow-[0_-4px_24px_rgba(0,0,0,0.05)] dark:shadow-[0_-4px_24px_rgba(0,0,0,0.2)]">
-    <button onclick="showHome(); triggerHaptic()" class="flex flex-col items-center justify-center w-16 h-12 text-brand-600 dark:text-brand-400 group tap-transparent">
-        <i class="ph-fill ph-house text-2xl group-active:scale-90 transition-transform"></i>
-        <span class="text-[10px] font-bold mt-1">Inicio</span>
-    </button>
-    <button onclick="toggleAIChat(); triggerHaptic()" class="flex flex-col items-center justify-center w-16 h-12 text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 group relative -top-4 tap-transparent">
-        <div class="w-14 h-14 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30 group-active:scale-90 transition-transform border-4 border-gray-50 dark:border-gray-950">
-            <i class="ph-fill ph-magic-wand text-2xl"></i>
-        </div>
-        <span class="text-[10px] font-bold mt-1 text-indigo-600 dark:text-indigo-400">Guía IA</span>
-    </button>
-    <button onclick="toggleMenu(); triggerHaptic()" class="flex flex-col items-center justify-center w-16 h-12 text-gray-500 dark:text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 group tap-transparent">
-        <i class="ph-fill ph-list text-2xl group-active:scale-90 transition-transform"></i>
-        <span class="text-[10px] font-bold mt-1">Menú</span>
-    </button>
-</nav>
 </div>
 
 <div id="onboardingModal" class="fixed inset-0 bg-gray-900/40 dark:bg-black/60 z-[100] hidden items-center justify-center backdrop-blur-xl transition-opacity duration-300">
@@ -282,11 +270,11 @@ Guardar y Continuar <i class="ph ph-arrow-right"></i>
     <div id="ai-chat-messages" class="flex-1 overflow-y-auto p-6 space-y-6 scroll-smooth bg-gray-50/30 dark:bg-transparent">
         <!-- Message Initial -->
         <div class="flex gap-4 max-w-[90%]">
-            <div class="w-10 h-10 flex-shrink-0 rounded-[14px] bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/40 dark:to-purple-900/40 flex items-center justify-center text-indigo-600 dark:text-indigo-400 border border-indigo-200/50 dark:border-indigo-700/50 shadow-sm">
-                <i class="ph-fill ph-robot text-xl"></i>
+            <div class="w-12 h-12 flex-shrink-0 rounded-[16px] bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/40 dark:to-purple-900/40 flex items-center justify-center border border-indigo-200/50 dark:border-indigo-700/50 shadow-sm overflow-hidden">
+                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Guide&accessories=glasses&clotheType=blazerShirt" class="w-10 h-10 animate-bounce" alt="Tech Guide">
             </div>
             <div class="bg-white dark:bg-gray-800 p-5 rounded-[1.5rem] rounded-tl-sm shadow-[0_4px_20px_rgba(0,0,0,0.02)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.2)] border border-gray-100 dark:border-gray-700/60">
-                <p class="text-[14px] text-gray-700 dark:text-gray-200 font-medium leading-relaxed">¡Hola equipo! 👋 Soy tu <strong>Guía HUB</strong>.<br><br>Mi rol principal es apoyarte de manera cercana y directa, recordándote las mejores prácticas operativas y fortaleciendo nuestras <b>habilidades blandas</b> como un solo cuerpo.<br><br><span class="font-bold text-indigo-600 dark:text-indigo-400 mt-2 block">Cuenten conmigo para resolver dudas sobre controles de Trazabilidad, Puntos Críticos HACCP, formulaciones y manejo de personal operativo. ¿En qué proceso puedo echarnos una mano hoy?</span></p>
+                <p class="text-[14px] text-gray-700 dark:text-gray-200 font-medium leading-relaxed">¡Hola equipo! 👋 Soy tu <strong>Guía HUB</strong>.<br><br>Mi rol principal es apoyarte de manera cercana y directa, recordándote las mejores prácticas operativas y fortaleciendo nuestras <b>habilidades blandas</b> como un solo cuerpo.<br><br><span class="font-bold text-indigo-600 dark:text-indigo-400 mt-2 block">Cuenten conmigo para resolver dudas sobre controles operacionales y manejo de personal. ¿Te ayudo con algo hoy?</span></p>
             </div>
         </div>
     </div>
