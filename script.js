@@ -229,14 +229,7 @@ function initHub(currentUser) {
     cardsContainer.innerHTML = '';
     renderWelcomeBanner(currentUser.nombre.split(' ')[0]);
 
-    // Botón de Inicio restaurado en Sidebar para casos donde se oculta la cabecera
     menu.innerHTML += `
-        <button onclick="showHome(); toggleMenu();" class="flex sm:hidden w-full items-center gap-3 p-2.5 mb-4 rounded-2xl text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 font-black transition-all group">
-            <div class="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-brand-600 dark:text-brand-500 group-hover:scale-110 transition-transform">
-                <i class="ph-fill ph-house text-xl"></i>
-            </div>
-            Menú Principal
-        </button>
         <p class="px-3 mt-2 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">Módulos Activos</p>
     `;
 
@@ -328,7 +321,7 @@ function renderWelcomeBanner(nombre) {
             </div>
             
             <!-- Widgets Laterales Premium -->
-            <div class="hidden lg:flex items-center gap-3 sm:gap-4 z-10 pr-2 pb-2 pointer-events-auto">
+            <div class="flex flex-wrap lg:flex-nowrap items-center gap-3 sm:gap-4 z-10 pr-2 pb-2 pointer-events-auto mt-4 md:mt-0">
                 <!-- Clima -->
                 <a href="https://open-meteo.com/" target="_blank" title="Datos por Open-Meteo" class="flex items-center gap-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl px-4 py-3 rounded-2xl border border-white/60 dark:border-gray-700/50 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.2)] hover:shadow-lg transition-all group transform hover:-translate-y-1 duration-300">
                     <div class="w-10 h-10 rounded-[12px] bg-sky-100 dark:bg-sky-900/40 flex items-center justify-center text-sky-500 dark:text-sky-400 group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300 shadow-inner">
@@ -350,17 +343,6 @@ function renderWelcomeBanner(nombre) {
                         <span id="currency-rate" class="text-[16px] font-black text-gray-800 dark:text-gray-100 leading-tight">S/ --</span>
                     </div>
                 </a>
-
-                <!-- Asesor IA -->
-                <button onclick="toggleAIChat()" class="flex items-center gap-3 bg-gradient-to-br from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 px-5 py-3 rounded-2xl shadow-[0_4px_20px_rgba(99,102,241,0.3)] hover:shadow-[0_8px_25px_rgba(99,102,241,0.5)] transition-all group transform hover:-translate-y-1 duration-300 ml-2">
-                    <div class="w-10 h-10 flex items-center justify-center bg-white/20 rounded-full overflow-hidden group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300 p-[2px] backdrop-blur-sm">
-                        <img src="guia.svg" alt="Guía" class="w-full h-full object-cover rounded-full drop-shadow-md">
-                    </div>
-                    <div class="flex flex-col text-left">
-                        <span class="text-[9px] font-bold text-indigo-100 uppercase tracking-widest">Powered By AI</span>
-                        <span class="text-[14px] font-black text-white leading-tight">Guía HUB</span>
-                    </div>
-                </button>
             </div>
         </div>
     `;
@@ -403,6 +385,7 @@ function showHome(desdeBotonAtras = false) {
     const headerEl = document.querySelector('header');
     const sidebar = document.getElementById('sidebar');
     const sidebarLogo = document.getElementById('sidebar-logo');
+    const floatingBtn = document.getElementById('floating-menu-btn');
     
     if (headerEl) {
         headerEl.classList.add('flex');
@@ -412,6 +395,11 @@ function showHome(desdeBotonAtras = false) {
     if (sidebarLogo) {
         sidebarLogo.classList.add('hidden');
         sidebarLogo.classList.remove('flex');
+    }
+    
+    if (floatingBtn) {
+        floatingBtn.classList.add('hidden');
+        floatingBtn.classList.remove('flex');
     }
     
     // Devolvemos el margen superior al menú para que baje por debajo del Header central
@@ -462,6 +450,7 @@ function loadApp(app, user) {
     const headerEl = document.querySelector('header');
     const sidebar = document.getElementById('sidebar');
     const sidebarLogo = document.getElementById('sidebar-logo');
+    const floatingBtn = document.getElementById('floating-menu-btn');
     
     if (headerEl) {
         headerEl.classList.remove('flex');
@@ -471,6 +460,11 @@ function loadApp(app, user) {
     if (sidebarLogo) {
         sidebarLogo.classList.remove('hidden');
         sidebarLogo.classList.add('flex');
+    }
+    
+    if (floatingBtn) {
+        floatingBtn.classList.remove('hidden');
+        floatingBtn.classList.add('flex');
     }
     
     // Reducimos el margen superior de la franja lateral ya que la bloqueamos
@@ -533,174 +527,7 @@ function toggleMenu() {
     }
 }
 
-function toggleAIChat() {
-    const modal = document.getElementById('aiChatModal');
-    const overlay = document.getElementById('aiChatOverlay');
-    if (modal && overlay) {
-        const isClosing = !modal.classList.contains('translate-x-full');
-        modal.classList.toggle('translate-x-full');
-        overlay.classList.toggle('hidden');
-
-        // Auto-Focus Inmediato para Uso Fluido
-        if (!isClosing) {
-            setTimeout(() => {
-                const input = document.getElementById('ai-chat-input');
-                if (input) input.focus();
-            }, 300); // Darle tiempo a la animación (300ms) de la barra lateral
-        }
-    }
-}
-
-// === LÓGICA DEL ASESOR INTELIGENTE IA (CONEXIÓN API GEMINI) ===
-
-// ⚠️ Conexión Inteligente Enrutada a través del Servidor Backend (Google Apps Script)
-// El API Key ahora vive protegido en las Properties del servidor (GAS Backend).
-
-const SYSTEM_PROMPT = `Eres el "Guía HUB", el compañero Inteligente de La Genovesa Agroindustrias S.A. Tu objetivo es guiar a los colaboradores hacia nuestra Visión 2030, asegurando la excelencia técnica, la integridad ética y la transformación digital.
-
-1. Identidad y Enfoque
-Rol: Soporte operativo, empático y experto en Agroindustria Cápsica y Cárnica, Seguridad Alimentaria (HACCP/BRCGS), Digitalización (AppSheet) y Desarrollo de Habilidades Blandas.
-Filosofía: Operas bajo el concepto de "Un Solo Cuerpo". Eres un compañero amigable que asiste al equipo operativo y administrativo. NUNCA uses la palabra "Senior" o "Asesor". Acércate a la persona desde una mentalidad de crecimiento, empatía y humildad.
-Tono: Amigable, colaborativo, didáctico y directo. Ayudas usando palabras motivadoras ("Equipo", "Juntos", "Excelente aporte"), pero cuando hablas de Inocuidad eres firme técnica y éticamente.
-
-2. Áreas de Especialidad y Conocimiento
-Desarrollo de las Personas: Dominas totalmente las habilidades blandas: resolución pacífica de conflictos, inteligencia emocional, liderazgo positivo y empatía operativa.
-Gestión Documental: Conoces a fondo el LG-MCE-01 (Manual de Cultura y Ética) y los POEs.
-Tecnología y Datos: Guías pedagógicamente sobre la trazabilidad digital para que todos vean su utilidad.
-Normativa y Procesos: Dominas la Ley de Inocuidad, DIGESA y estándares. Maestro en procesos cárnicos (recepción, desposte, molienda, embutido, estufado, cadena de frío).
-
-3. Reglas de Comportamiento (Directrices)
-Inocuidad y Trato Digno: La seguridad física/alimentaria y el respeto al trabajador no son negociables.
-Integridad Blanda y Técnica: Promueve siempre la tolerancia ante errores, enseñando cómo corregirlos (Trazabilidad transparente, jamás ocultar fallos).
-Formatos Ágiles y Cercanos: Si alguien saluda, preséntate brevemente como el "Guía HUB", dispuesto a ayudar en el turno, fomentando el aprendizaje continuo.
-
-4. Formato de Respuesta
-- No uses aperturas largas a menos que te pregunten quién eres. Sé conversacional.
-- Usa encabezados (###), negritas y viñetas para que la respuesta sea digerible. Incluye Emojis funcionales.
-- Cuando tu consejo sea muy técnico, incluye opcionalmente un "📊 Métrica de Impacto / KPI:" (usa el emoji).
-- Cuando el consejo abarque personas, habilidades blandas o el LG-MCE-01, cierra con una "💡 Reflexión Ética corporativa:" o "💡 Reflexión Humana:".`;
-
-// Mantenemos memoria conversacional (Historial)
-let chatHistory = [];
-
-async function handleAIChatSubmit(e) {
-    if (e) e.preventDefault();
-    const input = document.getElementById('ai-chat-input');
-    const msg = input.value.trim();
-    if (!msg) return;
-
-    // UI Actualización Mensaje Usuario
-    appendChatMessage(msg, 'user');
-    input.value = '';
-
-    // Agregamos al historial el input del usuario
-    chatHistory.push({ role: "user", parts: [{ text: msg }] });
-
-    // Mostrar indicador "escribiendo..."
-    const typingId = appendTypingIndicator();
-
-    try {
-        const payload = {
-            action: 'askAI',
-            history: chatHistory,
-            prompt: SYSTEM_PROMPT
-        };
-
-        const response = await fetch(API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify(payload)
-        });
-
-        const data = await response.json();
-        removeTypingIndicator(typingId);
-
-        if (data.status === 'success' && data.response) {
-            const aiText = data.response;
-
-            // Agregar al historial conversacional (el rol es 'model')
-            chatHistory.push({ role: "model", parts: [{ text: aiText }] });
-
-            appendChatMessage(aiText, 'ai');
-        } else {
-            console.error("Respuesta de error del Servidor Apps Script:", data);
-            appendChatMessage(`### ❌ Error del Backend \nEl servidor encontró un inconveniente al consultar a la IA. Motivo: ${data.message || 'Desconocido'}. Inténtalo de nuevo.`, 'ai');
-        }
-
-    } catch (error) {
-        removeTypingIndicator(typingId);
-        console.error("Error al conectar con el servidor LLM:", error);
-        appendChatMessage("### ⚠️ Error de Red\n\nNo tengo conexión con el servidor. Verifica que tu entorno tenga acceso de red y no haya bloqueos de CORS.", 'ai');
-    }
-}
-
-function appendChatMessage(text, sender) {
-    const container = document.getElementById('ai-chat-messages');
-    const div = document.createElement('div');
-
-    if (sender === 'user') {
-        div.className = 'flex gap-4 max-w-[85%] ml-auto justify-end';
-        div.innerHTML = `
-            <div class="bg-gradient-to-br from-indigo-600 to-indigo-700 p-4 rounded-[1.5rem] rounded-tr-sm shadow-[0_4px_20px_rgba(79,70,229,0.2)]">
-                <p class="text-[14px] text-white font-medium leading-relaxed">${text}</p>
-            </div>
-            <div class="w-10 h-10 flex-shrink-0 rounded-[14px] bg-white dark:bg-gray-800 flex items-center justify-center text-gray-800 dark:text-gray-200 shadow-sm border border-gray-100 dark:border-gray-700">
-                <i class="ph-fill ph-user text-xl"></i>
-            </div>
-        `;
-    } else {
-        // Parsing Formato Consultor Genovesa
-        let formattedText = text.replace(/\n/g, '<br>');
-
-        // Headers ###
-        formattedText = formattedText.replace(/### (.*?)(?:<br>|$)/g, '<h4 class="text-indigo-700 dark:text-indigo-400 font-black text-[15px] tracking-wide mb-3 border-b border-indigo-100 dark:border-indigo-800/50 pb-2 uppercase">$1</h4>');
-
-        // Negritas **
-        formattedText = formattedText.replace(/\*\*(.*?)\*\*/g, '<strong class="text-gray-900 dark:text-gray-100 font-black">$1</strong>');
-
-        // Bloques de Reflexión y KPI >
-        formattedText = formattedText.replace(/> 💡 (.*?)(?:<br>|$)/g, '<div class="mt-4 bg-indigo-50 dark:bg-indigo-900/30 border-l-[3px] border-indigo-500 p-3.5 text-[13px] text-indigo-900 dark:text-indigo-200 rounded-r-xl shadow-sm leading-relaxed"><span class="font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5 mb-1"><i class="ph-fill ph-lightbulb"></i> Reflexión Ética corporativa:</span>$1</div>');
-        formattedText = formattedText.replace(/> 📊 (.*?)(?:<br>|$)/g, '<div class="mt-3 bg-emerald-50 dark:bg-emerald-900/20 border-l-[3px] border-emerald-500 p-3.5 text-[13px] text-emerald-900 dark:text-emerald-200 rounded-r-xl shadow-sm mb-1 leading-relaxed"><span class="font-black text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5 mb-1"><i class="ph-fill ph-chart-line-up"></i> Métrica de Impacto:</span>$1</div>');
-
-        div.className = 'flex gap-4 max-w-[90%] w-full group';
-        div.innerHTML = `
-            <div class="w-10 h-10 flex-shrink-0 rounded-[14px] bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/50 dark:to-purple-900/50 flex items-center justify-center overflow-hidden shadow-lg shadow-indigo-500/20 transform group-hover:scale-105 transition-transform p-0.5 border border-indigo-200/50 dark:border-indigo-700/50">
-                <img src="guia.svg" alt="Guía" class="w-full h-full object-cover rounded-xl">
-            </div>
-            <div class="bg-white dark:bg-gray-800 p-5 rounded-[1.5rem] rounded-tl-sm shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] border border-gray-100 dark:border-gray-700/60 transition-all duration-300 transform scale-100">
-                <div class="text-[14px] text-gray-700 dark:text-gray-300 font-medium leading-relaxed">${formattedText}</div>
-            </div>
-        `;
-    }
-    container.appendChild(div);
-    container.scrollTop = container.scrollHeight;
-}
-
-function appendTypingIndicator() {
-    const container = document.getElementById('ai-chat-messages');
-    const div = document.createElement('div');
-    const id = 'typing-' + Date.now();
-    div.id = id;
-    div.className = 'flex gap-4 max-w-[90%]';
-    div.innerHTML = `
-        <div class="w-10 h-10 flex-shrink-0 rounded-[14px] bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/40 dark:to-purple-900/40 flex items-center justify-center overflow-hidden border border-indigo-200/50 dark:border-indigo-700/50 shadow-sm p-0.5">
-            <img src="guia.svg" alt="Guía" class="w-full h-full object-cover rounded-xl">
-        </div>
-        <div class="bg-white dark:bg-gray-800 px-5 py-4 rounded-[1.5rem] rounded-tl-sm shadow-[0_4px_20px_rgba(0,0,0,0.02)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.2)] border border-gray-100 dark:border-gray-700/60 flex items-center gap-1.5 h-[52px]">
-            <span class="w-2.5 h-2.5 bg-indigo-500/70 rounded-full animate-bounce" style="animation-delay: -0.3s"></span>
-            <span class="w-2.5 h-2.5 bg-indigo-500/70 rounded-full animate-bounce" style="animation-delay: -0.15s"></span>
-            <span class="w-2.5 h-2.5 bg-indigo-500/70 rounded-full animate-bounce"></span>
-        </div>
-    `;
-    container.appendChild(div);
-    container.scrollTop = container.scrollHeight;
-    return id;
-}
-
-function removeTypingIndicator(id) {
-    const el = document.getElementById(id);
-    if (el) el.remove();
-}
+// AI Feature Removed
 
 function openCredentialsModal() {
     const m = document.getElementById('credentialsModal'), userStr = localStorage.getItem('genUser');
@@ -790,20 +617,15 @@ function handleSwipeGesture(endX, endY) {
     if (absDiffX < 50) return;
 
     const sidebar = document.getElementById('sidebar');
-    const aiChat = document.getElementById('aiChatModal');
     
-    // Verificamos si los modales existen en el DOM
-    if (!sidebar || !aiChat) return;
+    // Verificamos si el modal existe en el DOM
+    if (!sidebar) return;
 
     const isSidebarOpen = !sidebar.classList.contains('-translate-x-full');
-    const isAiChatOpen = !aiChat.classList.contains('translate-x-full');
 
     if (diffX > 0) {
         // SWIPE RIGHT (Hacia la derecha -> )
-        if (isAiChatOpen) {
-            // Cerrar AI Chat arrastrándolo a la derecha
-            toggleAIChat();
-        } else if (!isSidebarOpen && touchStartX < 30) {
+        if (!isSidebarOpen && touchStartX < 30) {
             // Abrir menú principal arrastrando desde el borde izquierdo
             toggleMenu();
         }
@@ -812,9 +634,6 @@ function handleSwipeGesture(endX, endY) {
         if (isSidebarOpen) {
             // Cerrar menú principal arrastrándolo a la izquierda
             toggleMenu();
-        } else if (!isAiChatOpen && touchStartX > window.innerWidth - 30) {
-            // Abrir AI Chat arrastrando desde el borde derecho
-            toggleAIChat();
         }
     }
 }
