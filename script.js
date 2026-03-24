@@ -314,27 +314,27 @@ function renderWelcomeBanner(nombre) {
                 </div>
             </div>
             
-            <!-- Widgets Laterales Premium -->
-            <div class="flex flex-wrap lg:flex-nowrap mt-4 md:mt-0 items-center gap-2 sm:gap-4 z-10 w-full md:w-auto justify-start md:justify-end pb-2 pointer-events-auto">
+            <!-- Widgets Laterales Premium (Efecto Ruleta en Móviles) -->
+            <div class="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide lg:overflow-visible lg:flex-nowrap mt-5 md:mt-0 items-center gap-3 sm:gap-4 z-10 w-full md:w-auto justify-start md:justify-end pb-2 pointer-events-auto" style="-webkit-overflow-scrolling: touch;">
                 <!-- Clima -->
-                <a href="https://open-meteo.com/" target="_blank" title="Datos por Open-Meteo" class="flex flex-1 md:flex-initial items-center justify-center md:justify-start gap-2 sm:gap-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl px-3 sm:px-4 py-2 sm:py-3 rounded-2xl border border-white/60 dark:border-gray-700/50 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-lg transition-all group">
-                    <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-[10px] sm:rounded-[12px] bg-sky-100 dark:bg-sky-900/40 flex items-center justify-center text-sky-500 dark:text-sky-400 group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300 shadow-inner">
-                        <i id="weather-icon" class="ph ph-cloud-sun text-xl sm:text-2xl animate-pulse"></i>
+                <a href="https://open-meteo.com/" target="_blank" title="Datos por Open-Meteo" class="snap-start shrink-0 w-[85%] sm:w-auto flex flex-1 md:flex-initial items-center justify-start gap-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl px-4 py-3 rounded-2xl border border-white/60 dark:border-gray-700/50 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-lg transition-all group">
+                    <div class="w-10 h-10 rounded-[12px] bg-sky-100 dark:bg-sky-900/40 flex items-center justify-center text-sky-500 dark:text-sky-400 group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300 shadow-inner">
+                        <i id="weather-icon" class="ph ph-cloud-sun text-2xl animate-pulse"></i>
                     </div>
-                    <div class="flex flex-col">
-                        <span class="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest flex items-center gap-1">Tacna <i class="ph ph-drop text-sky-400"></i><span id="weather-hum">--%</span></span>
-                        <span id="weather-temp" class="text-[16px] font-black text-gray-800 dark:text-gray-100 leading-tight">--°C</span>
+                    <div class="flex flex-col text-left">
+                        <span class="text-[10px] sm:text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest flex items-center gap-1">Tacna <i class="ph ph-drop text-sky-400"></i><span id="weather-hum">--%</span></span>
+                        <span id="weather-temp" class="text-[18px] sm:text-[16px] font-black text-gray-800 dark:text-gray-100 leading-tight">--°C</span>
                     </div>
                 </a>
                 
                 <!-- Divisas -->
-                <a href="https://www.exchangerate-api.com" target="_blank" title="Datos por ExchangeRate-API" class="flex flex-1 md:flex-initial items-center justify-center md:justify-start gap-2 sm:gap-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl px-3 sm:px-4 py-2 sm:py-3 rounded-2xl border border-white/60 dark:border-gray-700/50 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-lg transition-all group">
-                    <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-[10px] sm:rounded-[12px] bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:scale-110 group-hover:-rotate-6 transition-transform duration-300 shadow-inner">
-                        <i class="ph ph-currency-dollar text-xl sm:text-2xl"></i>
+                <a href="https://www.exchangerate-api.com" target="_blank" title="Datos por ExchangeRate-API" class="snap-start shrink-0 w-[85%] sm:w-auto flex flex-1 md:flex-initial items-center justify-start gap-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl px-4 py-3 rounded-2xl border border-white/60 dark:border-gray-700/50 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-lg transition-all group">
+                    <div class="w-10 h-10 rounded-[12px] bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:scale-110 group-hover:-rotate-6 transition-transform duration-300 shadow-inner">
+                        <i class="ph ph-currency-dollar text-2xl"></i>
                     </div>
-                    <div class="flex flex-col">
-                        <span class="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">USD/PEN</span>
-                        <span id="currency-rate" class="text-[16px] font-black text-gray-800 dark:text-gray-100 leading-tight">S/ --</span>
+                    <div class="flex flex-col text-left">
+                        <span class="text-[10px] sm:text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">USD/PEN</span>
+                        <span id="currency-rate" class="text-[18px] sm:text-[16px] font-black text-gray-800 dark:text-gray-100 leading-tight">S/ --</span>
                     </div>
                 </a>
 
@@ -381,6 +381,13 @@ async function fetchWidgetsData() {
 function showHome(desdeBotonAtras = false) {
     document.getElementById('home-dashboard').classList.remove('hidden');
     document.getElementById('iframe-container').classList.add('hidden');
+    
+    // Restaurar el Header
+    const header = document.getElementById('main-header');
+    if (header) header.classList.remove('-translate-y-full');
+    const floatBtn = document.getElementById('floating-back-btn');
+    if (floatBtn) floatBtn.classList.add('hidden');
+    
     document.getElementById('appTitle').textContent = "Inicio";
     document.getElementById('appViewer').src = "about:blank";
     document.querySelectorAll('.menu-btn').forEach(btn => btn.classList.remove('bg-red-50', 'text-red-700', 'border-red-100', 'dark:bg-gray-800'));
@@ -426,6 +433,10 @@ function loadApp(app, user) {
     // === RENDERIZADO EN IFRAME (Solo para módulos propios de Apps Script) ===
     document.getElementById('home-dashboard').classList.add('hidden');
     document.getElementById('iframe-container').classList.remove('hidden');
+    
+    // Reactivar sensor táctil en móviles para ocultar header
+    const touchSensor = document.getElementById('iframe-touch-sensor');
+    if (touchSensor) touchSensor.classList.remove('hidden');
 
     const iframe = document.getElementById('appViewer');
     const loader = document.getElementById('loader');
@@ -629,8 +640,8 @@ function appendChatMessage(text, sender) {
 
         div.className = 'flex gap-4 max-w-[90%] w-full group';
         div.innerHTML = `
-            <div class="w-12 h-12 flex-shrink-0 rounded-[16px] bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/40 dark:to-purple-900/40 flex items-center justify-center shadow-sm overflow-hidden border border-indigo-200/50 dark:border-indigo-700/50">
-                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Guide&accessories=glasses&clotheType=blazerShirt" class="w-10 h-10 group-hover:scale-110 transition-transform" alt="Tech Guide">
+            <div class="w-12 h-12 flex-shrink-0 rounded-[16px] bg-slate-50 dark:bg-slate-800 flex items-center justify-center shadow-inner overflow-hidden border border-slate-200 dark:border-slate-700">
+                <img src="guia.svg" class="w-full h-full object-contain group-hover:scale-110 transition-transform" alt="Tech Guide" onerror="this.src=\\'icon.svg\\'">
             </div>
             <div class="bg-white dark:bg-gray-800 p-5 rounded-[1.5rem] rounded-tl-sm shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] border border-gray-100 dark:border-gray-700/60 transition-all duration-300 transform scale-100">
                 <div class="text-[14px] text-gray-700 dark:text-gray-300 font-medium leading-relaxed">${formattedText}</div>
@@ -648,8 +659,8 @@ function appendTypingIndicator() {
     div.id = id;
     div.className = 'flex gap-4 max-w-[90%]';
     div.innerHTML = `
-        <div class="w-12 h-12 flex-shrink-0 rounded-[16px] bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/40 dark:to-purple-900/40 flex items-center justify-center shadow-sm overflow-hidden border border-indigo-200/50 dark:border-indigo-700/50">
-            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Guide&accessories=glasses&clotheType=blazerShirt" class="w-10 h-10 animate-bounce" alt="Tech Guide">
+        <div class="w-12 h-12 flex-shrink-0 rounded-[16px] bg-slate-50 dark:bg-slate-800 flex items-center justify-center shadow-inner overflow-hidden border border-slate-200 dark:border-slate-700">
+            <img src="guia.svg" class="w-full h-full object-contain animate-bounce" alt="Tech Guide" onerror="this.src=\\'icon.svg\\'">
         </div>
         <div class="bg-white dark:bg-gray-800 px-5 py-4 rounded-[1.5rem] rounded-tl-sm shadow-[0_4px_20px_rgba(0,0,0,0.02)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.2)] border border-gray-100 dark:border-gray-700/60 flex items-center gap-1.5 h-[52px]">
             <span class="w-2.5 h-2.5 bg-indigo-500/70 rounded-full animate-bounce" style="animation-delay: -0.3s"></span>
@@ -724,3 +735,16 @@ window.addEventListener("message", (event) => {
 window.addEventListener('popstate', (event) => {
     showHome(true);
 });
+
+// === IFRAME INTERACTIONS ===
+function hideHeaderOnInteraction() {
+    if (window.innerWidth < 640) {
+        const header = document.getElementById('main-header');
+        if (header) header.classList.add('-translate-y-full');
+        
+        const floatBtn = document.getElementById('floating-back-btn');
+        if (floatBtn) floatBtn.classList.remove('hidden');
+    }
+    const touchSensor = document.getElementById('iframe-touch-sensor');
+    if (touchSensor) touchSensor.classList.add('hidden');
+}
