@@ -89,6 +89,7 @@ function mostrarAplicacion() {
 // ==========================================
 const SyncManager = {
   queueKey: 'genovesa_sync_queue_res',
+  isSyncing: false, // NUEVO: Seguro anti-concurrencia en background
   
   getQueue() {
     return JSON.parse(localStorage.getItem(this.queueKey)) || [];
@@ -100,7 +101,7 @@ const SyncManager = {
       this.updateBadge();
     } catch (e) {
       if (e.name === 'QuotaExceededError') {
-        alert("⚠️ Memoria local llena. La imagen es demasiado pesada para guardarse sin conexión.");
+        alert("⚠️ Memoria local llena. La imagen es demasiado pesada para guardarse.");
       }
     }
   },
@@ -119,7 +120,8 @@ const SyncManager = {
   },
   
   async sync() {
-    if (!navigator.onLine) return;
+    // Si no hay red o si YA está sincronizando, abortar para evitar bucles paralelos
+    if (!navigator.onLine || this.isSyncing) return;
     
     const queue = this.getQueue();
     if (queue.length === 0) {
@@ -127,6 +129,7 @@ const SyncManager = {
        return;
     }
 
+    this.isSyncing = true; // Bloqueamos nuevas llamadas simultáneas
     const badge = document.getElementById('syncStatusBadge');
     const badgeText = document.getElementById('syncStatusText');
     const badgeIcon = document.getElementById('syncStatusIcon');
@@ -137,6 +140,7 @@ const SyncManager = {
 
     let hasErrors = false;
 
+    // Sincronización en cascada (secuencial)
     for (const record of queue) {
       try {
         const payload = { ...record };
@@ -151,6 +155,7 @@ const SyncManager = {
         const res = await response.json();
         if (res.status === 'success') {
           this.remove(record._localId);
+          // Actualizamos visualmente el registro a "OK" en la vista
           const localTag = document.getElementById(`sync-tag-${record._localId}`);
           if (localTag) localTag.innerHTML = '<i class="ph-fill ph-cloud-check text-green-500" title="Sincronizado"></i>';
         } else {
@@ -158,7 +163,7 @@ const SyncManager = {
         }
       } catch (e) {
         hasErrors = true;
-        break; 
+        break; // Detenemos si la red se vuelve a caer en medio del proceso
       }
     }
 
@@ -168,12 +173,14 @@ const SyncManager = {
       badgeIcon.className = 'ph-fill ph-check-circle text-green-400 text-xl';
       badgeText.textContent = '¡Sincronización completada!';
       setTimeout(() => badge.classList.add('hidden'), 3500);
-      datosCargados = false; 
+      datosCargados = false; // Invalidamos caché del dashboard
     } else {
       badgeIcon.className = 'ph-fill ph-warning-circle text-yellow-400 text-xl';
-      badgeText.textContent = 'Error de red. Reintentaremos luego.';
+      badgeText.textContent = 'Red inestable. Reintentaremos luego.';
       setTimeout(() => this.updateBadge(), 4000);
     }
+    
+    this.isSyncing = false; // Liberamos el seguro
   },
   
   updateBadge() {
@@ -763,15 +770,11 @@ form.addEventListener('submit', async (e) => {
   
   if(!AppState.isSessionVerified) return alert("Sesión no validada por el Hub GenApps.");
 
-  const btnOriginalHtml = submitBtn.innerHTML;
-  submitBtn.disabled = true;
-  submitBtn.innerHTML = '<i class="ph ph-spinner ph-spin text-xl"></i> <span>Guardando...</span>';
-  
+  // 1. Recolectamos la data del DOM al instante
   const timestampVal = document.getElementById('timestamp').value.trim();
   const parts = timestampVal.split(' ');
   const fechaVal = parts[0] || '';
   const horaVal = parts[1] || '';
-  
   const valEmail = AppState.user.email || AppState.user.usuario;
 
   const formData = {
@@ -789,67 +792,23 @@ form.addEventListener('submit', async (e) => {
     imagenNombre: imageName
   };
 
-  // 1. RUTA OFFLINE
-  if (!navigator.onLine) {
-    SyncManager.enqueue(formData);
-    agregarRegistroAUi(formData, true);
-    
-    successMessage.innerHTML = '<i class="ph-fill ph-cloud-slash text-xl mr-2 text-yellow-500"></i> Guardado en dispositivo (Offline)';
-    successMessage.classList.remove('opacity-0');
-    setTimeout(() => successMessage.classList.add('opacity-0'), 4000);
-    
-    document.getElementById('peso').value = '';
-    document.getElementById('bolsas').value = '1';
-    resetImageUI();
-    actualizarTimestamp();
-    
-    submitBtn.disabled = false;
-    submitBtn.innerHTML = btnOriginalHtml;
-    return;
-  }
-
-  // 2. RUTA ONLINE
-  try {
-    const response = await fetch(SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(formData)
-    });
-    
-    const result = await response.json();
-    if (result.status !== 'success') {
-      throw new Error(result.message || "Error desconocido al guardar en servidor");
-    }
-
-    agregarRegistroAUi(formData, false);
-    successMessage.innerHTML = '<i class="ph-fill ph-check-circle text-xl mr-2 text-green-600"></i> ¡Guardado exitosamente!';
-    successMessage.classList.remove('opacity-0');
-    setTimeout(() => successMessage.classList.add('opacity-0'), 3000);
-    
-    document.getElementById('peso').value = '';
-    document.getElementById('bolsas').value = '1';
-    resetImageUI();
-    actualizarTimestamp();
-    datosCargados = false; // Invalidamos la caché
-    
-  } catch (error) {
-    console.error("Error al guardar:", error);
-    // 3. RUTA FALLBACK
-    SyncManager.enqueue(formData);
-    agregarRegistroAUi(formData, true);
-    
-    successMessage.innerHTML = '<i class="ph-fill ph-warning-circle text-xl mr-2 text-yellow-500"></i> Red inestable. Guardado local.';
-    successMessage.classList.remove('opacity-0');
-    setTimeout(() => successMessage.classList.add('opacity-0'), 4000);
-    
-    document.getElementById('peso').value = '';
-    document.getElementById('bolsas').value = '1';
-    resetImageUI();
-    actualizarTimestamp();
-  } finally {
-    submitBtn.disabled = false;
-    submitBtn.innerHTML = btnOriginalHtml;
-  }
+  // 2. UI OPTIMISTA: Encolamos y procesamos en el cliente (0 latencia)
+  SyncManager.enqueue(formData);
+  agregarRegistroAUi(formData, true); // true = Estado pendiente (nubecita amarilla)
+  
+  // 3. Feedback visual y limpieza en milisegundos
+  successMessage.innerHTML = '<i class="ph-fill ph-check-circle text-xl mr-2 text-green-600 dark:text-green-400"></i> ¡Registro capturado!';
+  successMessage.classList.remove('opacity-0');
+  setTimeout(() => successMessage.classList.add('opacity-0'), 2500);
+  
+  document.getElementById('peso').value = '';
+  document.getElementById('bolsas').value = '1';
+  resetImageUI();
+  actualizarTimestamp();
+  
+  // 4. Disparamos la sincronización en background (Fire and Forget)
+  // El usuario puede seguir trabajando inmediatamente
+  SyncManager.sync();
 });
 
 function agregarRegistroAUi(data, isPending = false) {
