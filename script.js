@@ -1,691 +1,890 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbxLJYQe6QZCiDARD1I5ngkqS3hjfzT1oYki9rlClbNpFf-fjLwXv_Lhp_TOcjLgOTZt/exec";
+// ==========================================
+// CONFIGURACIÓN DE GOOGLE APPS SCRIPT
+// ==========================================
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzYcfPzxhhlU4WOC0g8UvOUTQtypRNTvPYGGGpcMPPw9PuJPxsKirGPrg2G1csBDVdH/exec';
 
-// === CICLO DE VIDA ===
+// ==========================================
+// 1. ESTADO CENTRALIZADO Y COMUNICACIÓN HUB
+// ==========================================
+const AppState = {
+  user: null,
+  isSessionVerified: false
+};
+
+let chartAreaInstancia = null;
+let chartTipoInstancia = null;
+let datosCargados = false; 
+let todosLosRegistros = []; 
+let registrosFiltradosActuales = []; 
+
+// ESCUCHADOR DE MENSAJES (WINDOW.PARENT)
+window.addEventListener('message', (event) => {
+  const { type, user, theme } = event.data || {};
+  
+  if (type === 'THEME_UPDATE') {
+      document.documentElement.classList.toggle('dark', theme === 'dark');
+  }
+
+  if (type === 'SESSION_SYNC' && user) {
+      document.documentElement.classList.toggle('dark', theme === 'dark');
+      
+      AppState.user = user;
+      AppState.isSessionVerified = true;
+      sessionStorage.setItem('moduloResiduosUser', JSON.stringify(user));
+      
+      mostrarAplicacion();
+  }
+});
+
 document.addEventListener('DOMContentLoaded', () => {
-    initTheme();
-    checkAuthState();
-    bindLoginEvents();
-    bindOnboardingEvents(); // Nueva llamada
-    bindCredentialsEvents();
+  actualizarTimestamp();
+  inicializarFiltrosFechas();
 
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('./sw.js').catch(err => console.error(err));
-        });
-    }
+  const savedUser = sessionStorage.getItem('moduloResiduosUser');
+  if (savedUser) {
+      AppState.user = JSON.parse(savedUser);
+      AppState.isSessionVerified = true;
+      mostrarAplicacion();
+  }
+
+  // Avisar al Hub que estamos listos para recibir credenciales
+  window.parent.postMessage({ type: 'MODULO_LISTO' }, '*');
+
+  setTimeout(() => {
+      if (!AppState.isSessionVerified) {
+          const statusTxt = document.getElementById('txt-usuario-activo');
+          if (statusTxt) statusTxt.innerHTML = '<i class="ph ph-warning text-red-500"></i> Esperando autorización del Hub...';
+      }
+  }, 4000);
+  
+  SyncManager.updateBadge();
 });
 
-function initTheme() {
-    const isDark = localStorage.getItem('genTheme') === 'dark';
-    if (isDark) document.documentElement.classList.add('dark');
-    actualizarIconoTema(isDark);
-    const metaTheme = document.querySelector('meta[name="theme-color"]');
-    if (metaTheme) metaTheme.setAttribute("content", isDark ? "#111827" : "#e01f36");
+function mostrarAplicacion() {
+  document.getElementById('appContainer').classList.remove('hidden');
+  
+  if (AppState.user) {
+      const nombreMostrar = AppState.user.nombre || AppState.user.usuario || 'Usuario';
+      const rolMostrar = AppState.user.rol || AppState.user.area || 'Supervisor';
+      document.getElementById('txt-usuario-activo').innerHTML = `<i class="ph ph-user-check"></i> ${nombreMostrar} | ${rolMostrar}`;
+      document.getElementById('displayUserRole').textContent = rolMostrar;
+  }
+
+  // REGLA: Ocultar Dashboard a roles operativos puros (Opcional, basado en el módulo hermano)
+  const rolesPrivilegiados = ['JEFE', 'GERENTE', 'ADMINISTRADOR', 'CALIDAD'];
+  const rolUser = (AppState.user.rol || '').toUpperCase();
+  const tabDash = document.getElementById('tabDashboard');
+  
+  if (tabDash) {
+      if (rolesPrivilegiados.includes(rolUser)) {
+          tabDash.classList.remove('hidden');
+      } else {
+          tabDash.classList.add('hidden'); // Comentar esta línea si quieres que todos vean el Dashboard
+      }
+  }
 }
 
-function toggleTheme() {
-    const isDark = document.documentElement.classList.toggle('dark');
-    const themeStr = isDark ? 'dark' : 'light';
-    localStorage.setItem('genTheme', isDark ? 'dark' : 'light');
-    actualizarIconoTema(isDark);
-    const metaTheme = document.querySelector('meta[name="theme-color"]');
-    if (metaTheme) metaTheme.setAttribute("content", isDark ? "#111827" : "#e01f36");
-    const iframe = document.getElementById('appViewer');
-    if (iframe && iframe.contentWindow) {
-        iframe.contentWindow.postMessage({ type: 'THEME_UPDATE', theme: themeStr }, '*');
-    }
-}
-
-function actualizarIconoTema(isDark) {
-    const mobileBtn = document.getElementById('theme-toggle-btn-mobile');
-    const desktopBtn = document.getElementById('theme-toggle-btn-desktop');
-    
-    if (mobileBtn) {
-        mobileBtn.innerHTML = isDark
-            ? `<i class="ph ph-sun text-xl text-amber-400"></i><span class="font-medium text-sm text-gray-200">Tema Claro</span>`
-            : `<i class="ph ph-moon text-xl text-gray-600"></i><span class="font-medium text-sm">Tema Oscuro</span>`;
-    }
-    
-    if (desktopBtn) {
-        desktopBtn.innerHTML = isDark
-            ? `<i class="ph-fill ph-sun text-xl text-amber-400 pointer-events-none"></i>`
-            : `<i class="ph-fill ph-moon text-xl text-gray-500 pointer-events-none"></i>`;
-    }
-}
-
-// === MÁQUINA DE ESTADOS ===
-function checkAuthState() {
-    const userStr = localStorage.getItem('genUser');
-    const loginView = document.getElementById('login-view');
-    const hubView = document.getElementById('hub-view');
-
-    if (userStr) {
-        loginView.classList.add('hidden');
-        hubView.classList.remove('hidden');
-        initHub(JSON.parse(userStr));
-    } else {
-        hubView.classList.add('hidden');
-        loginView.classList.remove('hidden');
-        const form = document.getElementById('loginForm');
-        if (form) form.reset();
-    }
-}
-
-// === LOGIN ===
-function bindLoginEvents() {
-    const form = document.getElementById('loginForm');
-    if (!form) return;
-
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        if (document.activeElement) document.activeElement.blur(); // Ocultar teclado en móviles
-        
-        const btn = document.getElementById('btnSubmit');
-        const err = document.getElementById('errorMsg');
-
-        btn.innerHTML = '<i class="ph ph-spinner animate-spin text-xl"></i> Conectando...';
-        btn.disabled = true;
-        err.classList.add('hidden');
-
-        const payload = {
-            action: 'login',
-            user: document.getElementById('username').value,
-            pass: document.getElementById('password').value
-        };
-
-        try {
-            const response = await fetch(API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify(payload)
-            });
-
-            if (!response.ok) throw new Error("Error al conectar con el servidor.");
-            const data = await response.json();
-
-            if (data.status === 'success') {
-                localStorage.setItem('genUser', JSON.stringify(data.user));
-                localStorage.setItem('genAppsCatalog', JSON.stringify(data.apps));
-                checkAuthState();
-            } else if (data.status === 'require_profile') {
-                // SE ACTIVA EL ONBOARDING
-                abrirModalOnboarding(data.tempUser);
-            } else {
-                throw new Error(data.message);
-            }
-        } catch (error) {
-            err.textContent = error.message || "Error inesperado.";
-            err.classList.remove('hidden');
-        } finally {
-            btn.innerHTML = 'Ingresar';
-            btn.disabled = false;
-        }
-    });
-}
-
-// === ONBOARDING (NUEVO) ===
-function abrirModalOnboarding(usuario) {
-    document.getElementById('onboardUserTemp').value = usuario;
-    const modal = document.getElementById('onboardingModal');
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-}
-
-function bindOnboardingEvents() {
-    const form = document.getElementById('formOnboarding');
-    if (!form) return;
-
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const btn = document.getElementById('btnOnboardSubmit');
-        const originalText = btn.innerHTML;
-
-        const payload = {
-            action: 'completeProfile',
-            user: document.getElementById('onboardUserTemp').value,
-            nombre: document.getElementById('onboardNombre').value,
-            correo: document.getElementById('onboardCorreo').value
-        };
-
-        btn.innerHTML = '<i class="ph ph-spinner animate-spin text-xl"></i> Guardando...';
-        btn.disabled = true;
-
-        try {
-            const response = await fetch(API_URL, { method: 'POST', body: JSON.stringify(payload) });
-            const data = await response.json();
-
-            if (data.status === 'success') {
-                document.getElementById('onboardingModal').classList.add('hidden');
-                document.getElementById('onboardingModal').classList.remove('flex');
-
-                // AUTOLOGIN TRUCO: Volvemos a presionar el botón de Iniciar Sesión automáticamente
-                document.getElementById('btnSubmit').click();
-            } else {
-                throw new Error(data.message);
-            }
-        } catch (error) {
-            alert("Error: " + error.message);
-        } finally {
-            btn.innerHTML = originalText;
-            btn.disabled = false;
-        }
-    });
-}
-
-// === CREDENCIALES ===
-function bindCredentialsEvents() {
-    const form = document.getElementById('formCredenciales');
-    if (!form) return;
-
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const btn = form.querySelector('button[type="submit"]');
-        const originalText = btn.innerHTML;
-
-        const userStr = localStorage.getItem('genUser');
-        if (!userStr) return;
-        const currentUser = JSON.parse(userStr);
-
-        const payload = {
-            action: 'updateCredentials',
-            currentUser: currentUser.usuario,
-            newUser: document.getElementById('newUsername').value,
-            newPass: document.getElementById('newPassword').value
-        };
-
-        btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Guardando...';
-        btn.disabled = true;
-
-        try {
-            const response = await fetch(API_URL, { method: 'POST', body: JSON.stringify(payload) });
-            const data = await response.json();
-
-            if (data.status === 'success') {
-                alert("¡Credenciales actualizadas!\nPor seguridad, tu sesión se cerrará ahora.");
-                closeCredentialsModal();
-                logout();
-            } else {
-                throw new Error(data.message);
-            }
-        } catch (error) {
-            alert("Error: " + error.message);
-        } finally {
-            btn.innerHTML = originalText;
-            btn.disabled = false;
-        }
-    });
-}
-
-// === LÓGICA DEL HUB ===
-function initHub(currentUser) {
-    document.getElementById('userName').textContent = currentUser.nombre;
-    document.getElementById('userRole').textContent = currentUser.rol || currentUser.area;
-
-    const menu = document.getElementById('appMenu');
-    const cardsContainer = document.getElementById('cards-container');
-    const APPS_CATALOG = JSON.parse(localStorage.getItem('genAppsCatalog')) || [];
-
-    menu.innerHTML = '';
-    cardsContainer.innerHTML = '';
-    renderWelcomeBanner(currentUser.nombre.split(' ')[0]);
-
-    menu.innerHTML += `
-        <p class="px-3 mt-2 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">Módulos Activos</p>
-    `;
-
-    APPS_CATALOG.forEach(app => {
-        const urlImagenOptimizada = optimizarLinkImagen(app.imagen);
-
-        const btn = document.createElement('button');
-        btn.className = 'w-full flex items-center gap-3 p-2.5 mb-1 rounded-2xl text-gray-600 dark:text-gray-400 hover:bg-brand-50 dark:hover:bg-gray-800 hover:text-brand-700 dark:hover:text-brand-400 transition-all group menu-btn border border-transparent hover:border-brand-100 dark:hover:border-gray-700';
-        btn.dataset.id = app.id;
-        btn.innerHTML = `<div class="w-10 h-10 rounded-xl bg-white dark:bg-gray-700 shadow-sm border border-gray-100 dark:border-gray-600 flex-shrink-0 overflow-hidden flex items-center justify-center group-hover:border-brand-300 transition-all"><img src="${urlImagenOptimizada}" class="w-full h-full object-contain p-1.5 transition-transform duration-300 group-hover:scale-110 group-active:scale-95" style="image-rendering: crisp-edges;" onerror="this.outerHTML='<i class=\\'ph ph-app-window text-xl\\'></i>'"></div><div class="flex flex-col items-start text-left overflow-hidden flex-1"><span class="text-[13px] font-bold truncate w-full transition-transform duration-300 group-hover:translate-x-1">${app.titulo}</span></div>`;
-        btn.onclick = () => { loadApp(app, currentUser); toggleMenu(); };
-        menu.appendChild(btn);
-
-        // APLICANDO DISEÑO CINEMATOGRÁFICO EN LAS TARJETAS (Adaptado a tema oscuro y claro)
-        const card = document.createElement('div');
-        card.className = 'group relative aspect-[4/5] sm:aspect-[3/4] bg-white dark:bg-gray-900 rounded-[2rem] sm:rounded-[2.5rem] overflow-hidden shadow-lg hover:shadow-[0_20px_50px_-10px_rgba(224,31,54,0.15)] dark:hover:shadow-[0_20px_50px_-10px_rgba(0,0,0,0.5)] cursor-pointer transition-all duration-700 ease-[cubic-bezier(0.25,1,0.5,1)] border border-gray-200 dark:border-white/10 flex flex-col justify-end transform hover:-translate-y-3';
-        card.onclick = () => loadApp(app, currentUser);
-        card.innerHTML = `
-            <!-- Fondo Cinematográfico (Imagen con zoom) -->
-            <div class="absolute inset-0 z-0 transition-transform duration-700 ease-[cubic-bezier(0.25,1,0.5,1)] group-hover:scale-110 flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-950">
-                <img src="${urlImagenOptimizada}" alt="${app.titulo}" class="w-full h-full object-cover opacity-80 dark:opacity-60 group-hover:opacity-100 transition-opacity duration-700 mix-blend-multiply dark:mix-blend-normal" style="image-rendering: crisp-edges;" onerror="this.outerHTML='<i class=\\'ph ph-app-window text-6xl text-brand-500/30 group-hover:text-brand-400 transition-colors duration-700\\'></i>'">
-            </div>
-            
-            <!-- Gradiente Inferior para Alto Contraste -->
-            <div class="absolute inset-x-0 bottom-0 h-[80%] bg-gradient-to-t from-white/95 via-white/80 dark:from-black/95 dark:via-black/50 to-transparent z-10"></div>
-            
-            <!-- Contenido de la Tarjeta -->
-            <div class="relative z-20 p-6 sm:p-8 translate-y-4 group-hover:translate-y-0 transition-transform duration-700 ease-[cubic-bezier(0.25,1,0.5,1)] flex flex-col justify-end h-full w-full">
-                <!-- Línea decorativa -->
-                <div class="w-8 h-1 bg-brand-500 rounded-full mb-4 opacity-0 group-hover:opacity-100 transition-opacity duration-700 delay-100"></div>
-                
-                <h3 class="font-black text-xl sm:text-2xl text-gray-800 dark:text-white leading-tight mb-2 tracking-wide drop-shadow-sm group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors duration-300 w-full line-clamp-2">${app.titulo}</h3>
-                
-                <div class="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-all duration-700 ease-[cubic-bezier(0.25,1,0.5,1)] w-full">
-                    <p class="overflow-hidden text-[13px] sm:text-[14px] text-gray-600 dark:text-gray-300 font-medium leading-relaxed opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-150 line-clamp-3 w-full">
-                        ${app.info || 'Gestión centralizada de este módulo operativo para La Genovesa.'}
-                    </p>
-                </div>
-            </div>
-            
-            <!-- Brillo Reflejo Superior (Glimmer Cinematográfico) -->
-            <div class="absolute inset-0 z-30 pointer-events-none bg-gradient-to-tr from-white/0 via-white/40 dark:via-white/10 to-white/0 opacity-0 group-hover:opacity-100 transform -translate-x-full group-hover:translate-x-full transition-all duration-[1200ms] ease-in-out"></div>
-        `;
-        cardsContainer.appendChild(card);
-    });
-
-    const appGuardada = sessionStorage.getItem('genCurrentApp');
-
-    if (appGuardada) {
-        // Buscamos la app en el catálogo por su ID
-        const appToLoad = APPS_CATALOG.find(a => a.id === appGuardada);
-        if (appToLoad) {
-            loadApp(appToLoad, currentUser);
-        } else {
-            showHome(); // Fallback por si acaso el ID ya no existe
-        }
-    } else {
-        showHome(); // Comportamiento normal si es la primera vez que entra
-    }
-}
-
-function renderWelcomeBanner(nombre) {
-    const horaLocal = new Date().getHours();
-    let saludo, svgIcon, colorCls, bgGlow;
-
-    if (horaLocal >= 5 && horaLocal < 12) {
-        saludo = "Buenos días"; colorCls = "text-amber-500"; bgGlow = "bg-amber-100 dark:bg-amber-900/30";
-        svgIcon = `<svg viewBox="0 0 24 24" fill="none" class="w-16 h-16 sm:w-20 sm:h-20 animate-[spin_12s_linear_infinite] drop-shadow-lg"><path d="M12 4V2M12 22v-2M4 12H2m20 0h-2m-2.05-6.95l1.41-1.41M4.64 19.36l1.41-1.41M19.36 19.36l-1.41-1.41M6.05 6.05L4.64 4.64M16 12a4 4 0 11-8 0 4 4 0 018 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-    } else if (horaLocal >= 12 && horaLocal < 19) {
-        saludo = "Buenas tardes"; colorCls = "text-orange-500"; bgGlow = "bg-orange-100 dark:bg-orange-900/30";
-        svgIcon = `<svg viewBox="0 0 24 24" fill="none" class="w-16 h-16 sm:w-20 sm:h-20 animate-[bounce_3s_infinite] drop-shadow-lg"><path d="M8 17a4 4 0 110-8c0-.44.07-.87.2-1.28A5.5 5.5 0 0113.5 3 5.5 5.5 0 0119 8.5c0 .17 0 .33-.03.5A4 4 0 1116 17H8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-    } else {
-        saludo = "Buenas noches"; colorCls = "text-indigo-500 dark:text-indigo-400"; bgGlow = "bg-indigo-100 dark:bg-indigo-900/30";
-        svgIcon = `<svg viewBox="0 0 24 24" fill="none" class="w-16 h-16 sm:w-20 sm:h-20 animate-pulse drop-shadow-lg"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-    }
-
-    // APLICANDO DISEÑO DE TEXTO FLOTANTE SIN BLOQUE DE FONDO Y WIDGETS (Tipografía Premium)
-    document.getElementById('welcome-banner').innerHTML = `
-        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sm:gap-6 relative w-full">
-            <div class="flex items-center gap-4 sm:gap-6 relative">
-                <div class="absolute -left-10 -top-10 w-48 h-48 rounded-full ${bgGlow} opacity-40 blur-3xl pointer-events-none"></div>
-                <div class="${colorCls} z-10 transform scale-75 sm:scale-100 origin-left drop-shadow-xl transition-transform hover:scale-110 duration-500 ease-out">${svgIcon}</div>
-                <div class="z-10 flex-1">
-                    <h2 class="text-3xl sm:text-5xl font-black text-gray-800 dark:text-white tracking-tight leading-none drop-shadow-md">
-                        ${saludo}, <span class="text-transparent bg-clip-text bg-gradient-to-r from-brand-600 to-amber-500 drop-shadow-sm">${nombre}</span>
-                    </h2>
-                    <p class="text-gray-600 dark:text-gray-300 mt-2 font-bold text-[14px] sm:text-xl drop-shadow-sm">¿Qué módulo vamos a gestionar hoy?</p>
-                </div>
-            </div>
-            
-            <!-- Widgets Laterales Premium -->
-            <div class="flex flex-wrap lg:flex-nowrap items-center gap-3 sm:gap-4 z-10 pr-2 pb-2 pointer-events-auto mt-4 md:mt-0">
-                <!-- Clima -->
-                <a href="https://open-meteo.com/" target="_blank" title="Datos por Open-Meteo" class="flex items-center gap-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl px-4 py-3 rounded-2xl border border-white/60 dark:border-gray-700/50 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.2)] hover:shadow-lg transition-all group transform hover:-translate-y-1 duration-300">
-                    <div class="w-10 h-10 rounded-[12px] bg-sky-100 dark:bg-sky-900/40 flex items-center justify-center text-sky-500 dark:text-sky-400 group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300 shadow-inner">
-                        <i id="weather-icon" class="ph ph-cloud-sun text-2xl animate-pulse"></i>
-                    </div>
-                    <div class="flex flex-col">
-                        <span class="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest flex items-center gap-1">Tacna <i class="ph ph-drop text-sky-400"></i><span id="weather-hum">--%</span></span>
-                        <span id="weather-temp" class="text-[16px] font-black text-gray-800 dark:text-gray-100 leading-tight">--°C</span>
-                    </div>
-                </a>
-                
-                <!-- Divisas -->
-                <a href="https://www.exchangerate-api.com" target="_blank" title="Datos por ExchangeRate-API" class="flex items-center gap-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl px-4 py-3 rounded-2xl border border-white/60 dark:border-gray-700/50 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.2)] hover:shadow-lg transition-all group transform hover:-translate-y-1 duration-300">
-                    <div class="w-10 h-10 rounded-[12px] bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:scale-110 group-hover:-rotate-6 transition-transform duration-300 shadow-inner">
-                        <i class="ph ph-currency-dollar text-2xl"></i>
-                    </div>
-                    <div class="flex flex-col">
-                        <span class="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">USD/PEN</span>
-                        <span id="currency-rate" class="text-[16px] font-black text-gray-800 dark:text-gray-100 leading-tight">S/ --</span>
-                    </div>
-                </a>
-            </div>
-        </div>
-    `;
-
-    fetchWidgetsData();
-}
-
-async function fetchWidgetsData() {
+// ==========================================
+// MOTOR OFFLINE-FIRST (SYNC QUEUE MANAGER)
+// ==========================================
+const SyncManager = {
+  queueKey: 'genovesa_sync_queue_res',
+  
+  getQueue() {
+    return JSON.parse(localStorage.getItem(this.queueKey)) || [];
+  },
+  
+  saveQueue(queue) {
     try {
-        const weatherRes = await fetch("https://api.open-meteo.com/v1/forecast?latitude=-18.01&longitude=-70.25&current=temperature_2m,relative_humidity_2m");
-        if (weatherRes.ok) {
-            const wData = await weatherRes.json();
-            document.getElementById('weather-temp').textContent = Math.round(wData.current.temperature_2m) + "°C";
-            document.getElementById('weather-hum').textContent = Math.round(wData.current.relative_humidity_2m) + "%";
-            document.getElementById('weather-icon').classList.remove('animate-pulse');
-        }
-    } catch (e) { console.warn("Clima no disponible", e); }
-
-    try {
-        const currencyRes = await fetch("https://api.exchangerate-api.com/v4/latest/USD");
-        if (currencyRes.ok) {
-            const cData = await currencyRes.json();
-            if (cData.rates.PEN) {
-                document.getElementById('currency-rate').textContent = "S/ " + cData.rates.PEN.toFixed(3);
-            }
-        }
-    } catch (e) { console.warn("Divisas no disponibles", e); }
-}
-
-// Añadimos el parámetro "desdeBotonAtras" para evitar bucles infinitos
-function showHome(desdeBotonAtras = false) {
-    document.getElementById('home-dashboard').classList.remove('hidden');
-    document.getElementById('iframe-container').classList.add('hidden');
-    document.getElementById('appTitle').textContent = "Inicio";
-    document.getElementById('appViewer').src = "about:blank";
-    document.querySelectorAll('.menu-btn').forEach(btn => btn.classList.remove('bg-red-50', 'text-red-700', 'border-red-100', 'dark:bg-gray-800'));
-    sessionStorage.removeItem('genCurrentApp');
-
-    // Restaurar header en móviles
-    const headerEl = document.querySelector('header');
-    const sidebar = document.getElementById('sidebar');
-    const sidebarLogo = document.getElementById('sidebar-logo');
-    const floatingBtn = document.getElementById('floating-menu-btn');
-    
-    if (headerEl) {
-        headerEl.classList.add('flex');
-        headerEl.classList.remove('hidden', 'sm:flex');
-    }
-    
-    if (sidebarLogo) {
-        sidebarLogo.classList.add('hidden');
-        sidebarLogo.classList.remove('flex');
-    }
-    
-    if (floatingBtn) {
-        floatingBtn.classList.add('hidden');
-        floatingBtn.classList.remove('flex');
-    }
-    
-    // Devolvemos el margen superior al menú para que baje por debajo del Header central
-    if (sidebar) sidebar.classList.add('pt-16');
-
-    // MAGIA: Registramos el estado "Home" en el historial del celular
-    if (!desdeBotonAtras) {
-        history.pushState({ vista: 'home' }, '', '#home');
-    }
-}
-
-function loadApp(app, user) {
-    if (!app.link) return alert("Enlace no configurado.");
-    sessionStorage.setItem('genCurrentApp', app.id);
-
-    // MAGIA: Le decimos al celular que entramos a un módulo
-    history.pushState({ vista: 'modulo', id: app.id }, '', `#${app.id}`);
-
-    let urlSegura = app.link;
-
-    // Tratamiento de URL
-    try {
-        const urlObj = new URL(app.link);
-        urlObj.searchParams.append('email', user.email);
-        urlObj.searchParams.append('rol', user.rol);
-        urlObj.searchParams.append('t', Date.now());
-        urlSegura = urlObj.toString();
+      localStorage.setItem(this.queueKey, JSON.stringify(queue));
+      this.updateBadge();
     } catch (e) {
-        urlSegura = `${app.link}${app.link.includes('?') ? '&' : '?'}email=${encodeURIComponent(user.email)}&rol=${user.rol}&t=${Date.now()}`;
+      if (e.name === 'QuotaExceededError') {
+        alert("⚠️ Memoria local llena. La imagen es demasiado pesada para guardarse sin conexión.");
+      }
     }
-
-    // =========================================================
-    // REGLA ARQUITECTÓNICA: ENRUTAMIENTO EXTERNO (NUEVA PESTAÑA)
-    // =========================================================
-    // Si la URL contiene appsheet, galaxycont o plesk, abortamos el Iframe y abrimos nueva pestaña
-    if (['appsheet.com', 'galaxycont.com', 'plesk.page'].some(dominio => urlSegura.includes(dominio))) {
-        window.open(urlSegura, '_blank');
-        showHome(true); // Devolvemos el Hub a la vista principal para que no se quede "Cargando"
-        return; // Detenemos la función aquí
-    }
-    // =========================================================
-
-    // === RENDERIZADO EN IFRAME (Solo para módulos propios de Apps Script) ===
-    document.getElementById('home-dashboard').classList.add('hidden');
-    document.getElementById('iframe-container').classList.remove('hidden');
-
-    // Ocultar header en móviles para dar 100% de espacio
-    const headerEl = document.querySelector('header');
-    const sidebar = document.getElementById('sidebar');
-    const sidebarLogo = document.getElementById('sidebar-logo');
-    const floatingBtn = document.getElementById('floating-menu-btn');
+  },
+  
+  enqueue(record) {
+    const queue = this.getQueue();
+    record._localId = Date.now().toString(); 
+    queue.push(record);
+    this.saveQueue(queue);
+  },
+  
+  remove(localId) {
+    let queue = this.getQueue();
+    queue = queue.filter(r => r._localId !== localId);
+    this.saveQueue(queue);
+  },
+  
+  async sync() {
+    if (!navigator.onLine) return;
     
-    if (headerEl) {
-        headerEl.classList.remove('flex');
-        headerEl.classList.add('hidden', 'sm:flex');
+    const queue = this.getQueue();
+    if (queue.length === 0) {
+       this.updateBadge();
+       return;
     }
-    
-    if (sidebarLogo) {
-        sidebarLogo.classList.remove('hidden');
-        sidebarLogo.classList.add('flex');
-    }
-    
-    if (floatingBtn) {
-        floatingBtn.classList.remove('hidden');
-        floatingBtn.classList.add('flex');
-    }
-    
-    // Reducimos el margen superior de la franja lateral ya que la bloqueamos
-    if (sidebar) sidebar.classList.remove('pt-16');
 
-    const iframe = document.getElementById('appViewer');
-    const loader = document.getElementById('loader');
+    const badge = document.getElementById('syncStatusBadge');
+    const badgeText = document.getElementById('syncStatusText');
+    const badgeIcon = document.getElementById('syncStatusIcon');
 
-    loader.classList.remove('hidden');
-    document.getElementById('appTitle').textContent = app.titulo;
+    badge.classList.remove('hidden');
+    badgeIcon.className = 'ph-fill ph-arrows-clockwise text-blue-400 animate-spin text-xl';
+    badgeText.textContent = `Sincronizando ${queue.length} registro(s)...`;
 
-    document.querySelectorAll('.menu-btn').forEach(btn => {
-        btn.classList.remove('bg-brand-50', 'text-brand-700', 'border-brand-100', 'dark:bg-gray-800');
-        if (btn.dataset.id === app.id) btn.classList.add('bg-brand-50', 'text-brand-700', 'border-brand-100', 'dark:bg-gray-800');
-    });
+    let hasErrors = false;
 
-    iframe.onload = () => {
-        loader.classList.add('hidden');
-    };
-
-    iframe.src = urlSegura;
-}
-
-
-// === NUEVA LÓGICA HÍBRIDA DEL LOGO ===
-function handleLogoClick() {
-    const sidebar = document.getElementById('sidebar');
-    const estaCerrado = sidebar.classList.contains('-translate-x-full');
-    const logo = document.getElementById('main-logo');
-
-    if (estaCerrado) {
-        // 1. Si el menú está oculto -> El logo sirve para ABRIRLO
-        toggleMenu();
-    } else {
-        // 2. Si el menú ya está abierto -> El logo sirve para IR A INICIO y CERRARLO
-        showHome();
-
-        // Efecto visual de regreso al HUB
-        if (logo) {
-            logo.classList.add('-scale-x-100');
-            setTimeout(() => logo.classList.remove('-scale-x-100'), 700);
-        }
-
-        toggleMenu();
-    }
-}
-
-function toggleMenu() {
-    const s = document.getElementById('sidebar'), o = document.getElementById('sidebarOverlay');
-    const logo = document.getElementById('main-logo');
-
-    s.classList.toggle('-translate-x-full');
-    o.classList.toggle('hidden');
-
-    // Animación Premium al Logo cuando se abre/cierra
-    if (logo) {
-        logo.classList.toggle('-rotate-90');
-        logo.classList.toggle('scale-75');
-        logo.classList.toggle('opacity-70');
-    }
-}
-
-// AI Feature Removed
-
-function openCredentialsModal() {
-    const m = document.getElementById('credentialsModal'), userStr = localStorage.getItem('genUser');
-    if (userStr) document.getElementById('newUsername').value = JSON.parse(userStr).usuario;
-    document.getElementById('newPassword').value = '';
-    m.classList.remove('hidden'); m.classList.add('flex'); toggleMenu();
-}
-
-function closeCredentialsModal() {
-    document.getElementById('credentialsModal').classList.add('hidden');
-    document.getElementById('credentialsModal').classList.remove('flex');
-}
-
-function logout() {
-    if (confirm("¿Cerrar sesión?")) {
-        localStorage.removeItem('genUser'); localStorage.removeItem('genAppsCatalog');
-        document.getElementById('appViewer').src = "about:blank"; checkAuthState();
-    }
-}
-
-function optimizarLinkImagen(url) {
-    if (!url) return "";
-    if (url.includes("drive.google.com")) {
-        const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/id=([a-zA-Z0-9_-]+)/);
-        if (match && match[1]) return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w800`;
-    }
-    return url;
-}
-
-// === COMUNICACIÓN CON MICRO-FRONTENDS (HANDSHAKE) ===
-window.addEventListener("message", (event) => {
-    // Escuchamos si algún iframe nos dice que ya está listo
-    if (event.data && event.data.type === 'MODULO_LISTO') {
-        console.log("GENAPPS: Módulo Iframe listo. Inyectando sesión...");
-
-        // Buscamos la sesión local
-        const sessionStr = localStorage.getItem('genUser');
-
-        if (sessionStr) {
-            const iframe = document.getElementById('appViewer'); // ID de tu iframe en GENAPPS
-
-            if (iframe && iframe.contentWindow) {
-                // Le enviamos la sesión al Iframe
-                iframe.contentWindow.postMessage({
-                    type: 'SESSION_SYNC',
-                    user: JSON.parse(sessionStr),
-                    theme: localStorage.getItem('genTheme') || 'light'
-                }, '*');
-            }
+    for (const record of queue) {
+      try {
+        const payload = { ...record };
+        delete payload._localId; 
+        
+        const response = await fetch(SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload)
+        });
+        
+        const res = await response.json();
+        if (res.status === 'success') {
+          this.remove(record._localId);
+          const localTag = document.getElementById(`sync-tag-${record._localId}`);
+          if (localTag) localTag.innerHTML = '<i class="ph-fill ph-cloud-check text-green-500" title="Sincronizado"></i>';
         } else {
-            console.warn("GENAPPS: Iframe pidió sesión, pero no hay usuario logueado.");
+          hasErrors = true;
         }
+      } catch (e) {
+        hasErrors = true;
+        break; 
+      }
     }
-});
 
-window.addEventListener('popstate', (event) => {
-    showHome(true);
-});
+    badgeIcon.classList.remove('animate-spin');
+    
+    if (!hasErrors && this.getQueue().length === 0) {
+      badgeIcon.className = 'ph-fill ph-check-circle text-green-400 text-xl';
+      badgeText.textContent = '¡Sincronización completada!';
+      setTimeout(() => badge.classList.add('hidden'), 3500);
+      datosCargados = false; 
+    } else {
+      badgeIcon.className = 'ph-fill ph-warning-circle text-yellow-400 text-xl';
+      badgeText.textContent = 'Error de red. Reintentaremos luego.';
+      setTimeout(() => this.updateBadge(), 4000);
+    }
+  },
+  
+  updateBadge() {
+    const queue = this.getQueue();
+    const badge = document.getElementById('syncStatusBadge');
+    const badgeText = document.getElementById('syncStatusText');
+    const badgeIcon = document.getElementById('syncStatusIcon');
+    
+    if (queue.length > 0) {
+      badge.classList.remove('hidden');
+      badgeIcon.className = 'ph-fill ph-cloud-slash text-yellow-400 text-xl';
+      badgeText.textContent = `${queue.length} registro(s) pendiente(s)`;
+    } else {
+      if (!badgeIcon.classList.contains('animate-spin') && !badgeText.textContent.includes('completada')) {
+           badge.classList.add('hidden');
+      }
+    }
+  }
+};
 
-// === BOTÓN FLOTANTE DRAGGABLE (MÓVILES) ===
-const floatBtn = document.getElementById('floating-menu-btn');
-if (floatBtn) {
-    let isBtnDragging = false;
-    let startBtnTouchX, startBtnTouchY;
-    let startBtnX, startBtnY;
+window.addEventListener('online', () => SyncManager.sync());
+window.addEventListener('offline', () => SyncManager.updateBadge());
 
-    floatBtn.addEventListener('touchstart', (e) => {
-        isBtnDragging = false;
-        startBtnTouchX = e.touches[0].clientX;
-        startBtnTouchY = e.touches[0].clientY;
-        
-        const rect = floatBtn.getBoundingClientRect();
-        startBtnX = rect.left;
-        startBtnY = rect.top;
-        
-        floatBtn.style.transition = 'none'; // Quitar transición al arrastrar para seguir el dedo instantaneamente
-    }, {passive: true});
-
-    floatBtn.addEventListener('touchmove', (e) => {
-        const dx = e.touches[0].clientX - startBtnTouchX;
-        const dy = e.touches[0].clientY - startBtnTouchY;
-        
-        // Umbral de 8px para considerar que es un "arrastre" y no un "toque rápido"
-        if (!isBtnDragging && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
-            isBtnDragging = true;
-        }
-
-        if (isBtnDragging) {
-            e.preventDefault(); // Evitar scroll de la página debajo
-            let newX = startBtnX + dx;
-            let newY = startBtnY + dy;
-            
-            // Delimitar coordenadas dentro de la pantalla
-            const maxX = window.innerWidth - floatBtn.offsetWidth;
-            const maxY = window.innerHeight - floatBtn.offsetHeight;
-            
-            floatBtn.style.left = `${Math.max(0, Math.min(newX, maxX))}px`;
-            floatBtn.style.top = `${Math.max(0, Math.min(newY, maxY))}px`;
-            floatBtn.style.right = 'auto'; // Anular right absoluto
-            floatBtn.style.bottom = 'auto'; // Anular bottom absoluto
-        }
-    }, {passive: false});
-
-    floatBtn.addEventListener('touchend', (e) => {
-        floatBtn.style.transition = ''; // Recuperar transiciones fluidas de clases CSS
-        if (!isBtnDragging) {
-            toggleMenu(); // Si solo tocó el botón, abre el panel
-        }
-    });
+// ==========================================
+// UTILIDADES DE EXTRACCIÓN Y FORMATO 
+// ==========================================
+function formatearFechaEstandar(fechaStr) {
+  if (!fechaStr || fechaStr === '-') return '-';
+  if (fechaStr.includes('T')) fechaStr = fechaStr.split('T')[0];
+  const partes = fechaStr.split(/[-/]/);
+  if (partes.length === 3) {
+    if (partes[0].length === 4) return `${partes[2]}/${partes[1]}/${partes[0]}`;
+    return `${partes[0].padStart(2, '0')}/${partes[1].padStart(2, '0')}/${partes[2]}`;
+  }
+  return fechaStr;
 }
 
-// === GESTOS TÁCTILES (SWIPE NATIVO LATERAL PARA PANELES) ===
-let touchStartX = 0;
-let touchStartY = 0;
-
-document.addEventListener('touchstart', e => {
-    touchStartX = e.changedTouches[0].screenX;
-    touchStartY = e.changedTouches[0].screenY;
-}, {passive: true});
-
-document.addEventListener('touchend', e => {
-    const touchEndX = e.changedTouches[0].screenX;
-    const touchEndY = e.changedTouches[0].screenY;
-    handleSwipeGesture(touchEndX, touchEndY);
-}, {passive: true});
-
-function handleSwipeGesture(endX, endY) {
-    const diffX = endX - touchStartX;
-    const diffY = endY - touchStartY;
-    const absDiffX = Math.abs(diffX);
-    const absDiffY = Math.abs(diffY);
+function formatearHora24(horaStr) {
+  if (!horaStr || horaStr === '-') return '-';
+  horaStr = String(horaStr).trim();
+  const lowerHora = horaStr.toLowerCase();
+  const isPM = lowerHora.includes('pm');
+  const isAM = lowerHora.includes('am');
+  
+  let timeStr = lowerHora.replace(/[a-z]/ig, '').trim(); 
+  let partes = timeStr.split(':');
+  
+  if (partes.length >= 2) {
+    let h = parseInt(partes[0], 10);
+    const m = partes[1].padStart(2, '0');
+    const s = (partes[2] || '00').replace(/[^0-9]/g, '').padStart(2, '0');
     
-    // Si el movimiento fue más vertical que horizontal (ej. scrolling natural)
-    if (absDiffY > absDiffX) {
-        return;
+    if (isNaN(h)) return horaStr;
+    if (isPM && h < 12) h += 12;
+    if (isAM && h === 12) h = 0;
+    
+    return `${String(h).padStart(2, '0')}:${m}:${s}`;
+  }
+  return horaStr;
+}
+
+function obtenerUrlImagen(reg) {
+  if (!reg) return '';
+  if (reg['IMAGEN']) return String(reg['IMAGEN']);
+  if (reg['Imagen']) return String(reg['Imagen']);
+  if (reg['imagen']) return String(reg['imagen']);
+  
+  for (const key in reg) {
+    const kLower = key.toLowerCase();
+    if (kLower.includes('imagen') || kLower.includes('foto') || kLower.includes('link') || kLower.includes('url')) {
+       const val = reg[key];
+       if (val && String(val).trim() !== '') {
+           return String(val);
+       }
     }
+  }
+  return '';
+}
 
-    // Umbral mínimo de swipe (evita toques accidentales)
-    if (absDiffX < 50) return;
+function obtenerObservaciones(reg) {
+  if (!reg) return '';
+  if (reg['OBSERVACIONES:'] !== undefined) return reg['OBSERVACIONES:'];
+  if (reg['OBSERVACIONES'] !== undefined) return reg['OBSERVACIONES'];
+  if (reg['observaciones:'] !== undefined) return reg['observaciones:'];
+  if (reg['observaciones'] !== undefined) return reg['observaciones'];
+  if (reg['Observaciones'] !== undefined) return reg['Observaciones'];
 
-    const sidebar = document.getElementById('sidebar');
+  for (const key in reg) {
+    const kLower = key.toLowerCase();
+    if (kLower.includes('observacion') || kLower.includes('detalle') || kLower.includes('comentario')) {
+       return reg[key] || '';
+    }
+  }
+  return '';
+}
+
+function actualizarTimestamp() {
+  const now = new Date();
+  const day = String(now.getDate()).padStart(2, '0');
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const year = now.getFullYear();
+  
+  const hours24 = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  
+  const timestampStr = `${day}/${month}/${year} ${hours24}:${minutes}:${seconds}`;
+  document.getElementById('timestamp').value = timestampStr;
+}
+
+function inicializarFiltrosFechas() {
+  const tzoffset = (new Date()).getTimezoneOffset() * 60000;
+  const localISOTime = (new Date(Date.now() - tzoffset)).toISOString().split('T')[0];
+  
+  document.getElementById('filtroFechaInicio').value = localISOTime;
+  document.getElementById('filtroFechaFin').value = localISOTime;
+
+  document.getElementById('filtroFechaInicio').addEventListener('blur', cargarDatosDashboard);
+  document.getElementById('filtroFechaFin').addEventListener('blur', cargarDatosDashboard);
+  document.getElementById('filtroFechaInicio').addEventListener('keydown', cargarDatosDashboard);
+  document.getElementById('filtroFechaFin').addEventListener('keydown', cargarDatosDashboard);
+  document.getElementById('filtroArea').addEventListener('change', aplicarFiltros);
+  document.getElementById('filtroTipo').addEventListener('change', aplicarFiltros);
+}
+
+// ==========================================
+// NAVEGACIÓN (TABS)
+// ==========================================
+const tabs = {
+  registro: { btn: document.getElementById('tabRegistro'), vista: document.getElementById('vistaRegistro') },
+  revision: { btn: document.getElementById('tabRevision'), vista: document.getElementById('vistaRevision') },
+  dashboard: { btn: document.getElementById('tabDashboard'), vista: document.getElementById('vistaDashboard') }
+};
+
+function cambiarVista(vistaActiva) {
+  Object.values(tabs).forEach(tab => {
+    tab.btn.classList.remove('text-green-600', 'dark:text-green-400', 'border-b-2', 'border-green-600', 'dark:border-green-400');
+    tab.btn.classList.add('text-gray-500', 'dark:text-gray-400');
+    tab.vista.classList.add('hidden');
+  });
+
+  tabs[vistaActiva].btn.classList.add('text-green-600', 'dark:text-green-400', 'border-b-2', 'border-green-600', 'dark:border-green-400');
+  tabs[vistaActiva].btn.classList.remove('text-gray-500', 'dark:text-gray-400');
+  tabs[vistaActiva].vista.classList.remove('hidden');
+}
+
+tabs.registro.btn.addEventListener('click', () => cambiarVista('registro'));
+
+tabs.revision.btn.addEventListener('click', async () => {
+  cambiarVista('revision');
+  if (!datosCargados) {
+    await cargarDatosDashboard();
+  } else {
+    renderizarMisRegistros();
+  }
+});
+
+tabs.dashboard.btn.addEventListener('click', () => {
+  cambiarVista('dashboard');
+  if (!datosCargados) cargarDatosDashboard();
+});
+
+
+// ==========================================
+// LOGICA DEL DASHBOARD Y OBTENCIÓN DE DATOS
+// ==========================================
+async function cargarDatosDashboard(event) {
+  if (event && event.type === 'keydown') {
+    if (event.key !== 'Enter') return; 
+    if (document.activeElement) document.activeElement.blur();
+  }
+
+  const fInicioStr = document.getElementById('filtroFechaInicio').value;
+  const fFinStr = document.getElementById('filtroFechaFin').value;
+
+  if (!fInicioStr || !fFinStr) return;
+
+  const extraerAnio = (fecha) => {
+    const match = fecha.match(/\d{4}/);
+    return match ? parseInt(match[0], 10) : 0;
+  };
+
+  const yearInicio = extraerAnio(fInicioStr);
+  const yearFin = extraerAnio(fFinStr);
+
+  if (yearInicio < 2000 || yearInicio > 2100) return; 
+  if (yearFin < 2000 || yearFin > 2100) return; 
+
+  const containerLoading = document.getElementById('dashboardLoading');
+  const containerContent = document.getElementById('dashboardContent');
+
+  containerContent.classList.add('hidden');
+  containerLoading.classList.remove('hidden');
+
+  try {
+    const response = await fetch(SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ 
+        action: 'getDatos',
+        fechaInicio: fInicioStr, 
+        fechaFin: fFinStr        
+      })
+    });
     
-    // Verificamos si el modal existe en el DOM
-    if (!sidebar) return;
-
-    const isSidebarOpen = !sidebar.classList.contains('-translate-x-full');
-
-    if (diffX > 0) {
-        // SWIPE RIGHT (Hacia la derecha -> )
-        if (!isSidebarOpen && touchStartX < 30) {
-            // Abrir menú principal arrastrando desde el borde izquierdo
-            toggleMenu();
-        }
+    const result = await response.json();
+    if (result.status === 'success') {
+      todosLosRegistros = result.data; 
+      datosCargados = true;
+      aplicarFiltros(); 
+      renderizarMisRegistros(); 
     } else {
-        // SWIPE LEFT (Hacia la izquierda <- )
-        if (isSidebarOpen) {
-            // Cerrar menú principal arrastrándolo a la izquierda
-            toggleMenu();
-        }
+      throw new Error(result.message || "Error al obtener datos");
     }
+  } catch (error) {
+    console.error("Error Dashboard:", error);
+    alert("No se pudieron cargar los datos del Dashboard. Verifica tu conexión a internet.");
+  } finally {
+    containerLoading.classList.add('hidden');
+    containerContent.classList.remove('hidden');
+  }
+}
+
+function aplicarFiltros() {
+  if (!datosCargados) return;
+
+  const filtroArea = document.getElementById('filtroArea').value;
+  const filtroTipo = document.getElementById('filtroTipo').value;
+
+  const registrosFiltrados = todosLosRegistros.filter(reg => {
+    const rArea = reg.area || reg.AREA;
+    const rTipo = reg.tipo || reg.TIPO;
+    
+    if (filtroArea !== 'TODAS' && rArea !== filtroArea) return false;
+    if (filtroTipo !== 'TODOS' && rTipo !== filtroTipo) return false;
+    
+    return true; 
+  });
+
+  registrosFiltradosActuales = registrosFiltrados; 
+  procesarDatosParaGraficos(registrosFiltrados);
+}
+
+function procesarDatosParaGraficos(registros) {
+  let totalPeso = 0;
+  let totalBolsas = 0;
+  let areasAgrupadas = {};
+  let tiposAgrupados = {};
+
+  registros.forEach(reg => {
+    const rPeso = Number(reg.peso || reg.PESO) || 0;
+    const rBolsas = Number(reg.bolsas || reg['BOLSAS USADAS'] || reg.BOLSAS_USADAS) || 0;
+    const rArea = reg.area || reg.AREA;
+    const rTipo = reg.tipo || reg.TIPO;
+    
+    totalPeso += rPeso;
+    totalBolsas += rBolsas;
+
+    if (areasAgrupadas[rArea]) areasAgrupadas[rArea] += rPeso;
+    else areasAgrupadas[rArea] = rPeso;
+
+    if (tiposAgrupados[rTipo]) tiposAgrupados[rTipo] += rPeso;
+    else tiposAgrupados[rTipo] = rPeso;
+  });
+
+  const areasKeys = Object.keys(areasAgrupadas).filter(k => areasAgrupadas[k] > 0).sort((a,b) => areasAgrupadas[b] - areasAgrupadas[a]);
+  const areasValues = areasKeys.map(k => areasAgrupadas[k].toFixed(2));
+  const areasLabelsMulti = areasKeys.map((k, i) => [k, `${areasValues[i]} kg`]);
+
+  const tiposKeys = Object.keys(tiposAgrupados).filter(k => tiposAgrupados[k] > 0);
+  const tiposValues = tiposKeys.map(k => tiposAgrupados[k].toFixed(2));
+  const tiposLabelsMulti = tiposKeys.map((k, i) => `${k}: ${tiposValues[i]} kg`);
+
+  document.getElementById('kpiPeso').textContent = totalPeso.toFixed(2) + ' kg';
+  document.getElementById('kpiBolsas').textContent = totalBolsas;
+  document.getElementById('kpiRegistros').textContent = registros.length;
+
+  dibujarGraficoAreas(areasLabelsMulti, areasValues);
+  dibujarGraficoTipos(tiposLabelsMulti, tiposValues);
+}
+
+Chart.defaults.font.family = 'sans-serif';
+
+function dibujarGraficoAreas(labels, data) {
+  const ctx = document.getElementById('chartArea').getContext('2d');
+  if (chartAreaInstancia) chartAreaInstancia.destroy();
+  
+  const isDark = document.documentElement.classList.contains('dark');
+  const textColor = isDark ? '#cbd5e1' : '#475569';
+
+  chartAreaInstancia = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Kg de Residuos',
+        data: data,
+        backgroundColor: 'rgba(34, 197, 94, 0.8)',
+        borderColor: 'rgb(22, 163, 74)',
+        borderWidth: 1,
+        borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { 
+        y: { beginAtZero: true, ticks: {color: textColor} },
+        x: { ticks: { font: { weight: '600' }, color: textColor } }
+      },
+      animation: false
+    }
+  });
+}
+
+function dibujarGraficoTipos(labels, data) {
+  const ctx = document.getElementById('chartTipo').getContext('2d');
+  if (chartTipoInstancia) chartTipoInstancia.destroy();
+  
+  const isDark = document.documentElement.classList.contains('dark');
+  const textColor = isDark ? '#cbd5e1' : '#475569';
+
+  const coloresTipos = labels.map(tipo => {
+    if(tipo.includes('Organico') || tipo.includes('ORGANICO')) return '#22c55e'; 
+    if(tipo.includes('Plastico') || tipo.includes('PLASTICO')) return '#3b82f6'; 
+    if(tipo.includes('Carton') || tipo.includes('CARTON')) return '#eab308'; 
+    return '#6b7280'; 
+  });
+
+  chartTipoInstancia = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: labels,
+      datasets: [{
+        data: data,
+        backgroundColor: coloresTipos,
+        borderWidth: isDark ? 0 : 2,
+        hoverOffset: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { color: textColor} } },
+      animation: false
+    }
+  });
+}
+
+// ==========================================
+// EXPORTAR E IMPRIMIR REPORTE
+// ==========================================
+document.getElementById('btnExportarExcel').addEventListener('click', () => {
+  if (registrosFiltradosActuales.length === 0) {
+    alert("No hay registros para exportar con los filtros actuales.");
+    return;
+  }
+
+  const datosExcel = registrosFiltradosActuales.map(reg => {
+    return {
+      'Fecha': formatearFechaEstandar(reg.fecha || reg.FECHA),
+      'Hora': formatearHora24(reg.hora || reg.HORA),
+      'Supervisor': reg.supervisor || reg.SUPERVISOR || '-',
+      'Área': reg.area || reg.AREA || '-',
+      'Tipo de Residuo': reg.tipo || reg.TIPO || '-',
+      'Peso (Kg)': reg.peso || reg.PESO || 0,
+      'Bolsas Utilizadas': reg.bolsas || reg['BOLSAS USADAS'] || reg.BOLSAS_USADAS || 0,
+      'Observaciones': obtenerObservaciones(reg) || '',
+      'Imagen (Link)': obtenerUrlImagen(reg) || 'Sin Imagen'
+    };
+  });
+
+  const worksheet = XLSX.utils.json_to_sheet(datosExcel);
+  const workbook = XLSX.utils.book_new();
+
+  worksheet['!cols'] = [
+    {wch: 12}, {wch: 10}, {wch: 30}, {wch: 20}, {wch: 20},
+    {wch: 12}, {wch: 15}, {wch: 40}, {wch: 50}
+  ];
+
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Residuos");
+  XLSX.writeFile(workbook, `Reporte_Residuos_${new Date().toISOString().split('T')[0]}.xlsx`);
+});
+
+document.getElementById('btnPrint').addEventListener('click', () => {
+  const selArea = document.getElementById('filtroArea');
+  const selTipo = document.getElementById('filtroTipo');
+
+  document.getElementById('printFInicio').textContent = document.getElementById('filtroFechaInicio').value;
+  document.getElementById('printFFin').textContent = document.getElementById('filtroFechaFin').value;
+  document.getElementById('printFArea').textContent = selArea.options[selArea.selectedIndex].text;
+  document.getElementById('printFTipo').textContent = selTipo.options[selTipo.selectedIndex].text;
+  
+  const nombreAutor = AppState.user ? (AppState.user.nombre || AppState.user.usuario) : "Supervisor";
+  document.getElementById('printFirmaNombre').textContent = nombreAutor;
+
+  window.print();
+});
+
+// ==========================================
+// LÓGICA DE LA VISTA: MIS REGISTROS (EDICIÓN)
+// ==========================================
+function renderizarMisRegistros() {
+  const tbody = document.getElementById('tablaMisRegistros');
+  const emptyState = document.getElementById('emptyRevisionState');
+  if (!tbody || !emptyState) return;
+  tbody.innerHTML = '';
+  
+  if(!AppState.user) return;
+
+  const misRegistros = todosLosRegistros.filter(r => {
+    const autorEmail = String(r.email || r.supervisor).trim().toLowerCase();
+    const sesionEmail = String(AppState.user.email || AppState.user.usuario).trim().toLowerCase();
+    const sesionNombre = String(AppState.user.nombre).trim().toLowerCase();
+    return autorEmail === sesionEmail || autorEmail === sesionNombre;
+  });
+  
+  if (misRegistros.length === 0) {
+    emptyState.classList.remove('hidden');
+    return;
+  }
+  
+  emptyState.classList.add('hidden');
+  misRegistros.sort((a, b) => Number(b.id) - Number(a.id));
+  
+  misRegistros.forEach(reg => {
+    let colorTipo = "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200";
+    const tipo = String(reg.tipo || reg.TIPO || '');
+    if(tipo.includes("Organico")) colorTipo = "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400";
+    else if(tipo.includes("Plastico")) colorTipo = "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400";
+    else if(tipo.includes("Carton")) colorTipo = "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400";
+    
+    const tr = document.createElement('tr');
+    tr.className = "hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors";
+    tr.innerHTML = `
+      <td class="px-4 py-3 whitespace-nowrap border-b dark:border-gray-700">
+        <div class="font-medium text-gray-900 dark:text-gray-100">${formatearFechaEstandar(reg.fecha || reg.FECHA)}</div>
+        <div class="text-xs text-gray-500 dark:text-gray-400">${formatearHora24(reg.hora || reg.HORA)}</div>
+      </td>
+      <td class="px-4 py-3 whitespace-nowrap border-b dark:border-gray-700">${reg.area || reg.AREA}</td>
+      <td class="px-4 py-3 whitespace-nowrap border-b dark:border-gray-700">
+        <span class="px-2 py-1 text-[10px] rounded-full font-medium ${colorTipo}">${tipo}</span>
+      </td>
+      <td class="px-4 py-3 whitespace-nowrap text-center font-medium border-b dark:border-gray-700">${reg.peso || reg.PESO}</td>
+      <td class="px-4 py-3 whitespace-nowrap text-center text-gray-500 border-b dark:border-gray-700">${reg.bolsas || reg.BOLSAS_USADAS || reg['BOLSAS USADAS'] || 0}</td>
+      <td class="px-4 py-3 whitespace-nowrap text-center border-b dark:border-gray-700">
+        <button onclick="abrirModalEdicion('${reg.id}')" class="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/40 p-2 rounded-full transition-colors" title="Editar">
+          <i class="ph ph-pencil-simple text-lg"></i>
+        </button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+window.abrirModalEdicion = function(id) {
+  if (!navigator.onLine) {
+    alert("Para editar registros necesitas conexión a internet.");
+    return;
+  }
+
+  const registro = todosLosRegistros.find(r => String(r.id) === String(id));
+  if (!registro) return;
+  
+  document.getElementById('editId').value = registro.id;
+  document.getElementById('editArea').value = registro.area || registro.AREA;
+  document.getElementById('editTipo').value = registro.tipo || registro.TIPO;
+  document.getElementById('editPeso').value = registro.peso || registro.PESO || 0;
+  document.getElementById('editBolsas').value = registro.bolsas || registro.BOLSAS_USADAS || registro['BOLSAS USADAS'] || 1;
+  document.getElementById('editObservaciones').value = obtenerObservaciones(registro);
+  
+  document.getElementById('modalEdicion').classList.remove('hidden');
+};
+
+window.cerrarModalEdicion = function() {
+  document.getElementById('modalEdicion').classList.add('hidden');
+};
+
+document.getElementById('formEdicionRegistro').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  
+  const btnGuardar = document.getElementById('btnGuardarEdicion');
+  const originalText = btnGuardar.innerHTML;
+  btnGuardar.disabled = true;
+  btnGuardar.innerHTML = '<i class="ph ph-spinner ph-spin text-xl"></i> Guardando...';
+  
+  const valEmail = AppState.user.email || AppState.user.usuario; // Fallback por si el hub no manda email
+  
+  const payload = {
+    action: 'editarRegistro',
+    id: document.getElementById('editId').value,
+    supervisorEmail: valEmail, 
+    area: document.getElementById('editArea').value,
+    tipo: document.getElementById('editTipo').value,
+    peso: parseFloat(document.getElementById('editPeso').value),
+    bolsas: parseInt(document.getElementById('editBolsas').value),
+    observaciones: document.getElementById('editObservaciones').value
+  };
+
+  try {
+    const response = await fetch(SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    });
+    
+    const result = await response.json();
+    
+    if (result.success || result.status === 'success') {
+      const index = todosLosRegistros.findIndex(r => String(r.id) === String(payload.id));
+      if (index !== -1) {
+        todosLosRegistros[index] = { ...todosLosRegistros[index], ...payload };
+      }
+      renderizarMisRegistros();
+      aplicarFiltros(); 
+      cerrarModalEdicion();
+    } else {
+      alert("Error: " + result.message);
+    }
+  } catch (error) {
+    console.error("Error actualizando registro:", error);
+    alert("Ocurrió un error de conexión al actualizar.");
+  } finally {
+    btnGuardar.disabled = false;
+    btnGuardar.innerHTML = originalText;
+  }
+});
+
+
+// ==========================================
+// FORMULARIO DE REGISTRO Y ENVÍO HÍBRIDO
+// ==========================================
+const imagenInput = document.getElementById('imagen');
+const fileNameDisplay = document.getElementById('fileNameDisplay');
+const imagePlaceholder = document.getElementById('imagePlaceholder');
+const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+const imagePreview = document.getElementById('imagePreview');
+const removeImageBtn = document.getElementById('removeImageBtn');
+
+let imageBase64 = '';
+let imageMimeType = '';
+let imageName = '';
+
+imagenInput.addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (file) {
+    fileNameDisplay.textContent = file.name;
+    imageName = file.name;
+    imageMimeType = file.type;
+    const reader = new FileReader();
+    reader.onload = function(readerEvent) {
+      const dataUrl = readerEvent.target.result;
+      imagePreview.src = dataUrl;
+      imagePlaceholder.classList.add('hidden');
+      imagePreviewContainer.classList.remove('hidden');
+      imagePreviewContainer.classList.add('flex');
+      imageBase64 = dataUrl.split(',')[1];
+    }
+    reader.readAsDataURL(file);
+  } else {
+    resetImageUI();
+  }
+});
+
+removeImageBtn.addEventListener('click', () => resetImageUI());
+
+function resetImageUI() {
+  imagenInput.value = '';
+  imagePreview.src = '';
+  imagePlaceholder.classList.remove('hidden');
+  imagePreviewContainer.classList.add('hidden');
+  imagePreviewContainer.classList.remove('flex');
+  imageBase64 = '';
+  imageMimeType = '';
+  imageName = '';
+  document.getElementById('observaciones').value = '';
+}
+
+const form = document.getElementById('residuosForm');
+const submitBtn = document.getElementById('submitBtn');
+const successMessage = document.getElementById('successMessage');
+const registrosContainer = document.getElementById('registrosContainer');
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  
+  if(!AppState.isSessionVerified) return alert("Sesión no validada por el Hub GenApps.");
+
+  const btnOriginalHtml = submitBtn.innerHTML;
+  submitBtn.disabled = true;
+  submitBtn.innerHTML = '<i class="ph ph-spinner ph-spin text-xl"></i> <span>Guardando...</span>';
+  
+  const timestampVal = document.getElementById('timestamp').value.trim();
+  const parts = timestampVal.split(' ');
+  const fechaVal = parts[0] || '';
+  const horaVal = parts[1] || '';
+  
+  const valEmail = AppState.user.email || AppState.user.usuario;
+
+  const formData = {
+    action: 'registrar',
+    supervisor: valEmail, 
+    area: document.getElementById('area').value,
+    tipo: document.getElementById('tipo').value,
+    peso: document.getElementById('peso').value,
+    bolsas: document.getElementById('bolsas').value,
+    fecha: fechaVal,
+    hora: horaVal,
+    observaciones: document.getElementById('observaciones').value,
+    imagenBase64: imageBase64,
+    imagenMimeType: imageMimeType,
+    imagenNombre: imageName
+  };
+
+  // 1. RUTA OFFLINE
+  if (!navigator.onLine) {
+    SyncManager.enqueue(formData);
+    agregarRegistroAUi(formData, true);
+    
+    successMessage.innerHTML = '<i class="ph-fill ph-cloud-slash text-xl mr-2 text-yellow-500"></i> Guardado en dispositivo (Offline)';
+    successMessage.classList.remove('opacity-0');
+    setTimeout(() => successMessage.classList.add('opacity-0'), 4000);
+    
+    document.getElementById('peso').value = '';
+    document.getElementById('bolsas').value = '1';
+    resetImageUI();
+    actualizarTimestamp();
+    
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = btnOriginalHtml;
+    return;
+  }
+
+  // 2. RUTA ONLINE
+  try {
+    const response = await fetch(SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(formData)
+    });
+    
+    const result = await response.json();
+    if (result.status !== 'success') {
+      throw new Error(result.message || "Error desconocido al guardar en servidor");
+    }
+
+    agregarRegistroAUi(formData, false);
+    successMessage.innerHTML = '<i class="ph-fill ph-check-circle text-xl mr-2 text-green-600"></i> ¡Guardado exitosamente!';
+    successMessage.classList.remove('opacity-0');
+    setTimeout(() => successMessage.classList.add('opacity-0'), 3000);
+    
+    document.getElementById('peso').value = '';
+    document.getElementById('bolsas').value = '1';
+    resetImageUI();
+    actualizarTimestamp();
+    datosCargados = false; // Invalidamos la caché
+    
+  } catch (error) {
+    console.error("Error al guardar:", error);
+    // 3. RUTA FALLBACK
+    SyncManager.enqueue(formData);
+    agregarRegistroAUi(formData, true);
+    
+    successMessage.innerHTML = '<i class="ph-fill ph-warning-circle text-xl mr-2 text-yellow-500"></i> Red inestable. Guardado local.';
+    successMessage.classList.remove('opacity-0');
+    setTimeout(() => successMessage.classList.add('opacity-0'), 4000);
+    
+    document.getElementById('peso').value = '';
+    document.getElementById('bolsas').value = '1';
+    resetImageUI();
+    actualizarTimestamp();
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = btnOriginalHtml;
+  }
+});
+
+function agregarRegistroAUi(data, isPending = false) {
+  if (registrosContainer.querySelector('.italic')) {
+    registrosContainer.innerHTML = '';
+  }
+  const colorTipo = data.tipo === 'Organico' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' :
+    data.tipo === 'Plastico' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300';
+  
+  const supervisorCorto = data.supervisor.split('@')[0];
+  const idTemporal = data._localId || Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
+  const fotoIcon = data.imagenBase64 ? '<i class="ph-fill ph-image text-green-500" title="Foto adjunta"></i>' : '';
+  const fechaMostrar = formatearFechaEstandar(data.fecha);
+  const horaMostrar = formatearHora24(data.hora);
+
+  const statusIcon = isPending 
+    ? `<span id="sync-tag-${idTemporal}"><i class="ph-fill ph-cloud-slash text-yellow-500 ml-1" title="Pendiente de red"></i></span>`
+    : `<span id="sync-tag-${idTemporal}"><i class="ph-fill ph-cloud-check text-green-500 ml-1" title="Sincronizado"></i></span>`;
+
+  const html = `
+      <div class="p-4 rounded-lg border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors fade-in">
+          <div class="flex justify-between items-start mb-2">
+              <span class="text-xs font-mono text-gray-500 dark:text-gray-400">#${idTemporal.substring(idTemporal.length - 6)} ${fotoIcon} ${statusIcon}</span>
+              <span class="text-xs px-2 py-1 rounded-full font-medium ${colorTipo}">${data.tipo}</span>
+          </div>
+          <p class="font-medium text-gray-900 dark:text-gray-100">${data.area}</p>
+          <div class="mt-2 text-sm text-gray-600 dark:text-gray-400 flex justify-between">
+              <span>${data.peso} kg</span>
+              <span>${data.bolsas} bolsa(s)</span>
+          </div>
+          <div class="mt-2 text-xs text-gray-500 flex justify-between items-center border-t border-gray-200 dark:border-gray-700 pt-2">
+              <span class="truncate max-w-[120px]" title="${data.supervisor}">${supervisorCorto}</span>
+              <span>${fechaMostrar} ${horaMostrar}</span>
+          </div>
+      </div>
+  `;
+  registrosContainer.insertAdjacentHTML('afterbegin', html);
 }
