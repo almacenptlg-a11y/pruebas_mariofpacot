@@ -770,11 +770,15 @@ form.addEventListener('submit', async (e) => {
   
   if(!AppState.isSessionVerified) return alert("Sesión no validada por el Hub GenApps.");
 
-  // 1. Recolectamos la data del DOM al instante
+  const btnOriginalHtml = submitBtn.innerHTML;
+  submitBtn.disabled = true;
+  submitBtn.innerHTML = '<i class="ph ph-spinner ph-spin text-xl"></i> <span>Guardando...</span>';
+  
   const timestampVal = document.getElementById('timestamp').value.trim();
   const parts = timestampVal.split(' ');
   const fechaVal = parts[0] || '';
   const horaVal = parts[1] || '';
+  
   const valEmail = AppState.user.email || AppState.user.usuario;
 
   const formData = {
@@ -792,22 +796,29 @@ form.addEventListener('submit', async (e) => {
     imagenNombre: imageName
   };
 
-  // 2. UI OPTIMISTA: Encolamos y procesamos en el cliente (0 latencia)
+  // 1. UI OPTIMISTA: Encolamos y procesamos en el cliente al instante (LATENCIA 0)
   SyncManager.enqueue(formData);
-  agregarRegistroAUi(formData, true); // true = Estado pendiente (nubecita amarilla)
+  agregarRegistroAUi(formData, true); 
   
-  // 3. Feedback visual y limpieza en milisegundos
+  // 2. Feedback visual persistente (4 segundos)
   successMessage.innerHTML = '<i class="ph-fill ph-check-circle text-xl mr-2 text-green-600 dark:text-green-400"></i> ¡Registro capturado!';
   successMessage.classList.remove('opacity-0');
-  setTimeout(() => successMessage.classList.add('opacity-0'), 2500);
   
+  // Limpiamos timeouts previos por si el usuario presiona "Guardar" varias veces seguidas
+  if (window.successTimeout) clearTimeout(window.successTimeout);
+  window.successTimeout = setTimeout(() => successMessage.classList.add('opacity-0'), 4000);
+  
+  // 3. Limpiamos y preparamos para el siguiente registro instantáneamente
   document.getElementById('peso').value = '';
   document.getElementById('bolsas').value = '1';
   resetImageUI();
   actualizarTimestamp();
   
-  // 4. Disparamos la sincronización en background (Fire and Forget)
-  // El usuario puede seguir trabajando inmediatamente
+  // HABILITAMOS EL BOTÓN DE INMEDIATO
+  submitBtn.disabled = false;
+  submitBtn.innerHTML = btnOriginalHtml;
+
+  // 4. Disparamos la sincronización silenciosa (Fire and Forget)
   SyncManager.sync();
 });
 
