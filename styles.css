@@ -1,87 +1,257 @@
-/* ==========================================================================
-   0. CONFIGURACIÓN BASE MÓVIL (NUEVO)
-   ========================================================================== */
-body {
-    overscroll-behavior-y: none; /* Previene Pull-to-Refresh en Android/iOS */
-}
-
-/* ==========================================================================
-   1. CUSTOM SCROLLBAR (MENÚ LATERAL)
-   ========================================================================== */
-
-/* Para navegadores basados en Webkit (Chrome, Safari, Edge) */
-#appMenu::-webkit-scrollbar {
-    width: 4px;
-}
-#appMenu::-webkit-scrollbar-track {
-    background: transparent;
-}
-#appMenu::-webkit-scrollbar-thumb {
-    background-color: rgba(200, 200, 200, 0.5);
-    border-radius: 20px;
-}
-#appMenu:hover::-webkit-scrollbar-thumb {
-    background-color: rgba(150, 150, 150, 0.8);
-}
-
-.dark #appMenu::-webkit-scrollbar-thumb {
-    background-color: rgba(80, 80, 80, 0.5);
-}
-.dark #appMenu:hover::-webkit-scrollbar-thumb {
-    background-color: rgba(120, 120, 120, 0.8);
-}
-
-/* Soporte oficial W3C (Firefox) */
-#appMenu {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(200, 200, 200, 0.5) transparent;
-}
-
-
-/* ==========================================================================
-   2. REGLAS ARQUITECTÓNICAS DE IMPRESIÓN (REPORTES HACCP)
-   ========================================================================== */
-
-@media print {
-    /* 2.1 Ocultar absolutamente todos los controles del Hub */
-    aside, 
-    header, 
-    #sidebarOverlay, 
-    #home-dashboard, 
-    #credentialsModal {
-        display: none !important;
+/* ========================================== */
+    /* ESTILOS GLOBALES Y ANIMACIONES             */
+    /* ========================================== */
+    .fade-in {
+      animation: fadeIn 0.4s ease-in-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-5px); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
-    /* 2.2 Resetear el body para no gastar tinta gris ni dejar márgenes */
-    body {
-        background: white !important;
-        margin: 0 !important;
+    /* CUSTOM SCROLLBAR (Mejora UX para la nueva tabla y modal) */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f8fafc; 
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1; 
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8; 
+    }
+
+    /* ========================================== */
+    /* ESTILOS DE IMPRESIÓN (PLANTILLA HACCP)     */
+    /* ========================================== */
+    @media print {
+      body {
+        background-color: white !important;
+        margin: 0;
+        padding: 0;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        font-family: 'Roboto', sans-serif !important;
+        color: #333 !important;
+      }
+      #appContainer {
+        max-width: 100% !important;
         padding: 0 !important;
-    }
-
-    /* 2.3 Permitir paginación dinámica (Evitar 100vh para no cortar páginas) */
-    main, 
-    #iframe-container {
-        position: relative !important;
-        display: block !important;
+        margin: 0 !important;
         width: 100% !important;
-        height: auto !important; /* Deja que el contenido decida cuántas páginas son */
-        background: white !important;
-        margin: 0 !important;
-        padding: 0 !important;
-    }
+      }
+      .print\:hidden {
+        display: none !important;
+      }
+      .print\:block {
+        display: block !important;
+      }
+      
+      /* Limpiar bordes redondeados y sombras para impresión tipo documento formal */
+      .shadow-sm, .shadow-lg { box-shadow: none !important; }
+      .rounded-xl, .rounded-lg, .rounded-full, .rounded-md { border-radius: 0 !important; }
+      .bg-white { background-color: transparent !important; }
+      
+      /* --- ESTILOS EXTRAÍDOS DE LA PLANTILLA DEL PDF --- */
+      .haccp-print-container {
+        display: block !important;
+        width: 100%;
+      }
+      .header-flex-container {
+        display: flex;
+        align-items: stretch;
+        justify-content: space-between;
+        margin-bottom: 2px;
+        padding-bottom: 2px;
+        padding-top: 5px;
+        border-top: 2px solid #e0e0e0;
+        border-bottom: 2px solid #e0e0e0;
+      }
+      .header-flex-container .logo {
+        align-items: center;
+        width: 120px;
+        height: auto;
+        margin-right: 10px;
+        flex-shrink: 0;
+        object-fit: contain;
+      }
+      .header-text-wrapper {
+        display: flex;
+        flex-direction: column;
+        flex-grow: 1;
+      }
+      .header-title {
+        flex-grow: 1;
+        text-align: center;
+        font-size: 1.1em;
+        font-weight: 700;
+        color: #2c3e50;
+        line-height: 1.2;
+        padding-bottom: 4px;
+        margin-bottom: 1px;
+        border-bottom: 1px dashed #ccc;
+      }
+      .template-details {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.75em;
+        margin-bottom: 0px;
+        padding: 2px 0;
+        border-bottom: 1px dashed #ccc;
+      }
+      .template-details:last-of-type {
+        border-bottom: none;
+        margin-bottom: 0;
+      }
+      .template-details div { flex: 1; text-align: center; }
+      .template-details div:first-child { text-align: left; }
+      .template-details div:last-child { text-align: right; }
 
-    /* 2.4 El Iframe toma control total de la hoja de papel */
-    #appViewer {
+      .section-info {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 15px;
+        margin-bottom: 15px;
+        font-size: 0.9em;
+        font-weight: 400;
+        color: #555;
+      }
+      .section-info div {
+        padding: 5px 10px;
+        background-color: #f0f0f0 !important;
+        border-radius: 5px;
+        flex-grow: 1;
+        margin: 0 10px;
+        text-align: left;
+      }
+      .section-info div:first-child { margin-left: 0; }
+      .section-info div:last-child { margin-right: 0; }
+
+      .bottom-sections-wrapper {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-top: 20px;
+        margin-bottom: 30px;
+        break-inside: avoid;
+        page-break-before: auto;
+      }
+      .notes-section {
+        color: #666;
+        font-size: 0.80em;
+        flex: 3;
+        margin-right: 30px;
+        margin-top: 0;
+        margin-bottom: 0;
+      }
+      .signature-section {
+        flex: 1;
+        margin-top: 0;
+        margin-bottom: 0;
+        display: flex;
+        justify-content: flex-end;
+      }
+      .notes-section ul { list-style: none; padding: 0; margin: 0; }
+      .notes-section li { margin-bottom: 4px; }
+      .notes-box {
+        width: auto;
+        border: 1px solid #ccc;
+        padding: 15px;
+        text-align: left;
+        border-radius: 5px;
+        background-color: #fafafa !important;
+      }
+      .notes-box table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 5px;
+        margin-bottom: 10px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+      }
+      .notes-box th, .notes-box td {
+        border: 1px solid #ddd;
+        padding: 4px 5px;
+        text-align: left;
+        font-size: 0.95em;
+      }
+      .notes-box th {
+        font-weight: 400;
+        text-transform: uppercase;
+      }
+      
+      .signature-box {
+        width: 100%;
+        border: 1px solid #ccc;
+        padding: 15px;
+        text-align: center;
+        border-radius: 5px;
+        background-color: #fafafa !important;
+      }
+      .signature-box .signature-area {
+        border-bottom: 1px dashed #999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 60px;
+        margin-bottom: 8px;
+      }
+      .signature-box .label {
+        font-weight: 600;
+        color: #555;
+        text-transform: uppercase;
+        font-size: 0.85em;
+      }
+
+      /* FORZAR LA CUADRÍCULA DE KPIs Y GRÁFICOS */
+      #printKpiGrid {
+        display: flex !important;
+        flex-direction: row !important;
+        justify-content: space-between !important;
+        width: 100% !important;
+        gap: 1rem !important;
+        margin-bottom: 1.5rem !important;
+        page-break-inside: avoid !important;
+      }
+      #printKpiGrid > div {
+        flex: 1 !important;
+        border: 0px solid #ccc !important;
+        padding: 1px !important;
+      }
+      
+      #printChartGrid {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important; 
+        justify-content: space-between !important;
+        width: 100% !important;
+        gap: 1rem !important;
+        page-break-inside: avoid !important;
+      }
+      #printChartGrid > div {
+        flex: 1 1 48% !important; 
+        width: 48% !important;
+        border: 0px solid #ccc !important;
+        padding: 0 !important;
+      }
+      
+      #printChartGrid .relative {
+        height: 220px !important;
+        width: 100% !important;
+      }
+      #printChartGrid canvas {
+        max-width: 100% !important;
+        max-height: 100% !important;
         width: 100% !important;
         height: 100% !important;
-        min-height: 100vh !important; /* Asegura al menos 1 página */
-        border: none !important;
+      }
+      
+      @page {
+        size: auto;
+        margin: 0.0cm 1.0cm;
+      }
     }
-
-    /* 2.5 Forzar a la impresora a respetar colores de fondo y gráficos (Ej. Semáforos HACCP) */
-    * {
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-    }
-}
