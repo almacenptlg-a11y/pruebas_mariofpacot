@@ -105,7 +105,7 @@ function mostrarAplicacion() {
 }
 
 // ==========================================
-// MOTOR OFFLINE-FIRST (SYNC QUEUE MANAGER)
+// MOTOR DUAL OFFLINE-FIRST & REFRESH MANAGER
 // ==========================================
 const SyncManager = {
   queueKey: 'genovesa_sync_queue_res',
@@ -139,28 +139,30 @@ const SyncManager = {
     this.saveQueue(queue);
   },
   
-  async sync() {
+  // forcePull = true le indica al motor que debe descargar datos, aunque no haya cola que subir
+  async sync(forcePull = false) {
     if (!navigator.onLine || this.isSyncing) return;
     
     const queue = this.getQueue();
-    if (queue.length === 0) {
+    
+    // Si no hay nada que subir (Push) y no pidieron descargar (Pull), abortamos
+    if (queue.length === 0 && !forcePull) {
        this.updateBadge();
        return;
     }
 
     this.isSyncing = true; 
     
-    // UI: Modificar Notificación Flotante
+    // UI: Configurar la alerta flotante y el botón superior
     const badge = document.getElementById('syncStatusBadge');
     const badgeText = document.getElementById('syncStatusText');
     const badgeIcon = document.getElementById('syncStatusIcon');
-    badge.classList.remove('hidden');
-    badgeIcon.className = 'ph-fill ph-arrows-clockwise text-blue-400 animate-spin text-xl';
-    badgeText.textContent = `Sincronizando ${queue.length} registro(s)...`;
-
-    // UI: Modificar Botón Manual Superior
     const btnForce = document.getElementById('btnForceSync');
     const iconForce = document.getElementById('iconForceSync');
+    
+    badge.classList.remove('hidden');
+    badgeIcon.className = 'ph-fill ph-arrows-clockwise text-blue-400 animate-spin text-xl';
+    
     if (btnForce) {
         btnForce.disabled = true;
         iconForce.classList.add('animate-spin');
@@ -168,40 +170,56 @@ const SyncManager = {
 
     let hasErrors = false;
 
-    for (const record of queue) {
-      try {
-        const payload = { ...record };
-        delete payload._localId; 
-        
-        const response = await fetch(SCRIPT_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify(payload)
-        });
-        
-        const res = await response.json();
-        if (res.status === 'success') {
-          this.remove(record._localId);
-          const localTag = document.getElementById(`sync-tag-${record._localId}`);
-          if (localTag) localTag.innerHTML = '<i class="ph-fill ph-cloud-check text-green-500" title="Sincronizado"></i>';
-        } else {
-          hasErrors = true;
+    // FASE 1: PUSH (Subir datos a la cola si existen)
+    if (queue.length > 0) {
+        badgeText.textContent = `Subiendo ${queue.length} registro(s)...`;
+        for (const record of queue) {
+          try {
+            const payload = { ...record };
+            delete payload._localId; 
+            
+            const response = await fetch(SCRIPT_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+              body: JSON.stringify(payload)
+            });
+            
+            const res = await response.json();
+            if (res.status === 'success') {
+              this.remove(record._localId);
+              const localTag = document.getElementById(`sync-tag-${record._localId}`);
+              if (localTag) localTag.innerHTML = '<i class="ph-fill ph-cloud-check text-green-500" title="Sincronizado"></i>';
+            } else {
+              hasErrors = true;
+            }
+          } catch (e) {
+            hasErrors = true;
+            break; // Salimos del bucle si cae la red
+          }
         }
-      } catch (e) {
-        hasErrors = true;
-        break; 
-      }
     }
 
+    // FASE 2: PULL (Refrescar datos del Dashboard para ver los de otros usuarios)
+    if (!hasErrors && (forcePull || queue.length > 0)) {
+        badgeText.textContent = 'Actualizando panel...';
+        try {
+            datosCargados = false; // Destruimos bandera local
+            isFetchingDashboard = false; // Liberamos el cerrojo de red
+            await cargarDatosDashboard(); // Esta función repintará las vistas automáticamente
+        } catch (e) {
+            hasErrors = true;
+        }
+    }
+
+    // Restaurar UI
     badgeIcon.classList.remove('animate-spin');
     if (iconForce) iconForce.classList.remove('animate-spin');
     if (btnForce) btnForce.disabled = false;
     
     if (!hasErrors && this.getQueue().length === 0) {
       badgeIcon.className = 'ph-fill ph-check-circle text-green-400 text-xl';
-      badgeText.textContent = '¡Sincronización completada!';
+      badgeText.textContent = '¡Datos actualizados!';
       setTimeout(() => badge.classList.add('hidden'), 3500);
-      datosCargados = false; 
     } else {
       badgeIcon.className = 'ph-fill ph-warning-circle text-yellow-400 text-xl';
       badgeText.textContent = 'Red inestable. Reintentaremos luego.';
@@ -209,7 +227,7 @@ const SyncManager = {
     }
     
     this.isSyncing = false;
-    this.updateBadge(); // Forzar actualización de la UI del botón
+    this.updateBadge(); // Repinta el botón al estado correcto (Gris o Naranja)
   },
   
   updateBadge() {
@@ -220,26 +238,33 @@ const SyncManager = {
     
     const btnForce = document.getElementById('btnForceSync');
     const countForce = document.getElementById('countForceSync');
+    const txtForce = document.getElementById('txtForceSync');
     
     if (queue.length > 0) {
-      // Estado Pendiente
-      badge.classList.remove('hidden');
-      badgeIcon.className = 'ph-fill ph-cloud-slash text-yellow-400 text-xl';
-      badgeText.textContent = `${queue.length} registro(s) pendiente(s)`;
+      // ESTADO: PENDIENTE (Hay cola, el botón se pone Naranja/Alerta)
+      if (!this.isSyncing) {
+          badge.classList.remove('hidden');
+          badgeIcon.className = 'ph-fill ph-cloud-slash text-yellow-400 text-xl';
+          badgeText.textContent = `${queue.length} registro(s) pendiente(s)`;
+      }
       
       if (btnForce) {
-          btnForce.classList.remove('hidden');
-          btnForce.classList.add('flex');
-          if(countForce) countForce.textContent = queue.length;
+          btnForce.className = 'flex bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-700/50 px-3 py-1.5 rounded-lg items-center gap-2 text-sm font-medium transition-all shadow-sm hover:bg-amber-100 dark:hover:bg-amber-900/50';
+          if (txtForce) txtForce.textContent = "Sincronizar";
+          if (countForce) {
+              countForce.classList.remove('hidden');
+              countForce.textContent = queue.length;
+          }
       }
     } else {
-      // Estado Limpio
-      if (!badgeIcon.classList.contains('animate-spin') && !badgeText.textContent.includes('completada')) {
+      // ESTADO: LIMPIO (Botón Gris/Azulado para refresco normal)
+      if (!badgeIcon.classList.contains('animate-spin') && !badgeText.textContent.includes('actualizados')) {
            badge.classList.add('hidden');
       }
       if (btnForce && !this.isSyncing) {
-          btnForce.classList.add('hidden');
-          btnForce.classList.remove('flex');
+          btnForce.className = 'flex bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 px-3 py-1.5 rounded-lg items-center gap-2 text-sm font-medium transition-all shadow-sm hover:bg-gray-100 dark:hover:bg-gray-700/80';
+          if (txtForce) txtForce.textContent = "Actualizar";
+          if (countForce) countForce.classList.add('hidden');
       }
     }
   }
@@ -248,23 +273,21 @@ const SyncManager = {
 // ==========================================
 // TRIGGERS DE SINCRONIZACIÓN (BLINDAJE TRIPLE)
 // ==========================================
-// 1. Eventos nativos del navegador (A veces fallan)
-window.addEventListener('online', () => SyncManager.sync());
+window.addEventListener('online', () => SyncManager.sync(false));
 window.addEventListener('offline', () => SyncManager.updateBadge());
 
-// 2. Evento Manual del usuario (Nuevo Botón)
+// Al hacer clic, pasamos "true" para forzar el Pull de datos frescos
 document.addEventListener('DOMContentLoaded', () => {
     const btnForce = document.getElementById('btnForceSync');
     if(btnForce) {
-        btnForce.addEventListener('click', () => SyncManager.sync());
+        btnForce.addEventListener('click', () => SyncManager.sync(true));
     }
 });
 
-// 3. Heartbeat Polling (El seguro definitivo)
-// Cada 20 segundos comprueba en silencio: Si hay internet y hay cola, dispara el sync.
+// El polling automático NUNCA fuerza un Pull (para ahorrar datos), solo sube (Push) lo pendiente.
 setInterval(() => {
     if (navigator.onLine && SyncManager.getQueue().length > 0 && !SyncManager.isSyncing) {
-        SyncManager.sync();
+        SyncManager.sync(false);
     }
 }, 20000);
 
