@@ -405,8 +405,6 @@ tabs.dashboard.btn.addEventListener('click', () => {
   cambiarVista('dashboard');
   if (!datosCargados) cargarDatosDashboard();
 });
-
-
 // ==========================================
 // LOGICA DEL DASHBOARD Y OBTENCIÓN DE DATOS
 // ==========================================
@@ -432,22 +430,41 @@ async function cargarDatosDashboard(event) {
   if (yearInicio < 2000 || yearInicio > 2100) return; 
   if (yearFin < 2000 || yearFin > 2100) return; 
 
-  const containerLoading = document.getElementById('dashboardLoading');
-  const containerContent = document.getElementById('dashboardContent');
+  const containerLoadingDash = document.getElementById('dashboardLoading');
+  const containerContentDash = document.getElementById('dashboardContent');
+  
+  const containerLoadingRev = document.getElementById('revisionLoading');
+  const containerContentRev = document.getElementById('revisionContent');
+  const emptyStateRev = document.getElementById('emptyRevisionState');
 
-  containerContent.classList.add('hidden');
-  containerLoading.classList.remove('hidden');
+  // Detectar desde qué vista se está invocando la carga
+  const isRevActive = !document.getElementById('vistaRevision').classList.contains('hidden');
+
+  // Activar Skeletons según la vista
+  if (isRevActive) {
+      if (containerContentRev) containerContentRev.classList.add('hidden');
+      if (emptyStateRev) emptyStateRev.classList.add('hidden');
+      if (containerLoadingRev) containerLoadingRev.classList.remove('hidden');
+  } else {
+      if (containerContentDash) containerContentDash.classList.add('hidden');
+      if (containerLoadingDash) containerLoadingDash.classList.remove('hidden');
+  }
 
   try {
-    const response = await fetch(SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ 
-        action: 'getDatos',
-        fechaInicio: fInicioStr, 
-        fechaFin: fFinStr        
-      })
-    });
+    // MAGIA UX: Promise.all obliga a que la animación de carga dure AL MENOS 600ms, 
+    // evitando el "parpadeo/flicker" si la caché del backend responde de inmediato.
+    const [response] = await Promise.all([
+      fetch(SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ 
+          action: 'getDatos',
+          fechaInicio: fInicioStr, 
+          fechaFin: fFinStr        
+        })
+      }),
+      new Promise(resolve => setTimeout(resolve, 600))
+    ]);
     
     const result = await response.json();
     if (result.status === 'success') {
@@ -460,12 +477,20 @@ async function cargarDatosDashboard(event) {
     }
   } catch (error) {
     console.error("Error Dashboard:", error);
-    alert("No se pudieron cargar los datos del Dashboard. Verifica tu conexión a internet.");
+    alert("No se pudieron cargar los datos. Verifica tu conexión a internet.");
   } finally {
-    containerLoading.classList.add('hidden');
-    containerContent.classList.remove('hidden');
+    // Apagar Skeletons según la vista
+    if (isRevActive) {
+        if (containerLoadingRev) containerLoadingRev.classList.add('hidden');
+        // La activación del content la maneja ahora renderizarMisRegistros()
+    } else {
+        if (containerLoadingDash) containerLoadingDash.classList.add('hidden');
+        if (containerContentDash) containerContentDash.classList.remove('hidden');
+    }
   }
 }
+
+
 
 function aplicarFiltros() {
   if (!datosCargados) return;
@@ -650,6 +675,8 @@ document.getElementById('btnPrint').addEventListener('click', () => {
 function renderizarMisRegistros() {
   const tbody = document.getElementById('tablaMisRegistros');
   const emptyState = document.getElementById('emptyRevisionState');
+  const revContent = document.getElementById('revisionContent'); // NUEVO
+  
   if (!tbody || !emptyState) return;
   tbody.innerHTML = '';
   
@@ -664,12 +691,16 @@ function renderizarMisRegistros() {
   
   if (misRegistros.length === 0) {
     emptyState.classList.remove('hidden');
+    if (revContent) revContent.classList.add('hidden'); // Ocultar tabla si no hay nada
     return;
   }
   
   emptyState.classList.add('hidden');
+  if (revContent) revContent.classList.remove('hidden'); // Mostrar tabla si hay datos
+  
   misRegistros.sort((a, b) => Number(b.id) - Number(a.id));
   
+  // (El resto del forEach() se mantiene exactamente igual...)
   misRegistros.forEach(reg => {
     let colorTipo = "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200";
     const tipo = String(reg.tipo || reg.TIPO || '');
