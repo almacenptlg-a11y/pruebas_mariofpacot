@@ -100,7 +100,7 @@ function mostrarAplicacion() {
 // ==========================================
 const SyncManager = {
   queueKey: 'genovesa_sync_queue_res',
-  isSyncing: false, // NUEVO: Seguro anti-concurrencia en background
+  isSyncing: false,
   
   getQueue() {
     return JSON.parse(localStorage.getItem(this.queueKey)) || [];
@@ -131,7 +131,6 @@ const SyncManager = {
   },
   
   async sync() {
-    // Si no hay red o si YA está sincronizando, abortar para evitar bucles paralelos
     if (!navigator.onLine || this.isSyncing) return;
     
     const queue = this.getQueue();
@@ -140,18 +139,26 @@ const SyncManager = {
        return;
     }
 
-    this.isSyncing = true; // Bloqueamos nuevas llamadas simultáneas
+    this.isSyncing = true; 
+    
+    // UI: Modificar Notificación Flotante
     const badge = document.getElementById('syncStatusBadge');
     const badgeText = document.getElementById('syncStatusText');
     const badgeIcon = document.getElementById('syncStatusIcon');
-
     badge.classList.remove('hidden');
     badgeIcon.className = 'ph-fill ph-arrows-clockwise text-blue-400 animate-spin text-xl';
     badgeText.textContent = `Sincronizando ${queue.length} registro(s)...`;
 
+    // UI: Modificar Botón Manual Superior
+    const btnForce = document.getElementById('btnForceSync');
+    const iconForce = document.getElementById('iconForceSync');
+    if (btnForce) {
+        btnForce.disabled = true;
+        iconForce.classList.add('animate-spin');
+    }
+
     let hasErrors = false;
 
-    // Sincronización en cascada (secuencial)
     for (const record of queue) {
       try {
         const payload = { ...record };
@@ -166,7 +173,6 @@ const SyncManager = {
         const res = await response.json();
         if (res.status === 'success') {
           this.remove(record._localId);
-          // Actualizamos visualmente el registro a "OK" en la vista
           const localTag = document.getElementById(`sync-tag-${record._localId}`);
           if (localTag) localTag.innerHTML = '<i class="ph-fill ph-cloud-check text-green-500" title="Sincronizado"></i>';
         } else {
@@ -174,24 +180,27 @@ const SyncManager = {
         }
       } catch (e) {
         hasErrors = true;
-        break; // Detenemos si la red se vuelve a caer en medio del proceso
+        break; 
       }
     }
 
     badgeIcon.classList.remove('animate-spin');
+    if (iconForce) iconForce.classList.remove('animate-spin');
+    if (btnForce) btnForce.disabled = false;
     
     if (!hasErrors && this.getQueue().length === 0) {
       badgeIcon.className = 'ph-fill ph-check-circle text-green-400 text-xl';
       badgeText.textContent = '¡Sincronización completada!';
       setTimeout(() => badge.classList.add('hidden'), 3500);
-      datosCargados = false; // Invalidamos caché del dashboard
+      datosCargados = false; 
     } else {
       badgeIcon.className = 'ph-fill ph-warning-circle text-yellow-400 text-xl';
       badgeText.textContent = 'Red inestable. Reintentaremos luego.';
       setTimeout(() => this.updateBadge(), 4000);
     }
     
-    this.isSyncing = false; // Liberamos el seguro
+    this.isSyncing = false;
+    this.updateBadge(); // Forzar actualización de la UI del botón
   },
   
   updateBadge() {
@@ -200,20 +209,55 @@ const SyncManager = {
     const badgeText = document.getElementById('syncStatusText');
     const badgeIcon = document.getElementById('syncStatusIcon');
     
+    const btnForce = document.getElementById('btnForceSync');
+    const countForce = document.getElementById('countForceSync');
+    
     if (queue.length > 0) {
+      // Estado Pendiente
       badge.classList.remove('hidden');
       badgeIcon.className = 'ph-fill ph-cloud-slash text-yellow-400 text-xl';
       badgeText.textContent = `${queue.length} registro(s) pendiente(s)`;
+      
+      if (btnForce) {
+          btnForce.classList.remove('hidden');
+          btnForce.classList.add('flex');
+          if(countForce) countForce.textContent = queue.length;
+      }
     } else {
+      // Estado Limpio
       if (!badgeIcon.classList.contains('animate-spin') && !badgeText.textContent.includes('completada')) {
            badge.classList.add('hidden');
+      }
+      if (btnForce && !this.isSyncing) {
+          btnForce.classList.add('hidden');
+          btnForce.classList.remove('flex');
       }
     }
   }
 };
 
+// ==========================================
+// TRIGGERS DE SINCRONIZACIÓN (BLINDAJE TRIPLE)
+// ==========================================
+// 1. Eventos nativos del navegador (A veces fallan)
 window.addEventListener('online', () => SyncManager.sync());
 window.addEventListener('offline', () => SyncManager.updateBadge());
+
+// 2. Evento Manual del usuario (Nuevo Botón)
+document.addEventListener('DOMContentLoaded', () => {
+    const btnForce = document.getElementById('btnForceSync');
+    if(btnForce) {
+        btnForce.addEventListener('click', () => SyncManager.sync());
+    }
+});
+
+// 3. Heartbeat Polling (El seguro definitivo)
+// Cada 20 segundos comprueba en silencio: Si hay internet y hay cola, dispara el sync.
+setInterval(() => {
+    if (navigator.onLine && SyncManager.getQueue().length > 0 && !SyncManager.isSyncing) {
+        SyncManager.sync();
+    }
+}, 20000);
 
 // ==========================================
 // UTILIDADES DE EXTRACCIÓN Y FORMATO 
