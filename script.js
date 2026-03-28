@@ -161,7 +161,7 @@ const SyncManager = {
     const iconForce = document.getElementById('iconForceSync');
     
     badge.classList.remove('hidden');
-    badgeIcon.className = 'ph-fill ph-arrows-clockwise text-blue-400 animate-spin text-xl';
+    badgeIcon.className = 'ph-fill ph-arrows-clockwise text-blue-400 animate-spin inline-block text-xl';
     
     if (btnForce) {
         btnForce.disabled = true;
@@ -809,7 +809,7 @@ document.getElementById('formEdicionRegistro').addEventListener('submit', async 
   const btnGuardar = document.getElementById('btnGuardarEdicion');
   const originalText = btnGuardar.innerHTML;
   btnGuardar.disabled = true;
-  btnGuardar.innerHTML = '<i class="ph ph-spinner ph-spin text-xl"></i> Guardando...';
+ btnGuardar.innerHTML = '<i class="ph ph-spinner animate-spin inline-block text-xl"></i> Guardando...';
   
   const valEmail = AppState.user.email || AppState.user.usuario; // Fallback por si el hub no manda email
   
@@ -915,7 +915,7 @@ form.addEventListener('submit', async (e) => {
 
   const btnOriginalHtml = submitBtn.innerHTML;
   submitBtn.disabled = true;
-  submitBtn.innerHTML = '<i class="ph ph-spinner ph-spin text-xl"></i> <span>Guardando...</span>';
+  submitBtn.innerHTML = '<i class="ph ph-spinner animate-spin inline-block text-xl"></i> <span>Guardando...</span>';
   
   // 1. Extraemos y formateamos la Fecha (De YYYY-MM-DD a DD/MM/YYYY para el Backend)
   const rawFecha = document.getElementById('fechaRegistro').value;
