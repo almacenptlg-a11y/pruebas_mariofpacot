@@ -204,44 +204,14 @@
     </div>
 
     <div id="vistaDashboard" class="hidden space-y-6 fade-in">
-      <div id="dashboardLoading" class="hidden space-y-6 print:hidden w-full fade-in">
-        <div class="flex justify-between items-center mb-2 animate-pulse">
-          <div class="h-8 bg-gray-200 dark:bg-gray-700 rounded w-48"></div>
-          <div class="flex gap-2">
-            <div class="h-10 bg-gray-200 dark:bg-gray-700 rounded-lg w-32"></div>
-            <div class="h-10 bg-gray-200 dark:bg-gray-700 rounded-lg w-40"></div>
-          </div>
+ <div id="dashboardLoading" class="hidden flex-col items-center justify-center py-24 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 w-full fade-in print:hidden">
+        <div class="relative flex items-center justify-center mb-4">
+          <div class="absolute inset-0 rounded-full border-4 border-gray-100 dark:border-gray-700"></div>
+          <div class="w-16 h-16 rounded-full border-4 border-green-600 dark:border-green-400 border-t-transparent animate-spin"></div>
+          <i class="ph-fill ph-chart-bar text-xl text-green-600 dark:text-green-400 absolute"></i>
         </div>
-        <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 grid grid-cols-1 md:grid-cols-4 gap-4 items-end animate-pulse">
-          <div class="space-y-2"><div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div><div class="h-10 bg-gray-100 dark:bg-gray-700 rounded-lg w-full"></div></div>
-          <div class="space-y-2"><div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div><div class="h-10 bg-gray-100 dark:bg-gray-700 rounded-lg w-full"></div></div>
-          <div class="space-y-2"><div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div><div class="h-10 bg-gray-100 dark:bg-gray-700 rounded-lg w-full"></div></div>
-          <div class="space-y-2"><div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div><div class="h-10 bg-gray-100 dark:bg-gray-700 rounded-lg w-full"></div></div>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 animate-pulse">
-          <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4">
-            <div class="w-14 h-14 rounded-full bg-gray-100 dark:bg-gray-700"></div>
-            <div class="space-y-2 flex-1"><div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div><div class="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3"></div></div>
-          </div>
-          <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4">
-            <div class="w-14 h-14 rounded-full bg-gray-100 dark:bg-gray-700"></div>
-            <div class="space-y-2 flex-1"><div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div><div class="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3"></div></div>
-          </div>
-          <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4">
-            <div class="w-14 h-14 rounded-full bg-gray-100 dark:bg-gray-700"></div>
-            <div class="space-y-2 flex-1"><div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div><div class="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3"></div></div>
-          </div>
-        </div>
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-pulse">
-          <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
-            <div class="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-6"></div>
-            <div class="h-[250px] bg-gray-50 dark:bg-gray-700 rounded-lg w-full"></div>
-          </div>
-          <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
-            <div class="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-6"></div>
-            <div class="h-[250px] w-[250px] bg-gray-50 dark:bg-gray-700 rounded-full mx-auto"></div>
-          </div>
-        </div>
+        <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100 mb-1">Analizando Datos</h3>
+        <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">Generando métricas y gráficos...</p>
       </div>
 
       <div id="dashboardContent" class="hidden space-y-4 print:space-y-0 fade-in">
@@ -372,12 +342,13 @@
           </div>
         </div>
 
-        <div id="revisionLoading" class="hidden w-full animate-pulse space-y-2 mt-2">
-          <div class="h-10 bg-gray-200 dark:bg-gray-700 rounded-t-lg w-full mb-3"></div>
-          <div class="h-12 bg-gray-100 dark:bg-gray-700/50 rounded w-full"></div>
-          <div class="h-12 bg-gray-100 dark:bg-gray-700/50 rounded w-full"></div>
-          <div class="h-12 bg-gray-100 dark:bg-gray-700/50 rounded w-full"></div>
-          <div class="h-12 bg-gray-100 dark:bg-gray-700/50 rounded w-full"></div>
+     <div id="revisionLoading" class="hidden flex-col items-center justify-center py-16 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 w-full fade-in mt-2 print:hidden">
+          <div class="relative flex items-center justify-center mb-3">
+            <div class="absolute inset-0 rounded-full border-4 border-gray-100 dark:border-gray-700"></div>
+            <div class="w-12 h-12 rounded-full border-4 border-blue-500 dark:border-blue-400 border-t-transparent animate-spin"></div>
+            <i class="ph-fill ph-folder-open text-md text-blue-500 dark:text-blue-400 absolute"></i>
+          </div>
+          <p class="text-gray-600 dark:text-gray-300 font-medium">Sincronizando registros...</p>
         </div>
         
         <div id="revisionContent" class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
