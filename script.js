@@ -1,7 +1,16 @@
 // ==========================================
 // CONFIGURACIÓN DE GOOGLE APPS SCRIPT
 // ==========================================
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzYcfPzxhhlU4WOC0g8UvOUTQtypRNTvPYGGGpcMPPw9PuJPxsKirGPrg2G1csBDVdH/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxtRPvgzwS23dx5_NQLlsrIOgDjlP3-wX4B6li8wjJjjnmnnXi22b703PK8zFT4iplAKQ/exec';
+
+// ==========================================
+// 0. RECUPERACIÓN INMEDIATA DEL TEMA (Anti-FOUC)
+// ==========================================
+// Ejecutamos esto inmediatamente para evitar el parpadeo blanco al recargar
+const savedTheme = sessionStorage.getItem('moduloResiduosTheme');
+if (savedTheme === 'dark') {
+    document.documentElement.classList.add('dark');
+}
 
 // ==========================================
 // 1. ESTADO CENTRALIZADO Y COMUNICACIÓN HUB
@@ -23,10 +32,12 @@ window.addEventListener('message', (event) => {
   
   if (type === 'THEME_UPDATE') {
       document.documentElement.classList.toggle('dark', theme === 'dark');
+      sessionStorage.setItem('moduloResiduosTheme', theme); // Persistimos el tema
   }
 
   if (type === 'SESSION_SYNC' && user) {
       document.documentElement.classList.toggle('dark', theme === 'dark');
+      if (theme) sessionStorage.setItem('moduloResiduosTheme', theme); // Persistimos el tema
       
       AppState.user = user;
       AppState.isSessionVerified = true;
