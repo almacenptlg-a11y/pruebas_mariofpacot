@@ -279,16 +279,24 @@ function obtenerObservaciones(reg) {
 
 function actualizarTimestamp() {
   const now = new Date();
+  
+  // Formato ISO para el input type="date" (YYYY-MM-DD)
   const day = String(now.getDate()).padStart(2, '0');
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const year = now.getFullYear();
+  const dateStr = `${year}-${month}-${day}`;
   
-  const hours24 = String(now.getHours()).padStart(2, '0');
+  // Formato para el input type="time" (HH:MM:SS)
+  const hours = String(now.getHours()).padStart(2, '0');
   const minutes = String(now.getMinutes()).padStart(2, '0');
   const seconds = String(now.getSeconds()).padStart(2, '0');
+  const timeStr = `${hours}:${minutes}:${seconds}`;
   
-  const timestampStr = `${day}/${month}/${year} ${hours24}:${minutes}:${seconds}`;
-  document.getElementById('timestamp').value = timestampStr;
+  const inputFecha = document.getElementById('fechaRegistro');
+  const inputHora = document.getElementById('horaRegistro');
+  
+  if (inputFecha) inputFecha.value = dateStr;
+  if (inputHora) inputHora.value = timeStr;
 }
 
 function inicializarFiltrosFechas() {
@@ -774,10 +782,13 @@ form.addEventListener('submit', async (e) => {
   submitBtn.disabled = true;
   submitBtn.innerHTML = '<i class="ph ph-spinner ph-spin text-xl"></i> <span>Guardando...</span>';
   
-  const timestampVal = document.getElementById('timestamp').value.trim();
-  const parts = timestampVal.split(' ');
-  const fechaVal = parts[0] || '';
-  const horaVal = parts[1] || '';
+  // 1. Extraemos y formateamos la Fecha (De YYYY-MM-DD a DD/MM/YYYY para el Backend)
+  const rawFecha = document.getElementById('fechaRegistro').value;
+  const partesFecha = rawFecha.split('-');
+  const fechaVal = partesFecha.length === 3 ? `${partesFecha[2]}/${partesFecha[1]}/${partesFecha[0]}` : rawFecha;
+  
+  // 2. Extraemos la hora
+  const horaVal = document.getElementById('horaRegistro').value;
   
   const valEmail = AppState.user.email || AppState.user.usuario;
 
