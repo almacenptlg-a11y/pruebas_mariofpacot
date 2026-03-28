@@ -440,9 +440,10 @@ tabs.dashboard.btn.addEventListener('click', () => {
   if (!datosCargados) {
     cargarDatosDashboard();
   } else {
-    // MAGIA UX: ChartJS no sabe qué tamaño tener si se dibuja estando oculto. 
-    // Al obligarlo a recalcular los filtros ahora que la pestaña es visible, se pinta perfecto.
     aplicarFiltros(); 
+    // FIX: Obligamos a revelar el contenedor que fue cargado en segundo plano
+    const dashContent = document.getElementById('dashboardContent');
+    if(dashContent) dashContent.classList.remove('hidden');
   }
 });
 
@@ -526,13 +527,16 @@ async function cargarDatosDashboard(event) {
     console.error("Error Dashboard:", error);
     // Solo mostrar alert si el usuario provocó el error explícitamente, no en background
     if (isDashActive || isRevActive) alert("No se pudieron cargar los datos. Verifica tu red.");
-  } finally {
+ } finally {
     isFetchingDashboard = false; // Liberamos el motor de red
     
-    // Apagar Skeletons
-    if (isRevActive && containerLoadingRev) containerLoadingRev.classList.add('hidden');
-    if (isDashActive && containerLoadingDash) containerLoadingDash.classList.add('hidden');
-    if (isDashActive && containerContentDash) containerContentDash.classList.remove('hidden');
+    // Apagamos los Skeletons incondicionalmente
+    if (containerLoadingRev) containerLoadingRev.classList.add('hidden');
+    if (containerLoadingDash) containerLoadingDash.classList.add('hidden');
+    
+    // FIX: Encendemos el contenedor del Dashboard incondicionalmente. 
+    // (No importa si estamos en otra pestaña, la vista principal ya lo oculta)
+    if (containerContentDash) containerContentDash.classList.remove('hidden');
   }
 }
 
