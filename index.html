@@ -73,33 +73,38 @@
             </h2>
           </div>
 
-          <form id="residuosForm" class="p-6 space-y-6">
-            <div class="text-right flex flex-col items-end">
-          <input type="text" id="timestamp" name="timestamp" class="text-[10px] md:text-sm text-gray-500 dark:text-gray-400 bg-transparent border border-transparent hover:border-gray-200 dark:hover:border-gray-600 focus:border-gray-300 dark:focus:border-gray-500 rounded px-1 py-1 md:px-2 outline-none transition-all text-right w-[110px] md:w-[150px] cursor-text" title="Clic para editar fecha y hora">
-        </div>
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div class="space-y-2">
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                  <i class="ph ph-calendar text-gray-400 text-lg"></i> Fecha
+                </label>
+                <input type="date" id="fechaRegistro" name="fechaRegistro" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 outline-none transition-all bg-white dark:bg-gray-700 dark:text-white">
+              </div>
+              <div class="space-y-2">
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                  <i class="ph ph-clock text-gray-400 text-lg"></i> Hora
+                </label>
+                <input type="time" id="horaRegistro" name="horaRegistro" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 outline-none transition-all bg-white dark:bg-gray-700 dark:text-white">
+              </div>
               <div class="space-y-2">
                 <label class="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
                   <i class="ph ph-map-pin text-gray-400 text-lg"></i> Área de Origen
                 </label>
                 <select id="area" name="area" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 outline-none transition-all bg-white dark:bg-gray-700 dark:text-white">
-                  <option value="" disabled selected>Seleccione un área...</option>
+                  <option value="" disabled selected>Seleccione...</option>
                   <option value="Almacen PT">Almacen PT</option>
                   <option value="Almacen MP">Almacen MP</option>
-                  <option value="Almacen Insumos">Almacen Insumos</option>
                   <option value="Desposte">Desposte</option>
                   <option value="Empaque">Empaque</option>
                   <option value="Madurado">Madurado</option>
                   <option value="Produccion">Produccion</option>
-                  <option value="Residuos por Control de Calidad">Control de Calidad</option>
+                  <option value="Residuos por Control de Calidad">Control Calidad</option>
                   <option value="Saneamiento">Saneamiento</option>
                   <option value="Skin">Skin</option>
                   <option value="Otra">Otra...</option>
                 </select>
               </div>
             </div>
-
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div class="space-y-2">
                 <label class="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
