@@ -8,7 +8,12 @@
       from { opacity: 0; transform: translateY(-5px); }
       to { opacity: 1; transform: translateY(0); }
     }
-
+/* FIX ARQUITECTÓNICO: Prevenir Scroll Horizontal en Móviles */
+html, body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  width: 100%;
+}
     /* CUSTOM SCROLLBAR (Mejora UX para la nueva tabla y modal) */
     ::-webkit-scrollbar {
       width: 8px;
