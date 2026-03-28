@@ -255,3 +255,8 @@
         margin: 0.0cm 1.0cm;
       }
     }
+
+/* FIX ARQUITECTÓNICO: Permitir rotación en etiquetas inline (íconos) */
+i.animate-spin, svg.animate-spin {
+  display: inline-block !important;
+}
