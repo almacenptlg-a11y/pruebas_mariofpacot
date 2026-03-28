@@ -23,6 +23,7 @@ const AppState = {
 let chartAreaInstancia = null;
 let chartTipoInstancia = null;
 let datosCargados = false; 
+let isFetchingDashboard = false;
 let todosLosRegistros = []; 
 let registrosFiltradosActuales = []; 
 
@@ -81,7 +82,7 @@ function mostrarAplicacion() {
       document.getElementById('displayUserRole').textContent = rolMostrar;
   }
 
-  // REGLA: Ocultar Dashboard a roles operativos puros (Opcional, basado en el módulo hermano)
+  // REGLA: Ocultar Dashboard a roles operativos puros (Opcional)
   const rolesPrivilegiados = ['JEFE', 'GERENTE', 'ADMINISTRADOR', 'CALIDAD'];
   const rolUser = (AppState.user.rol || '').toUpperCase();
   const tabDash = document.getElementById('tabDashboard');
@@ -90,8 +91,16 @@ function mostrarAplicacion() {
       if (rolesPrivilegiados.includes(rolUser)) {
           tabDash.classList.remove('hidden');
       } else {
-          tabDash.classList.add('hidden'); // Comentar esta línea si quieres que todos vean el Dashboard
+          tabDash.classList.add('hidden'); 
       }
+  }
+
+  // NUEVO: PRE-CARGA EN SEGUNDO PLANO (Background Pre-fetching)
+  // Usamos setTimeout para no bloquear el renderizado inicial de la vista de Registro
+  if (!datosCargados && !isFetchingDashboard) {
+      setTimeout(() => {
+          cargarDatosDashboard();
+      }, 300); 
   }
 }
 
@@ -369,6 +378,7 @@ function inicializarFiltrosFechas() {
   document.getElementById('filtroTipo').addEventListener('change', aplicarFiltros);
 }
 
+
 // ==========================================
 // NAVEGACIÓN (TABS)
 // ==========================================
@@ -397,14 +407,22 @@ tabs.revision.btn.addEventListener('click', async () => {
   if (!datosCargados) {
     await cargarDatosDashboard();
   } else {
+    // Si ya cargaron de fondo, simplemente inyectamos a la tabla
     renderizarMisRegistros();
   }
 });
 
 tabs.dashboard.btn.addEventListener('click', () => {
   cambiarVista('dashboard');
-  if (!datosCargados) cargarDatosDashboard();
+  if (!datosCargados) {
+    cargarDatosDashboard();
+  } else {
+    // MAGIA UX: ChartJS no sabe qué tamaño tener si se dibuja estando oculto. 
+    // Al obligarlo a recalcular los filtros ahora que la pestaña es visible, se pinta perfecto.
+    aplicarFiltros(); 
+  }
 });
+
 // ==========================================
 // LOGICA DEL DASHBOARD Y OBTENCIÓN DE DATOS
 // ==========================================
@@ -413,6 +431,9 @@ async function cargarDatosDashboard(event) {
     if (event.key !== 'Enter') return; 
     if (document.activeElement) document.activeElement.blur();
   }
+
+  // Seguro anti-colisiones (Si ya se disparó la pre-carga, ignorar nuevos clics)
+  if (isFetchingDashboard) return;
 
   const fInicioStr = document.getElementById('filtroFechaInicio').value;
   const fFinStr = document.getElementById('filtroFechaFin').value;
@@ -437,22 +458,22 @@ async function cargarDatosDashboard(event) {
   const containerContentRev = document.getElementById('revisionContent');
   const emptyStateRev = document.getElementById('emptyRevisionState');
 
-  // Detectar desde qué vista se está invocando la carga
   const isRevActive = !document.getElementById('vistaRevision').classList.contains('hidden');
+  const isDashActive = !document.getElementById('vistaDashboard').classList.contains('hidden');
 
-  // Activar Skeletons según la vista
+  // Mostrar Skeletons solo si el usuario está viendo activamente esas pestañas
   if (isRevActive) {
       if (containerContentRev) containerContentRev.classList.add('hidden');
       if (emptyStateRev) emptyStateRev.classList.add('hidden');
       if (containerLoadingRev) containerLoadingRev.classList.remove('hidden');
-  } else {
+  } else if (isDashActive) {
       if (containerContentDash) containerContentDash.classList.add('hidden');
       if (containerLoadingDash) containerLoadingDash.classList.remove('hidden');
   }
 
+  isFetchingDashboard = true; // Bloqueamos el motor de red
+
   try {
-    // MAGIA UX: Promise.all obliga a que la animación de carga dure AL MENOS 600ms, 
-    // evitando el "parpadeo/flicker" si la caché del backend responde de inmediato.
     const [response] = await Promise.all([
       fetch(SCRIPT_URL, {
         method: 'POST',
@@ -470,26 +491,27 @@ async function cargarDatosDashboard(event) {
     if (result.status === 'success') {
       todosLosRegistros = result.data; 
       datosCargados = true;
-      aplicarFiltros(); 
-      renderizarMisRegistros(); 
+      
+      // Solo repintamos si las vistas están activas para no forzar cálculos innecesarios en background
+      if (isRevActive) renderizarMisRegistros(); 
+      if (isDashActive) aplicarFiltros(); 
+      
     } else {
       throw new Error(result.message || "Error al obtener datos");
     }
   } catch (error) {
     console.error("Error Dashboard:", error);
-    alert("No se pudieron cargar los datos. Verifica tu conexión a internet.");
+    // Solo mostrar alert si el usuario provocó el error explícitamente, no en background
+    if (isDashActive || isRevActive) alert("No se pudieron cargar los datos. Verifica tu red.");
   } finally {
-    // Apagar Skeletons según la vista
-    if (isRevActive) {
-        if (containerLoadingRev) containerLoadingRev.classList.add('hidden');
-        // La activación del content la maneja ahora renderizarMisRegistros()
-    } else {
-        if (containerLoadingDash) containerLoadingDash.classList.add('hidden');
-        if (containerContentDash) containerContentDash.classList.remove('hidden');
-    }
+    isFetchingDashboard = false; // Liberamos el motor de red
+    
+    // Apagar Skeletons
+    if (isRevActive && containerLoadingRev) containerLoadingRev.classList.add('hidden');
+    if (isDashActive && containerLoadingDash) containerLoadingDash.classList.add('hidden');
+    if (isDashActive && containerContentDash) containerContentDash.classList.remove('hidden');
   }
 }
-
 
 
 function aplicarFiltros() {
