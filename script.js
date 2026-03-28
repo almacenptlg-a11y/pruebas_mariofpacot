@@ -1,7 +1,7 @@
 // ==========================================
 // CONFIGURACIÓN DE GOOGLE APPS SCRIPT
 // ==========================================
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxtRPvgzwS23dx5_NQLlsrIOgDjlP3-wX4B6li8wjJjjnmnnXi22b703PK8zFT4iplAKQ/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzYcfPzxhhlU4WOC0g8UvOUTQtypRNTvPYGGGpcMPPw9PuJPxsKirGPrg2G1csBDVdH/exec';
 
 // ==========================================
 // 0. RECUPERACIÓN INMEDIATA DEL TEMA (Anti-FOUC)
