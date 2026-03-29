@@ -267,13 +267,13 @@ i.animate-spin, svg.animate-spin {
 }
 
 /* =========================================
-   UI/UX: Ocultar barras de desplazamiento
+   UI/UX: Ocultar barra horizontal en Tabs
    ========================================= */
-.no-scrollbar::-webkit-scrollbar {
-    display: none; /* Chrome, Safari, Opera */
+.hide-scrollbar::-webkit-scrollbar {
+    display: none; /* Oculta en Chrome, Safari y Opera */
 }
 
-.no-scrollbar {
-    -ms-overflow-style: none; /* IE y Edge */
-    scrollbar-width: none;    /* Firefox */
+.hide-scrollbar {
+    -ms-overflow-style: none; /* Oculta en IE y Edge */
+    scrollbar-width: none;    /* Oculta en Firefox */
 }
