@@ -254,7 +254,7 @@ const SyncManager = {
             try {
                 datosCargados = false; 
                 isFetchingDashboard = false; 
-                await cargarDatosDashboard(); 
+                await cargarDatosDashboard(forcePull); 
             } catch (e) {
                 hasErrors = true;
             }
@@ -506,13 +506,18 @@ tabs.dashboard.btn.addEventListener('click', () => {
 // ==========================================
 // LOGICA DEL DASHBOARD Y OBTENCIÓN DE DATOS
 // ==========================================
-async function cargarDatosDashboard(event) {
-  if (event && event.type === 'keydown') {
-    if (event.key !== 'Enter') return; 
-    if (document.activeElement) document.activeElement.blur();
+// FIX: Aceptamos boolean (true) desde el botón, o el evento nativo si es un input
+async function cargarDatosDashboard(eventOrForce) {
+  let isForced = false;
+  
+  if (eventOrForce === true) {
+      isForced = true;
+  } else if (eventOrForce && eventOrForce.type === 'keydown') {
+      if (eventOrForce.key !== 'Enter') return; 
+      if (document.activeElement) document.activeElement.blur();
   }
 
-  // Seguro anti-colisiones (Si ya se disparó la pre-carga, ignorar nuevos clics)
+  // Seguro anti-colisiones
   if (isFetchingDashboard) return;
 
   const fInicioStr = document.getElementById('filtroFechaInicio').value;
@@ -541,7 +546,6 @@ async function cargarDatosDashboard(event) {
   const isRevActive = !document.getElementById('vistaRevision').classList.contains('hidden');
   const isDashActive = !document.getElementById('vistaDashboard').classList.contains('hidden');
 
-  // Mostrar Skeletons solo si el usuario está viendo activamente esas pestañas
   if (isRevActive) {
       if (containerContentRev) containerContentRev.classList.add('hidden');
       if (emptyStateRev) emptyStateRev.classList.add('hidden');
@@ -551,7 +555,7 @@ async function cargarDatosDashboard(event) {
       if (containerLoadingDash) containerLoadingDash.classList.remove('hidden');
   }
 
-  isFetchingDashboard = true; // Bloqueamos el motor de red
+  isFetchingDashboard = true; 
 
   try {
     const [response] = await Promise.all([
@@ -561,7 +565,8 @@ async function cargarDatosDashboard(event) {
         body: JSON.stringify({ 
           action: 'getDatos',
           fechaInicio: fInicioStr, 
-          fechaFin: fFinStr        
+          fechaFin: fFinStr,
+          forceRefresh: isForced // FIX: Le avisamos al Backend que destruya la caché
         })
       }),
       new Promise(resolve => setTimeout(resolve, 600))
@@ -572,7 +577,6 @@ async function cargarDatosDashboard(event) {
       todosLosRegistros = result.data; 
       datosCargados = true;
       
-      // Solo repintamos si las vistas están activas para no forzar cálculos innecesarios en background
       if (isRevActive) renderizarMisRegistros(); 
       if (isDashActive) aplicarFiltros(); 
       
@@ -581,17 +585,13 @@ async function cargarDatosDashboard(event) {
     }
   } catch (error) {
     console.error("Error Dashboard:", error);
-    // Solo mostrar alert si el usuario provocó el error explícitamente, no en background
     if (isDashActive || isRevActive) alert("No se pudieron cargar los datos. Verifica tu red.");
- } finally {
-    isFetchingDashboard = false; // Liberamos el motor de red
+  } finally {
+    isFetchingDashboard = false; 
     
-    // Apagamos los Skeletons incondicionalmente
     if (containerLoadingRev) containerLoadingRev.classList.add('hidden');
     if (containerLoadingDash) containerLoadingDash.classList.add('hidden');
     
-    // FIX: Encendemos el contenedor del Dashboard incondicionalmente. 
-    // (No importa si estamos en otra pestaña, la vista principal ya lo oculta)
     if (containerContentDash) containerContentDash.classList.remove('hidden');
   }
 }
