@@ -52,14 +52,20 @@
     background: #94a3b8; 
   }
 
-  /* Ocultar barra horizontal en Tabs/Contenedores (Mantiene el Swipe) */
-  .hide-scrollbar::-webkit-scrollbar {
-    display: none; /* Chrome, Safari, Opera */
-  }
-  .hide-scrollbar {
-    -ms-overflow-style: none; /* IE y Edge */
-    scrollbar-width: none;    /* Firefox */
-  }
+  /* ==========================================
+   FORZADO ABSOLUTO: Ocultar barra horizontal
+   (Fuera de las capas de Tailwind para evitar purgado)
+   ========================================== */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
 }
 
 /* ==========================================
