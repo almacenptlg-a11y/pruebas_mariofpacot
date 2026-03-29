@@ -73,18 +73,26 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function mostrarAplicacion() {
-  document.getElementById('appContainer').classList.remove('hidden');
+  const appContainer = document.getElementById('appContainer');
+  if (appContainer) appContainer.classList.remove('hidden');
   
   if (AppState.user) {
       const nombreMostrar = AppState.user.nombre || AppState.user.usuario || 'Usuario';
       const rolMostrar = AppState.user.rol || AppState.user.area || 'Supervisor';
-      document.getElementById('txt-usuario-activo').innerHTML = `<i class="ph ph-user-check"></i> ${nombreMostrar} | ${rolMostrar}`;
-      document.getElementById('displayUserRole').textContent = rolMostrar;
+      
+      const txtUsuario = document.getElementById('txt-usuario-activo');
+      if (txtUsuario) {
+          txtUsuario.innerHTML = `<i class="ph ph-user-check"></i> ${nombreMostrar} | ${rolMostrar}`;
+      }
+      
+      // FIX: Uso de Optional Chaining para evitar el TypeError
+      const displayRole = document.getElementById('displayUserRole');
+      if (displayRole) displayRole.textContent = rolMostrar; 
   }
 
-  // REGLA: Ocultar Dashboard a roles operativos puros (Opcional)
+  // REGLA: Ocultar Dashboard a roles operativos puros
   const rolesPrivilegiados = ['JEFE', 'GERENTE', 'ADMINISTRADOR', 'CALIDAD'];
-  const rolUser = (AppState.user.rol || '').toUpperCase();
+  const rolUser = (AppState.user?.rol || '').toUpperCase();
   const tabDash = document.getElementById('tabDashboard');
   
   if (tabDash) {
@@ -95,8 +103,7 @@ function mostrarAplicacion() {
       }
   }
 
-  // NUEVO: PRE-CARGA EN SEGUNDO PLANO (Background Pre-fetching)
-  // Usamos setTimeout para no bloquear el renderizado inicial de la vista de Registro
+  // PRE-CARGA EN SEGUNDO PLANO
   if (!datosCargados && !isFetchingDashboard) {
       setTimeout(() => {
           cargarDatosDashboard();
