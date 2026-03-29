@@ -112,170 +112,210 @@ function mostrarAplicacion() {
 }
 
 // ==========================================
-// MOTOR DUAL OFFLINE-FIRST & REFRESH MANAGER
+// MOTOR DUAL OFFLINE-FIRST (INDEXEDDB) & REFRESH MANAGER
 // ==========================================
-const SyncManager = {
-  queueKey: 'genovesa_sync_queue_res',
-  isSyncing: false,
-  
-  getQueue() {
-    return JSON.parse(localStorage.getItem(this.queueKey)) || [];
-  },
-  
-  saveQueue(queue) {
-    try {
-      localStorage.setItem(this.queueKey, JSON.stringify(queue));
-      this.updateBadge();
-    } catch (e) {
-      if (e.name === 'QuotaExceededError') {
-        alert("⚠️ Memoria local llena. La imagen es demasiado pesada para guardarse.");
-      }
-    }
-  },
-  
-  enqueue(record) {
-    const queue = this.getQueue();
-    record._localId = Date.now().toString(); 
-    queue.push(record);
-    this.saveQueue(queue);
-  },
-  
-  remove(localId) {
-    let queue = this.getQueue();
-    queue = queue.filter(r => r._localId !== localId);
-    this.saveQueue(queue);
-  },
-  
-  // forcePull = true le indica al motor que debe descargar datos, aunque no haya cola que subir
-  async sync(forcePull = false) {
-    if (!navigator.onLine || this.isSyncing) return;
-    
-    const queue = this.getQueue();
-    
-    // Si no hay nada que subir (Push) y no pidieron descargar (Pull), abortamos
-    if (queue.length === 0 && !forcePull) {
-       this.updateBadge();
-       return;
-    }
+const IDB_NAME = 'GenApps_DB_Residuos';
+const STORE_NAME = 'sync_queue';
+const IDB_VERSION = 1;
 
-    this.isSyncing = true; 
-    
-    // UI: Configurar la alerta flotante y el botón superior
-    const badge = document.getElementById('syncStatusBadge');
-    const badgeText = document.getElementById('syncStatusText');
-    const badgeIcon = document.getElementById('syncStatusIcon');
-    const btnForce = document.getElementById('btnForceSync');
-    const iconForce = document.getElementById('iconForceSync');
-    
-    badge.classList.remove('hidden');
-    badgeIcon.className = 'ph-fill ph-arrows-clockwise text-blue-400 animate-spin inline-block text-xl';
-    
-    if (btnForce) {
-        btnForce.disabled = true;
-        iconForce.classList.add('animate-spin');
-    }
-
-    let hasErrors = false;
-
-    // FASE 1: PUSH (Subir datos a la cola si existen)
-    if (queue.length > 0) {
-        badgeText.textContent = `Subiendo ${queue.length} registro(s)...`;
-        for (const record of queue) {
-          try {
-            const payload = { ...record };
-            delete payload._localId; 
-            
-            const response = await fetch(SCRIPT_URL, {
-              method: 'POST',
-              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-              body: JSON.stringify(payload)
-            });
-            
-            const res = await response.json();
-            if (res.status === 'success') {
-              this.remove(record._localId);
-              const localTag = document.getElementById(`sync-tag-${record._localId}`);
-              if (localTag) localTag.innerHTML = '<i class="ph-fill ph-cloud-check text-green-500" title="Sincronizado"></i>';
-            } else {
-              hasErrors = true;
-            }
-          } catch (e) {
-            hasErrors = true;
-            break; // Salimos del bucle si cae la red
-          }
+// Wrapper asíncrono en O(1) para IndexedDB (Cero dependencias)
+const dbPromise = new Promise((resolve, reject) => {
+    const request = indexedDB.open(IDB_NAME, IDB_VERSION);
+    request.onerror = () => reject('Error al abrir IndexedDB');
+    request.onsuccess = (e) => resolve(e.target.result);
+    request.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+            db.createObjectStore(STORE_NAME, { keyPath: '_localId' });
         }
-    }
+    };
+});
 
-    // FASE 2: PULL (Refrescar datos del Dashboard para ver los de otros usuarios)
-    if (!hasErrors && (forcePull || queue.length > 0)) {
-        badgeText.textContent = 'Actualizando panel...';
-        try {
-            datosCargados = false; // Destruimos bandera local
-            isFetchingDashboard = false; // Liberamos el cerrojo de red
-            await cargarDatosDashboard(); // Esta función repintará las vistas automáticamente
-        } catch (e) {
-            hasErrors = true;
-        }
+const dbUtil = {
+    async getAll() {
+        const db = await dbPromise;
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, 'readonly');
+            const req = tx.objectStore(STORE_NAME).getAll();
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+        });
+    },
+    async put(item) {
+        const db = await dbPromise;
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, 'readwrite');
+            const req = tx.objectStore(STORE_NAME).put(item);
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+        });
+    },
+    async delete(key) {
+        const db = await dbPromise;
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, 'readwrite');
+            const req = tx.objectStore(STORE_NAME).delete(key);
+            req.onsuccess = () => resolve();
+            req.onerror = () => reject(req.error);
+        });
     }
-
-    // Restaurar UI
-    badgeIcon.classList.remove('animate-spin');
-    if (iconForce) iconForce.classList.remove('animate-spin');
-    if (btnForce) btnForce.disabled = false;
-    
-    if (!hasErrors && this.getQueue().length === 0) {
-      badgeIcon.className = 'ph-fill ph-check-circle text-green-400 text-xl';
-      badgeText.textContent = '¡Datos actualizados!';
-      setTimeout(() => badge.classList.add('hidden'), 3500);
-    } else {
-      badgeIcon.className = 'ph-fill ph-warning-circle text-yellow-400 text-xl';
-      badgeText.textContent = 'Red inestable. Reintentaremos luego.';
-      setTimeout(() => this.updateBadge(), 4000);
-    }
-    
-    this.isSyncing = false;
-    this.updateBadge(); // Repinta el botón al estado correcto (Gris o Naranja)
-  },
-  
-  updateBadge() {
-    const queue = this.getQueue();
-    const badge = document.getElementById('syncStatusBadge');
-    const badgeText = document.getElementById('syncStatusText');
-    const badgeIcon = document.getElementById('syncStatusIcon');
-    
-    const btnForce = document.getElementById('btnForceSync');
-    const countForce = document.getElementById('countForceSync');
-    const txtForce = document.getElementById('txtForceSync');
-    
-    if (queue.length > 0) {
-      // ESTADO: PENDIENTE (Hay cola, el botón se pone Naranja/Alerta)
-      if (!this.isSyncing) {
-          badge.classList.remove('hidden');
-          badgeIcon.className = 'ph-fill ph-cloud-slash text-yellow-400 text-xl';
-          badgeText.textContent = `${queue.length} registro(s) pendiente(s)`;
-      }
-      
-      if (btnForce) {
-          btnForce.className = 'flex bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-700/50 px-3 py-1.5 rounded-lg items-center gap-2 text-sm font-medium transition-all shadow-sm hover:bg-amber-100 dark:hover:bg-amber-900/50';
-          if (txtForce) txtForce.textContent = "Sincronizar";
-          if (countForce) {
-              countForce.classList.remove('hidden');
-              countForce.textContent = queue.length;
-          }
-      }
-    } else {
-      // ESTADO: LIMPIO (Botón Gris/Azulado para refresco normal)
-      if (!badgeIcon.classList.contains('animate-spin') && !badgeText.textContent.includes('actualizados')) {
-           badge.classList.add('hidden');
-      }
-      if (btnForce && !this.isSyncing) {
-          btnForce.className = 'flex bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 px-3 py-1.5 rounded-lg items-center gap-2 text-sm font-medium transition-all shadow-sm hover:bg-gray-100 dark:hover:bg-gray-700/80';
-          if (txtForce) txtForce.textContent = "Actualizar";
-          if (countForce) countForce.classList.add('hidden');
-      }
-    }
-  }
 };
+
+const SyncManager = {
+    isSyncing: false,
+    
+    // Ahora devuelve una Promesa
+    async getQueue() {
+        try {
+            return await dbUtil.getAll();
+        } catch (e) {
+            console.error("Error leyendo IndexedDB:", e);
+            return [];
+        }
+    },
+    
+    // Inserción asíncrona sin bloquear el DOM
+    async enqueue(record) {
+        record._localId = Date.now().toString(); 
+        await dbUtil.put(record);
+        await this.updateBadge();
+    },
+    
+    async remove(localId) {
+        await dbUtil.delete(localId);
+    },
+    
+    async sync(forcePull = false) {
+        if (!navigator.onLine || this.isSyncing) return;
+        
+        const queue = await this.getQueue();
+        
+        if (queue.length === 0 && !forcePull) {
+            this.updateBadge();
+            return;
+        }
+
+        this.isSyncing = true; 
+        
+        // UI: Configurar estado de carga
+        const badge = document.getElementById('syncStatusBadge');
+        const badgeText = document.getElementById('syncStatusText');
+        const badgeIcon = document.getElementById('syncStatusIcon');
+        const btnForce = document.getElementById('btnForceSync');
+        const iconForce = document.getElementById('iconForceSync');
+        
+        if (badge) badge.classList.remove('hidden');
+        if (badgeIcon) badgeIcon.className = 'ph-fill ph-arrows-clockwise text-blue-400 animate-spin inline-block text-xl';
+        
+        if (btnForce) {
+            btnForce.disabled = true;
+            iconForce.classList.add('animate-spin');
+        }
+
+        let hasErrors = false;
+
+        // FASE 1: PUSH (Subir a GAS)
+        if (queue.length > 0) {
+            if (badgeText) badgeText.textContent = `Subiendo ${queue.length} registro(s)...`;
+            for (const record of queue) {
+                try {
+                    const payload = { ...record };
+                    delete payload._localId; 
+                    
+                    const response = await fetch(SCRIPT_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    const res = await response.json();
+                    if (res.status === 'success') {
+                        await this.remove(record._localId); // Borrado en DB
+                        const localTag = document.getElementById(`sync-tag-${record._localId}`);
+                        if (localTag) localTag.innerHTML = '<i class="ph-fill ph-cloud-check text-green-500" title="Sincronizado"></i>';
+                    } else {
+                        hasErrors = true;
+                    }
+                } catch (e) {
+                    hasErrors = true;
+                    break; 
+                }
+            }
+        }
+
+        // FASE 2: PULL (Refrescar Dashboard)
+        if (!hasErrors && (forcePull || queue.length > 0)) {
+            if (badgeText) badgeText.textContent = 'Actualizando panel...';
+            try {
+                datosCargados = false; 
+                isFetchingDashboard = false; 
+                await cargarDatosDashboard(); 
+            } catch (e) {
+                hasErrors = true;
+            }
+        }
+
+        // Restaurar UI
+        if (badgeIcon) badgeIcon.classList.remove('animate-spin');
+        if (iconForce) iconForce.classList.remove('animate-spin');
+        if (btnForce) btnForce.disabled = false;
+        
+        const remainingQueue = await this.getQueue();
+        
+        if (!hasErrors && remainingQueue.length === 0) {
+            if (badgeIcon) badgeIcon.className = 'ph-fill ph-check-circle text-green-400 text-xl';
+            if (badgeText) badgeText.textContent = '¡Datos actualizados!';
+            setTimeout(() => { if(badge) badge.classList.add('hidden'); }, 3500);
+        } else {
+            if (badgeIcon) badgeIcon.className = 'ph-fill ph-warning-circle text-yellow-400 text-xl';
+            if (badgeText) badgeText.textContent = 'Red inestable. Reintentaremos luego.';
+            setTimeout(() => this.updateBadge(), 4000);
+        }
+        
+        this.isSyncing = false;
+        this.updateBadge(); 
+    },
+    
+    async updateBadge() {
+        const queue = await this.getQueue();
+        const badge = document.getElementById('syncStatusBadge');
+        const badgeText = document.getElementById('syncStatusText');
+        const badgeIcon = document.getElementById('syncStatusIcon');
+        
+        const btnForce = document.getElementById('btnForceSync');
+        const countForce = document.getElementById('countForceSync');
+        const txtForce = document.getElementById('txtForceSync');
+        
+        if (!badge || !badgeIcon) return; // Defensive programming
+
+        if (queue.length > 0) {
+            if (!this.isSyncing) {
+                badge.classList.remove('hidden');
+                badgeIcon.className = 'ph-fill ph-cloud-slash text-yellow-400 text-xl';
+                if (badgeText) badgeText.textContent = `${queue.length} registro(s) pendiente(s)`;
+            }
+            
+            if (btnForce) {
+                btnForce.className = 'flex bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-700/50 px-3 py-1.5 rounded-lg items-center gap-2 text-sm font-medium transition-all shadow-sm hover:bg-amber-100 dark:hover:bg-amber-900/50';
+                if (txtForce) txtForce.textContent = "Sincronizar";
+                if (countForce) {
+                    countForce.classList.remove('hidden');
+                    countForce.textContent = queue.length;
+                }
+            }
+        } else {
+            if (!badgeIcon.classList.contains('animate-spin') && badgeText && !badgeText.textContent.includes('actualizados')) {
+                 badge.classList.add('hidden');
+            }
+            if (btnForce && !this.isSyncing) {
+                btnForce.className = 'flex bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 px-3 py-1.5 rounded-lg items-center gap-2 text-sm font-medium transition-all shadow-sm hover:bg-gray-100 dark:hover:bg-gray-700/80';
+                if (txtForce) txtForce.textContent = "Actualizar";
+                if (countForce) countForce.classList.add('hidden');
+            }
+        }
+    }
+};
+
 
 // ==========================================
 // TRIGGERS DE SINCRONIZACIÓN (BLINDAJE TRIPLE)
@@ -283,18 +323,22 @@ const SyncManager = {
 window.addEventListener('online', () => SyncManager.sync(false));
 window.addEventListener('offline', () => SyncManager.updateBadge());
 
-// Al hacer clic, pasamos "true" para forzar el Pull de datos frescos
 document.addEventListener('DOMContentLoaded', () => {
     const btnForce = document.getElementById('btnForceSync');
     if(btnForce) {
         btnForce.addEventListener('click', () => SyncManager.sync(true));
     }
+    // Inicializar el badge en la carga de la página
+    SyncManager.updateBadge();
 });
 
-// El polling automático NUNCA fuerza un Pull (para ahorrar datos), solo sube (Push) lo pendiente.
-setInterval(() => {
-    if (navigator.onLine && SyncManager.getQueue().length > 0 && !SyncManager.isSyncing) {
-        SyncManager.sync(false);
+// Polling asíncrono
+setInterval(async () => {
+    if (navigator.onLine && !SyncManager.isSyncing) {
+        const queue = await SyncManager.getQueue();
+        if (queue.length > 0) {
+            SyncManager.sync(false);
+        }
     }
 }, 20000);
 
@@ -949,9 +993,9 @@ form.addEventListener('submit', async (e) => {
     imagenNombre: imageName
   };
 
-  // 1. UI OPTIMISTA: Encolamos y procesamos en el cliente al instante (LATENCIA 0)
-  SyncManager.enqueue(formData);
-  agregarRegistroAUi(formData, true); 
+ // 1. UI OPTIMISTA: Encolamos en IndexedDB
+  await SyncManager.enqueue(formData);
+  agregarRegistroAUi(formData, true);
   
   // 2. Feedback visual persistente (4 segundos)
   successMessage.innerHTML = '<i class="ph-fill ph-check-circle text-xl mr-2 text-green-600 dark:text-green-400"></i> ¡Registro capturado!';
