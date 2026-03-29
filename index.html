@@ -423,47 +423,43 @@
     </div>
 
     <div id="vistaRevision" class="hidden space-y-6 fade-in print:hidden">
-      <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
-         <div id="revisionLoading"
-          class="hidden flex-col items-center justify-center py-16 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 w-full fade-in mt-2 print:hidden">
-          <div class="relative flex items-center justify-center mb-3">
-            <div class="absolute inset-0 rounded-full border-4 border-gray-100 dark:border-gray-700"></div>
-            <div
-              class="w-12 h-12 rounded-full border-4 border-blue-500 dark:border-blue-400 border-t-transparent animate-spin">
-            </div>
-            <i class="ph-fill ph-folder-open text-md text-blue-500 dark:text-blue-400 absolute"></i>
-          </div>
-          <p class="text-gray-600 dark:text-gray-300 font-medium">Sincronizando registros...</p>
-        </div>
-
-        <div id="revisionContent" class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
-          <table class="w-full text-sm text-left text-gray-600 dark:text-gray-300">
-
-            <thead
-              class="text-xs text-gray-700 dark:text-gray-200 uppercase bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
-              <tr>
-                <th scope="col" class="px-4 py-3">Fecha y Hora</th>
-                <th scope="col" class="px-4 py-3">Área de Origen</th>
-                <th scope="col" class="px-4 py-3">Tipo</th>
-                <th scope="col" class="px-4 py-3 text-center">Peso (Kg)</th>
-                <th scope="col" class="px-4 py-3 text-center">Bolsas</th>
-                <th scope="col" class="px-4 py-3 text-center">Acción</th>
-              </tr>
-            </thead>
-            <tbody id="tablaMisRegistros"
-              class="divide-y divide-gray-100 dark:divide-gray-700 bg-white dark:bg-gray-800">
-            </tbody>
-          </table>
-        </div>
-
-        <div id="emptyRevisionState" class="hidden p-12 text-center flex flex-col items-center justify-center">
-          <div class="w-16 h-16 bg-gray-50 dark:bg-gray-700 rounded-full flex items-center justify-center mb-3">
-            <i class="ph ph-folder-open text-3xl text-gray-400"></i>
-          </div>
-          <p class="text-gray-600 dark:text-gray-300 font-medium">No hay registros tuyos en este rango de fechas</p>
-        </div>
+  <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+    
+    <div id="revisionLoading"
+      class="hidden flex-col items-center justify-center py-16 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 w-full fade-in mt-2 print:hidden">
+      <div class="relative flex items-center justify-center mb-3">
+        <div class="absolute inset-0 rounded-full border-4 border-gray-100 dark:border-gray-700"></div>
+        <div class="w-12 h-12 rounded-full border-4 border-blue-500 dark:border-blue-400 border-t-transparent animate-spin"></div>
+        <i class="ph-fill ph-folder-open text-md text-blue-500 dark:text-blue-400 absolute"></i>
       </div>
+      <p class="text-gray-600 dark:text-gray-300 font-medium">Sincronizando registros...</p>
     </div>
+
+    <div id="revisionContent" class="overflow-x-auto -mx-6 border-y border-gray-200 dark:border-gray-700 mt-4">
+      <table class="w-full text-sm text-left text-gray-600 dark:text-gray-300">
+        <thead class="text-xs text-gray-700 dark:text-gray-200 uppercase bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+          <tr>
+            <th scope="col" class="px-4 py-3">Fecha y Hora</th>
+            <th scope="col" class="px-4 py-3">Área de Origen</th>
+            <th scope="col" class="px-4 py-3">Tipo</th>
+            <th scope="col" class="px-4 py-3 text-center">Peso (Kg)</th>
+            <th scope="col" class="px-4 py-3 text-center">Bolsas</th>
+            <th scope="col" class="px-4 py-3 text-center">Acción</th>
+          </tr>
+        </thead>
+        <tbody id="tablaMisRegistros" class="divide-y divide-gray-100 dark:divide-gray-700 bg-white dark:bg-gray-800">
+        </tbody>
+      </table>
+    </div>
+
+    <div id="emptyRevisionState" class="hidden p-12 text-center flex flex-col items-center justify-center">
+      <div class="w-16 h-16 bg-gray-50 dark:bg-gray-700 rounded-full flex items-center justify-center mb-3">
+        <i class="ph ph-folder-open text-3xl text-gray-400"></i>
+      </div>
+      <p class="text-gray-600 dark:text-gray-300 font-medium">No hay registros tuyos en este rango de fechas</p>
+    </div>
+  </div>
+</div>
 
   </div>
 
