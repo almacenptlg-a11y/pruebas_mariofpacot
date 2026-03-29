@@ -1,1 +1,1 @@
-# GenApps
+# Gestión de Residuos de planta
