@@ -56,17 +56,22 @@
         </div>
       </div>
 
-      <nav class="flex gap-4 md:gap-6 mt-1 border-b border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-nowrap hide-scrollbar">
-        <button id="tabRegistro" class="pb-2 text-green-600 dark:text-green-400 border-b-2 border-green-600 dark:border-green-400 font-medium transition-colors flex items-center gap-1 md:gap-2 text-sm md:text-base px-1">
-          <i class="ph ph-note-pencil text-lg"></i> Registro
-        </button>
-        <button id="tabRevision" class="pb-2 text-gray-500 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 font-medium transition-colors flex items-center gap-1 md:gap-2 text-sm md:text-base px-1">
-          <i class="ph ph-table text-lg"></i> Mis Registros
-        </button>
-        <button id="tabDashboard" class="pb-2 text-gray-500 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 font-medium transition-colors flex items-center gap-1 md:gap-2 text-sm md:text-base px-1">
-          <i class="ph ph-chart-bar text-lg"></i> Dashboard
-        </button>
-      </nav>
+  <nav class="w-full bg-white/80 backdrop-blur-md border-b border-gray-200">
+  <div class="grid grid-cols-3 gap-1 p-2 w-full max-w-md mx-auto">
+    <button class="flex flex-col items-center justify-center p-2 rounded-xl bg-blue-50 text-blue-600 transition-all">
+      <span class="text-sm font-semibold tracking-tight">Registro</span>
+    </button>
+    
+    <button class="flex flex-col items-center justify-center p-2 rounded-xl text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-all">
+      <span class="text-sm font-medium tracking-tight">Mis Registros</span>
+    </button>
+    
+    <button class="flex flex-col items-center justify-center p-2 rounded-xl text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-all">
+      <span class="text-sm font-medium tracking-tight">Dashboard</span>
+    </button>
+  </div>
+</nav>
+     
     </header>
 
     <div id="vistaRegistro" class="grid grid-cols-1 lg:grid-cols-3 gap-6 fade-in print:hidden">
