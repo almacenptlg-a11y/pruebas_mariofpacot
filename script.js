@@ -11,6 +11,11 @@ const savedTheme = sessionStorage.getItem('moduloResiduosTheme');
 if (savedTheme === 'dark') {
     document.documentElement.classList.add('dark');
 }
+// ==========================================
+// CONFIGURACIÓN DE PROCESAMIENTO DE IMÁGENES (HACCP OPTIMIZED)
+// ==========================================
+const MAX_IMAGE_WIDTH = 1024; // Ancho máximo en px (Suficiente para ver detalles)
+const IMAGE_QUALITY = 0.7;    // Calidad de compresión JPEG (0.0 a 1.0)
 
 // ==========================================
 // 1. ESTADO CENTRALIZADO Y COMUNICACIÓN HUB
@@ -919,22 +924,57 @@ let imageBase64 = '';
 let imageMimeType = '';
 let imageName = '';
 
-imagenInput.addEventListener('change', function(e) {
+// ==========================================
+// CAPTURA Y PROCESAMIENTO ASÍNCRONO DE EVIDENCIA
+// ==========================================
+imagenInput.addEventListener('change', async function(e) {
   const file = e.target.files[0];
   if (file) {
-    fileNameDisplay.textContent = file.name;
-    imageName = file.name;
-    imageMimeType = file.type;
-    const reader = new FileReader();
-    reader.onload = function(readerEvent) {
-      const dataUrl = readerEvent.target.result;
-      imagePreview.src = dataUrl;
+    // UI: Estado de carga en el placeholder (UX Premium)
+    imagePlaceholder.innerHTML = `
+      <i class="ph ph-spinner animate-spin mx-auto text-4xl text-green-500"></i>
+      <p class="text-xs text-gray-500 mt-2">Optimizando evidencia...</p>
+    `;
+    
+    try {
+      // --- PASO CLAVE: PROCESAMIENTO EN <CANVAS> ---
+      // Ejecutamos la compresión instantánea en el Frontend
+      const { base64, type } = await procesarYComprimirImagen(file);
+      
+      // Actualizamos variables globales con datos ligeros
+      imageBase64 = base64;
+      imageMimeType = type; // Ahora será 'image/jpeg' siempre
+      imageName = file.name.replace(/\.[^/.]+$/, "") + "_opt.jpg"; // Renombramos para trazabilidad
+      
+      // UI: Actualizar vista previa con la imagen ya COMPRIMIDA
+      // Usamos el Base64 ligero para la vista previa, garantizando fluidez del DOM
+      imagePreview.src = `data:${type};base64,${base64}`;
+      fileNameDisplay.textContent = imageName;
+      
+      // Restaurar UI de placeholders y mostrar preview
       imagePlaceholder.classList.add('hidden');
       imagePreviewContainer.classList.remove('hidden');
       imagePreviewContainer.classList.add('flex');
-      imageBase64 = dataUrl.split(',')[1];
+      
+    } catch (error) {
+      console.error("Error procesando imagen:", error);
+      alert("No se pudo procesar la imagen. Intenta tomar otra foto o subir un archivo más ligero.");
+      resetImageUI();
+    } finally {
+      // Restaurar el HTML original del placeholder por si acaso
+      if (imagePlaceholder.innerHTML.includes('ph-spinner')) {
+         imagePlaceholder.innerHTML = `
+          <i class="ph ph-camera mx-auto text-4xl text-gray-400 dark:text-gray-500"></i>
+          <div class="flex text-sm justify-center">
+            <label for="imagen" class="relative cursor-pointer bg-white dark:bg-gray-800 rounded-md font-medium text-green-600 dark:text-green-400 hover:text-green-500 px-3 py-2 border border-green-200 dark:border-gray-600 shadow-sm transition-all hover:shadow">
+              <span><i class="ph ph-camera-plus mr-1"></i> Tomar foto o subir</span>
+            </label>
+          </div>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Formatos soportados: PNG, JPG</p>
+        `;
+      }
     }
-    reader.readAsDataURL(file);
+    
   } else {
     resetImageUI();
   }
@@ -1054,4 +1094,64 @@ function agregarRegistroAUi(data, isPending = false) {
       </div>
   `;
   registrosContainer.insertAdjacentHTML('afterbegin', html);
+}
+
+/**
+ * Procesa una imagenFile (File objeto) usando <canvas> para redimensionar y comprimir.
+ * @param {File} imageFile - El archivo original capturado del input.
+ * @returns {Promise<{base64: string, type: string}>} - Promesa con los datos optimizados.
+ */
+function procesarYComprimirImagen(imageFile) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    
+    // 1. Leer archivo original como DataURL
+    reader.readAsDataURL(imageFile);
+    
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      
+      img.onload = () => {
+        // 2. Crear Canvas Oculto
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        let width = img.width;
+        let height = img.height;
+        
+        // 3. Calcular Redimensionado Proporcional (Aspect Ratio)
+        if (width > MAX_IMAGE_WIDTH) {
+          height = Math.round((height * MAX_IMAGE_WIDTH) / width);
+          width = MAX_IMAGE_WIDTH;
+        }
+        
+        // 4. Configurar dimensiones del Canvas y dibujar
+        canvas.width = width;
+        canvas.height = height;
+        
+        // Volcar imagen al canvas (esto ya aplica suavizado nativo)
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // 5. Exportar a Base64 optimizado (JPEG forzado para máxima compresión)
+        // .toDataURL(type, quality) -> quality es clave aquí.
+        const optimizedBase64DataUrl = canvas.toDataURL('image/jpeg', IMAGE_QUALITY);
+        
+        // Extraer solo la cadena Base64 pura para el Backend
+        const finalBase64 = optimizedBase64DataUrl.split(',')[1];
+        
+        // Liberar memoria explícitamente (Buena práctica en móviles)
+        canvas.width = 0; canvas.height = 0; 
+
+        resolve({
+          base64: finalBase64,
+          type: 'image/jpeg' // Forzamos JPEG en la salida optimizada
+        });
+      };
+      
+      img.onerror = (err) => reject('Error cargando imagen en objeto Image: ' + err);
+    };
+    
+    reader.onerror = (err) => reject('Error leyendo archivo original: ' + err);
+  });
 }
