@@ -265,3 +265,15 @@ html, body {
 i.animate-spin, svg.animate-spin {
   display: inline-block !important;
 }
+
+/* =========================================
+   UI/UX: Ocultar barras de desplazamiento
+   ========================================= */
+.no-scrollbar::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+}
+
+.no-scrollbar {
+    -ms-overflow-style: none; /* IE y Edge */
+    scrollbar-width: none;    /* Firefox */
+}
