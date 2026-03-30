@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema POE - La Genovesa Agroindustrias S.A. (HACCP)</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body class="bg-gray-50 min-h-screen text-gray-800">
+
+  <div id="appContainer" class="print:hidden">
+
+    <header class="gradient-bg text-white shadow-lg sticky top-0 z-40">
+      <div class="container mx-auto px-4 py-4 md:py-6">
+        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div class="flex items-center space-x-4">
+            <div class="w-12 h-12 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg flex items-center justify-center">
+              <svg class="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+                <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd" />
+              </svg>
+            </div>
+            <div>
+              <h1 class="text-2xl font-bold tracking-tight">Sistema POE</h1>
+              <p class="text-blue-100 text-sm font-medium">La Genovesa Agroindustrias S.A.</p>
+            </div>
+          </div>
+
+          <div class="flex items-center space-x-4 w-full md:w-auto justify-between md:justify-end">
+            <div class="flex items-center space-x-2 bg-white/10 px-3 py-1.5 rounded-full border border-white/20">
+              <div id="network-indicator" class="w-2.5 h-2.5 rounded-full bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.8)]"></div>
+              <span id="network-text" class="text-xs font-semibold tracking-wide">ONLINE</span>
+            </div>
+
+            <button type="button" id="btnForceSync" onclick="window.forceSync()" class="bg-blue-800 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg font-bold shadow-md transition text-sm flex items-center space-x-2" title="Descargar catálogo y configuración de la nube">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+              </svg>
+              <span class="hidden md:inline">Actualizar BD</span>
+            </button>
+
+            <button type="button" onclick="window.openModal()" class="bg-white text-blue-900 hover:bg-blue-50 focus:ring-4 focus:ring-blue-300 px-6 py-2.5 rounded-lg font-bold shadow-md transition flex items-center space-x-2">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+              </svg>
+              <span>Nuevo POE</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-8">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-8">
+        <div class="bg-white rounded-xl card-shadow p-5 md:p-6 fade-in">
+          <p class="text-gray-500 text-xs md:text-sm font-semibold uppercase tracking-wider">Total POEs</p>
+          <p class="text-2xl md:text-3xl font-bold text-gray-800 mt-1" id="totalPOEs">0</p>
+        </div>
+        <div class="bg-white rounded-xl card-shadow p-5 md:p-6 fade-in">
+          <p class="text-gray-500 text-xs md:text-sm font-semibold uppercase tracking-wider">Producción</p>
+          <p class="text-2xl md:text-3xl font-bold text-green-600 mt-1" id="produccionCount">0</p>
+        </div>
+        <div class="bg-white rounded-xl card-shadow p-5 md:p-6 fade-in">
+          <p class="text-gray-500 text-xs md:text-sm font-semibold uppercase tracking-wider">Logística</p>
+          <p class="text-2xl md:text-3xl font-bold text-blue-600 mt-1" id="logisticaCount">0</p>
+        </div>
+        <div class="bg-white rounded-xl card-shadow p-5 md:p-6 fade-in">
+          <p class="text-gray-500 text-xs md:text-sm font-semibold uppercase tracking-wider">Calidad</p>
+          <p class="text-2xl md:text-3xl font-bold text-purple-600 mt-1" id="calidadCount">0</p>
+        </div>
+      </div>
+
+      <section class="bg-white rounded-xl card-shadow overflow-hidden fade-in border border-gray-100">
+        <div class="px-6 py-5 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gray-50/50">
+          <h2 class="text-lg font-bold text-gray-800">Matriz de Procedimientos Operativos</h2>
+          <div class="relative w-full md:max-w-xs">
+            <input type="text" id="searchInput" placeholder="Buscar por código o título..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none transition" oninput="window.refreshUI()">
+            <svg class="w-4 h-4 text-gray-400 absolute left-3 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse whitespace-nowrap">
+            <thead class="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Código</th>
+                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Título</th>
+                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Macro-Área</th>
+                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Estado Red</th>
+                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="table-body" class="divide-y divide-gray-100">
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <div id="modal" role="dialog" class="fixed inset-0 modal-overlay hidden z-50 items-center justify-center p-4 md:p-6">
+      <div class="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto slide-in relative">
+        <div class="px-6 md:px-8 py-5 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white/95 backdrop-blur-sm z-30">
+          <h3 class="text-xl font-bold text-blue-900">Registrar Procedimiento (GFSI)</h3>
+          <button type="button" onclick="window.closeModal()" class="text-gray-400 hover:text-red-500 bg-gray-50 hover:bg-red-50 transition p-2 rounded-full">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
+
+        <form id="poe-form" onsubmit="window.handleFormSubmit(event)" class="p-6 md:p-8 space-y-6">
+
+          <div>
+            <h4 class="font-bold text-gray-800 border-b pb-2 mb-4">1. Datos de Control Documental</h4>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <div>
+                <label class="block text-xs font-bold text-gray-600 mb-1">Macro-Área *</label>
+                <select id="category" required onchange="window.updateSubCategories()" class="w-full px-3 py-2 border rounded shadow-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+                  <option value="" disabled selected>Seleccione...</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-gray-600 mb-1">Sub-Área *</label>
+                <select id="poeSubCategory" required onchange="window.generatePoeCode()" class="w-full px-3 py-2 border rounded shadow-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+                  <option value="" disabled selected>Seleccione área...</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-blue-600 mb-1">Código Autogenerado 🔒</label>
+                <input type="text" id="code" required readonly class="w-full px-3 py-2 border border-blue-200 rounded shadow-sm bg-blue-50 text-blue-800 font-mono font-bold outline-none cursor-not-allowed" placeholder="POE-...">
+              </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div class="md:col-span-2">
+                <label class="block text-xs font-bold text-gray-600 mb-1">Título del Procedimiento *</label>
+                <input type="text" id="title" required class="w-full px-3 py-2 border rounded shadow-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ej: Recepción de Carcasas de Cerdo">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-gray-600 mb-1">Versión</label>
+                <input type="text" id="poeVersion" class="w-full px-3 py-2 border rounded bg-gray-50 outline-none font-mono" value="1.0">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-gray-600 mb-1">Estado</label>
+                <select id="poeStatus" class="w-full px-3 py-2 border rounded bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+                  <option value="ACT">Activo</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="pt-2">
+            <h4 class="font-bold text-gray-800 border-b pb-2 mb-4">2. Contexto y Alcance</h4>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-bold text-gray-600 mb-1">Objetivo General *</label>
+                <textarea id="objective" rows="2" required class="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Qué se busca lograr..."></textarea>
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-gray-600 mb-1">Alcance *</label>
+                <textarea id="scope" rows="2" required class="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="A qué áreas o procesos aplica..."></textarea>
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-gray-600 mb-1">Responsabilidades *</label>
+                <textarea id="responsibles" rows="2" required class="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Quién ejecuta y quién supervisa..."></textarea>
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-gray-600 mb-1">Definiciones (Glosario)</label>
+                <textarea id="definitions" rows="2" class="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ej: Carcasa: Cuerpo del animal faenado..."></textarea>
+              </div>
+              <div class="md:col-span-2">
+                <label class="block text-xs font-bold text-gray-600 mb-1">Equipos, Materiales y EPPs</label>
+                <textarea id="materials" rows="2" class="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ej: Termómetro de punzón, guantes anticorte, mandil térmico..."></textarea>
+              </div>
+            </div>
+          </div>
+
+          <div class="pt-2">
+            <h4 class="font-bold text-gray-800 border-b pb-2 mb-4">3. Desarrollo del Procedimiento</h4>
+            <div class="bg-blue-50 p-4 rounded-lg border border-blue-100 mb-4">
+              <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-3">
+                <div class="lg:col-span-2">
+                  <textarea id="stepDesc" rows="2" class="w-full px-3 py-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Describa el paso específico..."></textarea>
+                </div>
+                <div>
+                  <select id="stepType" class="w-full px-3 py-2 border rounded text-sm font-bold shadow-sm outline-none">
+                    <option value="INFO">📝 Instrucción General</option>
+                    <option value="PC">⚠️ Punto de Control (PC)</option>
+                    <option value="PCC" class="text-red-600">🛑 Punto Crítico (PCC)</option>
+                    <option value="SEG">🛡️ Seguridad Laboral</option>
+                  </select>
+                </div>
+              </div>
+              <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div class="w-full relative">
+                  <input type="file" id="stepImage" accept="image/*" onchange="window.updateFileText(this)" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
+                  <div class="bg-white border-2 border-dashed border-gray-300 rounded py-2 px-3 text-center transition hover:border-blue-400 hover:bg-blue-50/50">
+                    <span id="fileNameDisplay" class="text-xs font-medium text-gray-500">📸 Adjuntar evidencia visual (Opcional)...</span>
+                  </div>
+                </div>
+                <button type="button" onclick="window.addAdvancedStep()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded font-bold text-sm w-full sm:w-auto shrink-0 shadow-md transition">Añadir Paso</button>
+              </div>
+            </div>
+
+            <div id="advancedStepsList" class="space-y-2 max-h-64 overflow-y-auto p-2 bg-gray-50 rounded border border-gray-200">
+              <p class="text-center text-sm text-gray-400 py-4">Agregue el primer paso del procedimiento.</p>
+            </div>
+          </div>
+
+          <div class="pt-2">
+            <h4 class="font-bold text-gray-800 border-b pb-2 mb-4">4. Monitoreo, Control y Referencias</h4>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-bold text-gray-600 mb-1">Frecuencia y Monitoreo *</label>
+                <textarea id="monitoring" rows="2" required class="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ej: Revisar T° cada 2 horas..."></textarea>
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-gray-600 mb-1">Acciones Correctivas *</label>
+                <textarea id="correctiveActions" rows="2" required class="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ej: Si T° > 10°C, detener producción..."></textarea>
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-gray-600 mb-1">Registros Asociados (Formatos)</label>
+                <input type="text" id="records" class="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ej: F-PROD-01 Control de Rinde">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-gray-600 mb-1">Referencias y Anexos</label>
+                <input type="text" id="references" class="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ej: Norma Técnica Peruana, Manual BPM">
+              </div>
+            </div>
+          </div>
+
+          <div class="flex justify-end space-x-4 pt-6 border-t mt-6">
+            <button type="button" onclick="window.closeModal()" class="px-6 py-2.5 border border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-100 transition">Cancelar</button>
+            <button type="submit" class="btn-primary px-8 py-2.5 rounded-lg text-white font-bold shadow-lg">Firmar y Guardar POE</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="viewModal" role="dialog" class="fixed inset-0 modal-overlay hidden z-50 items-center justify-center p-4">
+      <div class="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto slide-in relative">
+        <div class="px-6 md:px-8 py-4 border-b flex flex-col sm:flex-row items-center justify-between sticky top-0 bg-white/95 backdrop-blur-sm z-30 gap-4 shadow-sm">
+          <h3 class="text-xl font-bold text-blue-900" id="viewTitle">Documento Oficial</h3>
+          <div class="flex items-center space-x-3 w-full sm:w-auto justify-end">
+            <button type="button" id="btnExportWord" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-bold text-sm flex items-center space-x-2 transition shadow shrink-0">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+              </svg>
+              <span class="hidden sm:inline">Exportar .DOC</span>
+              <span class="sm:hidden">.DOC</span>
+            </button>
+            <button type="button" id="btnPrint" class="bg-gray-800 hover:bg-gray-900 text-white px-4 py-2 rounded font-bold text-sm flex items-center space-x-2 transition shadow shrink-0">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+              </svg>
+              <span class="hidden sm:inline">Imprimir / PDF</span>
+              <span class="sm:hidden">PDF</span>
+            </button>
+            <button type="button" onclick="window.closeViewModal()" class="text-gray-400 hover:text-red-500 bg-gray-50 hover:bg-red-50 p-2 rounded-full transition shrink-0">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div id="viewContent" class="p-6 md:p-8"></div>
+
+      </div>
+    </div>
+
+  </div>
+  <div id="printArea" class="hidden print:block w-full bg-white text-black absolute top-0 left-0 z-50"></div>
+
+  <script src="script.js"></script>
+</body>
+
+</html>
