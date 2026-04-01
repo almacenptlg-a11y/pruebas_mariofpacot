@@ -31,7 +31,11 @@ const FALLBACK_CAT = {
   MANT: { name: "Mantenimiento", sub: { PRV: "Preventivo", COR: "Correctivo" } }
 };
 
-let state = { poes: [], config: [], form: { advancedSteps: [] } };
+let state = {
+  poes: [],
+  config: [],
+  form: { advancedSteps: [], editingId: null }
+};
 
 // ==========================================
 // 2. MOTOR DE BASE DE DATOS (INDEXEDDB)
@@ -194,6 +198,8 @@ window.updateSubCategories = function () {
 };
 
 window.generatePoeCode = function () {
+  if (state.form.editingId) return; // 🔒 Si estamos editando, NO sobreescribir el código
+
   const cat = document.getElementById("category")?.value;
   const sub = document.getElementById("poeSubCategory")?.value;
   if (!cat || !sub) return;
@@ -229,7 +235,7 @@ window.renderPOEs = function () {
     .map((poe) => {
       const isPending = poe._syncStatus === "pending";
       const badge = isPending
-        ? `<span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-[10px] font-bold uppercase">En Cola Local</span>`
+        ? `<span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-[10px] font-bold uppercase">En Cola</span>`
         : `<span class="bg-green-100 text-green-800 px-2 py-1 rounded text-[10px] font-bold uppercase">En Nube</span>`;
 
       const catObj = state.config.find(
@@ -245,13 +251,16 @@ window.renderPOEs = function () {
       <td class="p-4 font-bold text-gray-800">${poe.title}</td>
       <td class="p-4 text-xs font-bold text-gray-600">${catName}</td>
       <td class="p-4">${badge}</td>
-      <td class="p-4 text-right">
+      <td class="p-4 text-right flex justify-end space-x-2">
         <button type="button" onclick="window.viewPOE('${
           poe.id
-        }')" class="text-blue-600 bg-blue-50 px-3 py-1.5 rounded font-semibold mr-2 transition hover:bg-blue-100">Abrir</button>
+        }')" class="text-blue-600 bg-blue-50 px-3 py-1.5 rounded font-semibold transition hover:bg-blue-100" title="Ver Documento">👁️</button>
+        <button type="button" onclick="window.editPOE('${
+          poe.id
+        }')" class="text-yellow-600 bg-yellow-50 px-3 py-1.5 rounded font-semibold transition hover:bg-yellow-100" title="Editar Documento">✏️</button>
         <button type="button" onclick="window.deletePOE('${
           poe.id
-        }')" class="text-red-600 bg-red-50 px-3 py-1.5 rounded font-semibold transition hover:bg-red-100">X</button>
+        }')" class="text-red-600 bg-red-50 px-3 py-1.5 rounded font-semibold transition hover:bg-red-100" title="Marcar Obsoleto">✖</button>
       </td>
     </tr>`;
     })
@@ -385,8 +394,19 @@ window.handleFormSubmit = async function (e) {
   if (state.form.advancedSteps.length === 0)
     return alert("Debe incluir al menos 1 paso en el procedimiento.");
 
+  // Si estamos editando, usamos el ID existente. Si no, creamos uno nuevo.
+  const isEditing = !!state.form.editingId;
+  const poeId = isEditing ? state.form.editingId : `UUID-${Date.now()}`;
+
+  // Buscar fecha original si existe
+  let originalDate = new Date().toISOString();
+  if (isEditing) {
+    const existing = state.poes.find((p) => p.id === poeId);
+    if (existing) originalDate = existing.date; // Mantenemos fecha de creación
+  }
+
   const poeData = {
-    id: `UUID-${Date.now()}`,
+    id: poeId,
     code: getVal("code"),
     category: getVal("category"),
     subCategory: getVal("poeSubCategory"),
@@ -395,7 +415,7 @@ window.handleFormSubmit = async function (e) {
     status: getVal("poeStatus"),
     objective: getVal("objective"),
     scope: getVal("scope"),
-    frequency: getVal("frequency"),
+    frequency: getVal("monitoring"), // Mapeo histórico
     responsibles: getVal("responsibles"),
     definitions: getVal("definitions"),
     materials: getVal("materials"),
@@ -404,7 +424,7 @@ window.handleFormSubmit = async function (e) {
     records: getVal("records"),
     references: getVal("references"),
     procedure: JSON.stringify(state.form.advancedSteps),
-    date: new Date().toISOString(),
+    date: originalDate,
     _syncStatus: "pending"
   };
 
@@ -436,12 +456,11 @@ window.viewPOE = function (id) {
   const poe = state.poes.find((p) => p.id === id);
   if (!poe) return;
 
-  const btnPrint = document.getElementById("btnPrint");
   const btnExportWord = document.getElementById("btnExportWord");
-  if (btnPrint) btnPrint.onclick = () => window.printPOE(poe.id);
   if (btnExportWord)
     btnExportWord.onclick = () => window.exportPOEToWord(poe.id);
 
+  // 1. Renderizado Visual del Array de Pasos (HACCP)
   let stepsHTML = "";
   try {
     const arr = JSON.parse(poe.procedure);
@@ -449,83 +468,124 @@ window.viewPOE = function (id) {
       .map((s, i) => {
         const bColor =
           s.type === "PCC"
-            ? "bg-red-50 text-red-700 border-red-200"
-            : "bg-gray-50 text-gray-600 border-gray-200";
+            ? "bg-red-100 text-red-800 border-red-200"
+            : s.type === "PC"
+            ? "bg-yellow-100 text-yellow-800 border-yellow-200"
+            : "bg-gray-100 text-gray-600 border-gray-200";
         const img = s.image
-          ? `<img src="${s.image}" class="mt-2 h-32 rounded-lg border shadow-sm">`
+          ? `<img src="${s.image}" class="mt-4 max-h-64 object-cover rounded-xl border border-gray-200 shadow-sm">`
           : "";
         return `
-      <div class="flex gap-4 p-4 border-b border-gray-100 last:border-0">
-        <div class="w-8 h-8 rounded-full bg-blue-50 text-blue-700 font-bold flex items-center justify-center shrink-0">${
+      <div class="flex gap-4 p-5 md:p-6 bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition">
+        <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-800 font-black flex items-center justify-center shrink-0 text-lg border border-blue-200">${
           i + 1
         }</div>
         <div class="flex-grow">
-           <span class="text-[10px] font-bold px-2 py-0.5 rounded border uppercase mb-2 inline-block ${bColor}">${
+           <span class="text-[10px] font-black px-2.5 py-1 rounded border uppercase mb-3 inline-block tracking-widest ${bColor}">${
           s.type
         }</span>
-           <p class="text-sm font-medium text-gray-800">${s.desc}</p>
+           <p class="text-base font-medium text-gray-800 leading-relaxed">${
+             s.desc
+           }</p>
            ${img}
         </div>
       </div>`;
       })
       .join("");
   } catch (e) {
-    stepsHTML = `<p class="p-4 text-sm">${poe.procedure}</p>`;
+    stepsHTML = `<div class="bg-white p-6 rounded-xl border border-gray-200"><p class="text-base font-medium text-gray-800 leading-relaxed">${poe.procedure}</p></div>`;
   }
 
   const catObj = state.config.find(
     (c) => c.key === poe.category && c.type === "CATEGORY"
   );
-  const catName = catObj ? catObj.value : poe.category;
+  const catName = catObj
+    ? catObj.value
+    : FALLBACK_CAT[poe.category]?.name || poe.category;
+  const statusColor =
+    poe.status === "ACT" || poe.status === "Activo"
+      ? "bg-green-100 text-green-800 border-green-200"
+      : "bg-yellow-100 text-yellow-800 border-yellow-200";
+  const statusText = poe.status === "ACT" ? "ACTIVO" : "EN REVISIÓN";
 
+  // 2. Inyección HTML del Documento Estructurado
   const vContent = document.getElementById("viewContent");
   if (vContent) {
     vContent.innerHTML = `
-      <div class="border-2 border-gray-800 rounded-lg p-6 mb-6">
-         <div class="flex justify-between items-start border-b-2 border-gray-800 pb-4 mb-4">
-            <div><h2 class="text-2xl font-black text-gray-900 uppercase tracking-tight">${
+      <div class="bg-white p-8 md:p-10 rounded-2xl border border-gray-200 shadow-sm mb-8">
+        
+        <div class="flex flex-col md:flex-row justify-between items-start border-b-2 border-gray-100 pb-8 mb-8 gap-6">
+          <div class="w-full md:w-2/3">
+            <span class="inline-block px-3 py-1 bg-gray-100 text-gray-700 font-bold text-xs rounded-lg uppercase tracking-wider mb-3 border border-gray-200">${catName}</span>
+            <h2 class="text-3xl md:text-4xl font-black text-gray-900 uppercase tracking-tight leading-tight">${
               poe.title
-            }</h2><p class="text-sm font-bold text-gray-600 mt-1">Área: ${catName}</p></div>
-            <div class="text-right"><p class="text-lg font-bold font-mono text-blue-800">${
+            }</h2>
+          </div>
+          <div class="md:text-right flex flex-col md:items-end bg-gray-50 p-5 rounded-xl border border-gray-200 w-full md:w-1/3">
+            <p class="text-2xl font-black font-mono text-blue-800 tracking-wider">${
               poe.code
-            }</p><p class="text-sm font-bold text-gray-600">V${
-      poe.version
-    } | ${new Date(poe.date).toLocaleDateString()}</p></div>
-         </div>
-         <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-           <div><h4 class="text-xs font-black text-gray-500 uppercase tracking-widest mb-1">🎯 Objetivo</h4><p class="text-sm text-gray-800 font-medium">${
-             poe.objective || "N/A"
-           }</p></div>
-           <div><h4 class="text-xs font-black text-gray-500 uppercase tracking-widest mb-1">📏 Alcance</h4><p class="text-sm text-gray-800 font-medium">${
-             poe.scope || "N/A"
-           }</p></div>
-           <div><h4 class="text-xs font-black text-gray-500 uppercase tracking-widest mb-1">⏱️ Frecuencia</h4><p class="text-sm text-gray-800 font-medium">${
-             poe.frequency || poe.monitoring || "N/A"
-           }</p></div>
-           <div><h4 class="text-xs font-black text-gray-500 uppercase tracking-widest mb-1">👤 Responsables</h4><p class="text-sm text-gray-800 font-medium">${
-             poe.responsibles || "N/A"
-           }</p></div>
-           <div><h4 class="text-xs font-black text-gray-500 uppercase tracking-widest mb-1">⚠️ Acciones Correctivas</h4><p class="text-sm text-gray-800 font-medium">${
-             poe.corrective_actions || "N/A"
-           }</p></div>
-           <div><h4 class="text-xs font-black text-gray-500 uppercase tracking-widest mb-1">🛠️ Equipos y Materiales</h4><p class="text-sm text-gray-800 font-medium">${
-             poe.materials || "N/A"
-           }</p></div>
-           <div><h4 class="text-xs font-black text-gray-500 uppercase tracking-widest mb-1">📝 Definiciones</h4><p class="text-sm text-gray-800 font-medium">${
-             poe.definitions || "N/A"
-           }</p></div>
-           <div><h4 class="text-xs font-black text-gray-500 uppercase tracking-widest mb-1">📎 Registros / Anexos</h4><p class="text-sm text-gray-800 font-medium">${
-             poe.records || "N/A"
-           } <br> ${poe.references || ""}</p></div>
-         </div>
-      </div>
-      <div class="border-2 border-gray-800 rounded-lg overflow-hidden">
-        <div class="bg-gray-100 border-b-2 border-gray-800 px-6 py-3"><h4 class="font-black text-gray-800 uppercase tracking-widest text-sm">Desarrollo del Procedimiento Operativo</h4></div>
-        <div class="p-2">${stepsHTML}</div>
+            }</p>
+            <div class="flex items-center md:justify-end gap-3 mt-2 text-sm font-bold text-gray-500">
+              <span>Versión ${poe.version}</span>
+              <span>•</span>
+              <span>${new Date(poe.date).toLocaleDateString()}</span>
+            </div>
+            <div class="mt-4">
+               <span class="inline-flex items-center px-3 py-1 rounded-md text-xs font-black uppercase tracking-widest border ${statusColor}">${statusText}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+           <div><h4 class="text-xs font-black text-blue-800 uppercase tracking-widest mb-2 flex items-center gap-2">🎯 Objetivo General</h4><div class="text-sm text-gray-700 font-medium leading-relaxed bg-gray-50 p-5 rounded-xl border border-gray-100 h-full">${
+             poe.objective || "No especificado"
+           }</div></div>
+           <div><h4 class="text-xs font-black text-blue-800 uppercase tracking-widest mb-2 flex items-center gap-2">📏 Alcance Operativo</h4><div class="text-sm text-gray-700 font-medium leading-relaxed bg-gray-50 p-5 rounded-xl border border-gray-100 h-full">${
+             poe.scope || "No especificado"
+           }</div></div>
+           <div><h4 class="text-xs font-black text-blue-800 uppercase tracking-widest mb-2 flex items-center gap-2">👤 Responsabilidades</h4><div class="text-sm text-gray-700 font-medium leading-relaxed bg-gray-50 p-5 rounded-xl border border-gray-100 h-full">${
+             poe.responsibles || "No especificadas"
+           }</div></div>
+           <div><h4 class="text-xs font-black text-blue-800 uppercase tracking-widest mb-2 flex items-center gap-2">📝 Definiciones</h4><div class="text-sm text-gray-700 font-medium leading-relaxed bg-gray-50 p-5 rounded-xl border border-gray-100 h-full">${
+             poe.definitions || "Ninguna"
+           }</div></div>
+           <div class="md:col-span-2"><h4 class="text-xs font-black text-blue-800 uppercase tracking-widest mb-2 flex items-center gap-2">🛠️ Equipos, Materiales y EPPs</h4><div class="text-sm text-gray-700 font-medium leading-relaxed bg-gray-50 p-5 rounded-xl border border-gray-100 h-full">${
+             poe.materials || "No especificados"
+           }</div></div>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+           <div><h4 class="text-xs font-black text-red-800 uppercase tracking-widest mb-2 flex items-center gap-2">⏱️ Frecuencia / Monitoreo</h4><div class="text-sm text-gray-800 font-bold leading-relaxed bg-red-50 p-5 rounded-xl border border-red-100 h-full">${
+             poe.monitoring || poe.frequency || "No especificada"
+           }</div></div>
+           <div><h4 class="text-xs font-black text-red-800 uppercase tracking-widest mb-2 flex items-center gap-2">⚠️ Acciones Correctivas (Desvíos)</h4><div class="text-sm text-gray-800 font-bold leading-relaxed bg-red-50 p-5 rounded-xl border border-red-100 h-full">${
+             poe.corrective_actions || "No especificadas"
+           }</div></div>
+           <div><h4 class="text-xs font-black text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-2">📎 Registros Asociados</h4><div class="text-sm text-gray-700 font-medium leading-relaxed bg-gray-50 p-5 rounded-xl border border-gray-100 h-full">${
+             poe.records || "Ninguno"
+           }</div></div>
+           <div><h4 class="text-xs font-black text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-2">📚 Referencias / Anexos</h4><div class="text-sm text-gray-700 font-medium leading-relaxed bg-gray-50 p-5 rounded-xl border border-gray-100 h-full">${
+             poe.references || "Ninguna"
+           }</div></div>
+        </div>
+
+        <div>
+          <h4 class="text-sm font-black text-gray-800 uppercase tracking-widest mb-6 border-b-2 border-gray-200 pb-3">Desarrollo del Procedimiento Operativo</h4>
+          <div class="space-y-4">
+            ${stepsHTML}
+          </div>
+        </div>
       </div>
     `;
   }
-  window.openViewModal();
+
+  // 3. Abrir la vista en Flex
+  const m = document.getElementById("viewModal");
+  if (m) {
+    document.getElementById("viewTitle").textContent = "Visor de Documento"; // Corrección de ID de modal
+    m.classList.remove("hidden");
+    m.classList.add("flex");
+  }
 };
 
 window.exportPOEToWord = function (id) {
@@ -596,31 +656,47 @@ window.exportPOEToWord = function (id) {
   document.body.removeChild(a);
 };
 
-window.printPOE = function (id) {
-  const content = document.getElementById("viewContent")?.innerHTML;
-  if (!content) return;
-  const printWin = window.open("", "", "width=900,height=800");
-  printWin.document.write(
-    `<html><head><title>Imprimir POE</title><script src="https://cdn.tailwindcss.com"></script><style>@media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } img { max-height: 250px; page-break-inside: avoid; } .border-2 { border-width: 2px !important; border-color: #1f2937 !important; } .bg-gray-100 { background-color: #f3f4f6 !important; } }</style></head><body class="p-8 bg-white"><div class="text-center mb-6 pb-6 border-b-4 border-gray-900"><h1 class="text-3xl font-black uppercase">La Genovesa Agroindustrias</h1><p class="text-lg font-bold text-gray-600">Sistema HACCP - Documento Controlado</p></div>${content}<div class="mt-12 pt-8 border-t-2 border-gray-400 flex justify-between font-bold text-gray-500"><p>Aprobación Calidad: ______________________</p><p>Impreso: ${new Date().toLocaleDateString()}</p></div><script>setTimeout(() => { window.print(); window.close(); }, 800);</script></body></html>`
-  );
-  printWin.document.close();
-};
-
 // ==========================================
 // 7. FUNCIONES DEL MODAL GENERAL
 // ==========================================
 window.openModal = function () {
-  document.getElementById("poe-form")?.reset();
+  const form = document.getElementById("poe-form");
+  if (form) form.reset();
+
+  state.form.editingId = null; // 🔓 LIMPIAR MODO EDICIÓN
+  document.getElementById("modalTitle").textContent =
+    "Registrar Procedimiento (GFSI)";
+
+  // DESBLOQUEAR CAMPOS PARA NUEVOS REGISTROS
+  const catSelect = document.getElementById("category");
+  const subCatSelect = document.getElementById("poeSubCategory");
+  const versionInput = document.getElementById("poeVersion");
+
+  if (catSelect) {
+    catSelect.disabled = false;
+    catSelect.classList.remove("bg-gray-100", "cursor-not-allowed");
+  }
+  if (subCatSelect) {
+    subCatSelect.disabled = false;
+    subCatSelect.classList.remove("bg-gray-100", "cursor-not-allowed");
+  }
+
+  // Resetear versión a la inicial
+  if (versionInput) {
+    versionInput.value = "1.0";
+    versionInput.classList.remove("bg-blue-50", "text-blue-800", "font-bold");
+  }
+
   state.form.advancedSteps = [];
   window.renderAdvancedSteps();
   window.updateSubCategories();
+
   const m = document.getElementById("modal");
   if (m) {
     m.classList.remove("hidden");
     m.classList.add("flex");
   }
 };
-
 window.closeModal = function () {
   const m = document.getElementById("modal");
   if (m) {
@@ -763,3 +839,75 @@ document.addEventListener("DOMContentLoaded", async () => {
     window.pushSync();
   }, 1000);
 });
+
+// ==========================================
+// 9. LÓGICA DE EDICIÓN Y VERSIÓN (HACCP COMPLIANCE)
+// ==========================================
+
+window.editPOE = function (id) {
+  const poe = state.poes.find((p) => p.id === id);
+  if (!poe) return;
+
+  // 1. Activar modo edición
+  state.form.editingId = poe.id;
+  document.getElementById(
+    "modalTitle"
+  ).textContent = `Editar Procedimiento: ${poe.code}`;
+
+  // 2. BLOQUEO DE LLAVE PRIMARIA (Área y Sub-Área inmutables)
+  const catSelect = document.getElementById("category");
+  const subCatSelect = document.getElementById("poeSubCategory");
+  const codeInput = document.getElementById("code");
+
+  catSelect.value = poe.category;
+  catSelect.disabled = true; // Bloquea interacción
+  catSelect.classList.add("bg-gray-100", "cursor-not-allowed");
+
+  window.updateSubCategories();
+
+  setTimeout(() => {
+    subCatSelect.value = poe.subCategory;
+    subCatSelect.disabled = true; // Bloquea interacción
+    subCatSelect.classList.add("bg-gray-100", "cursor-not-allowed");
+    codeInput.value = poe.code; // Restaurar el código original
+  }, 50);
+
+  // 3. AUTO-INCREMENTO DE VERSIÓN
+  // Convierte "1.0" a 1.0, suma 0.1 y fija a 1 decimal ("1.1")
+  let nextVersion = (parseFloat(poe.version || 1.0) + 0.1).toFixed(1);
+  if (isNaN(nextVersion)) nextVersion = "1.1";
+
+  const versionInput = document.getElementById("poeVersion");
+  versionInput.value = nextVersion;
+  versionInput.classList.add("bg-blue-50", "text-blue-800", "font-bold"); // Feedback visual de subida de versión
+
+  // 4. Poblar resto de campos
+  document.getElementById("title").value = poe.title;
+  document.getElementById("poeStatus").value = poe.status || "ACT";
+  document.getElementById("objective").value = poe.objective || "";
+  document.getElementById("scope").value = poe.scope || "";
+  document.getElementById("responsibles").value = poe.responsibles || "";
+  document.getElementById("definitions").value = poe.definitions || "";
+  document.getElementById("materials").value = poe.materials || "";
+  document.getElementById("monitoring").value =
+    poe.monitoring || poe.frequency || "";
+  document.getElementById("correctiveActions").value =
+    poe.corrective_actions || "";
+  document.getElementById("records").value = poe.records || "";
+  document.getElementById("references").value = poe.references || "";
+
+  // 5. Poblar Array HACCP
+  try {
+    state.form.advancedSteps = JSON.parse(poe.procedure);
+  } catch (e) {
+    state.form.advancedSteps = [];
+  }
+  window.renderAdvancedSteps();
+
+  // Abrir Modal
+  const m = document.getElementById("modal");
+  if (m) {
+    m.classList.remove("hidden");
+    m.classList.add("flex");
+  }
+};
