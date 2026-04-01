@@ -1,5 +1,5 @@
 /**
- * @fileoverview CORE GENAPP - Sistema POE Industrial (HACCP)
+ * @fileoverview CORE GENAPP - Sistema POE Industrial (WYSIWYG NATIVO - BARRA GLOBAL)
  * @architecture Headless, Offline-First, O(1) Memory, Separated Structure
  */
 
@@ -38,13 +38,64 @@ let state = {
 };
 
 // ==========================================
-// 2. MOTOR DE BASE DE DATOS (INDEXEDDB)
+// 2. MOTOR WYSIWYG Y LECTURA DE CAMPOS
+// ==========================================
+window.initRichEditors = function () {
+  document.querySelectorAll(".rich-editor").forEach((editor) => {
+    // Evita doble asignación de eventos
+    if (editor.classList.contains("initialized")) return;
+    editor.classList.add("initialized");
+
+    editor.addEventListener("paste", function (e) {
+      e.preventDefault();
+      const text = (e.originalEvent || e).clipboardData.getData("text/plain");
+      document.execCommand("insertText", false, text);
+    });
+
+    editor.addEventListener("keydown", function (e) {
+      // Previene generación extraña de DIVs al dar Enter
+      if (
+        e.key === "Enter" &&
+        !document.queryCommandState("insertOrderedList") &&
+        !document.queryCommandState("insertUnorderedList")
+      ) {
+        document.execCommand("insertLineBreak");
+        e.preventDefault();
+      }
+    });
+  });
+};
+
+window.setListType = function (type) {
+  let node = document.getSelection().anchorNode;
+  while (node && node.nodeName !== "OL" && node.nodeName !== "DIV") {
+    node = node.parentNode;
+  }
+  if (node && node.nodeName === "OL") node.type = type;
+};
+
+const getFieldValue = (id) => {
+  const el = document.getElementById(id);
+  if (!el) return "";
+  return el.classList.contains("rich-editor")
+    ? el.innerHTML.trim()
+    : el.value.trim();
+};
+
+const setFieldValue = (id, val) => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (el.classList.contains("rich-editor")) el.innerHTML = val || "";
+  else el.value = val || "";
+};
+
+// ==========================================
+// 3. MOTOR DE BASE DE DATOS (INDEXEDDB)
 // ==========================================
 const POEDB = {
   db: null,
   useRAM: false,
   ramDB: { poes: [], sync_queue: [], sys_config: [] },
-
   init() {
     return new Promise((resolve) => {
       try {
@@ -72,7 +123,6 @@ const POEDB = {
       }
     });
   },
-
   save(store, data) {
     return new Promise((resolve) => {
       if (this.useRAM) {
@@ -88,7 +138,6 @@ const POEDB = {
       tx.oncomplete = resolve;
     });
   },
-
   getAll(store) {
     return new Promise((resolve) => {
       if (this.useRAM) return resolve(this.ramDB[store]);
@@ -97,7 +146,6 @@ const POEDB = {
       req.onsuccess = () => resolve(req.result);
     });
   },
-
   delete(store, id) {
     return new Promise((resolve) => {
       if (this.useRAM) {
@@ -114,13 +162,12 @@ const POEDB = {
 };
 
 // ==========================================
-// 3. UI DINÁMICA Y RENDERIZADO
+// 4. UI DINÁMICA Y RENDERIZADO
 // ==========================================
 window.refreshUI = async function () {
   state.config = await POEDB.getAll("sys_config");
   const allPoes = await POEDB.getAll("poes");
 
-  // FILTRO ALLOWLIST
   state.poes = allPoes.filter((p) => {
     const s = String(p.status || "")
       .trim()
@@ -158,14 +205,10 @@ window.refreshUI = async function () {
 
 window.buildDynamicDictionaries = function () {
   if (state.config.length === 0) return;
-
   const selectCategory = document.getElementById("category");
   const selectStatus = document.getElementById("poeStatus");
-  const selectStepType = document.getElementById("stepType");
-
   const categories = state.config.filter((c) => c.type === "CATEGORY");
   const statuses = state.config.filter((c) => c.type === "STATUS");
-  const stepTypes = state.config.filter((c) => c.type === "STEP_TYPE");
 
   if (selectCategory && categories.length > 0) {
     const cv = selectCategory.value;
@@ -182,11 +225,6 @@ window.buildDynamicDictionaries = function () {
       .map((c) => `<option value="${c.key}">${c.value}</option>`)
       .join("");
     if (cv) selectStatus.value = cv;
-  }
-  if (selectStepType && stepTypes.length > 0) {
-    selectStepType.innerHTML = stepTypes
-      .map((c) => `<option value="${c.key}">${c.value}</option>`)
-      .join("");
   }
 };
 
@@ -209,7 +247,6 @@ window.updateSubCategories = function () {
 
 window.generatePoeCode = function () {
   if (state.form.editingId) return;
-
   const cat = document.getElementById("category")?.value;
   const sub = document.getElementById("poeSubCategory")?.value;
   if (!cat || !sub) return;
@@ -278,7 +315,7 @@ window.renderPOEs = function () {
 };
 
 // ==========================================
-// 4. BUILDER DE PASOS E IMÁGENES
+// 5. BUILDER DE PASOS E IMÁGENES
 // ==========================================
 window.updateFileText = function (input) {
   const d = document.getElementById("fileNameDisplay");
@@ -293,13 +330,11 @@ window.updateFileText = function (input) {
 };
 
 window.addAdvancedStep = function () {
-  const descInput = document.getElementById("stepDesc");
-  if (!descInput || !descInput.value.trim())
-    return alert("Describa el paso operativo.");
+  const desc = getFieldValue("stepDesc");
+  if (!desc || desc === "<br>") return alert("Describa el paso operativo.");
 
   const typeInput = document.getElementById("stepType");
   const fileInput = document.getElementById("stepImage");
-  const desc = descInput.value.trim();
   const type = typeInput ? typeInput.value : "INFO";
 
   if (fileInput && fileInput.files.length > 0) {
@@ -335,9 +370,8 @@ window.addAdvancedStep = function () {
 };
 
 function _resetStepUI() {
-  const descInput = document.getElementById("stepDesc");
+  setFieldValue("stepDesc", "");
   const fileInput = document.getElementById("stepImage");
-  if (descInput) descInput.value = "";
   if (fileInput) {
     fileInput.value = "";
     window.updateFileText(fileInput);
@@ -377,7 +411,7 @@ window.renderAdvancedSteps = function () {
       <div class="w-6 h-6 rounded-full bg-blue-100 text-blue-800 font-bold flex items-center justify-center shrink-0 text-xs">${
         i + 1
       }</div>
-      <div class="flex-grow">
+      <div class="flex-grow overflow-hidden">
           <div class="flex justify-between items-center mb-1">
             <span class="text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${badgeColor}">${
         s.type
@@ -386,7 +420,9 @@ window.renderAdvancedSteps = function () {
               s.id
             })" class="text-red-400 font-bold hover:text-red-600 transition">X</button>
           </div>
-          <p class="text-xs font-medium">${s.desc}</p>
+          <div class="text-sm font-medium text-gray-800 leading-relaxed">${
+            s.desc
+          }</div>
           ${imgHTML}
       </div>
     </div>`;
@@ -395,11 +431,10 @@ window.renderAdvancedSteps = function () {
 };
 
 // ==========================================
-// 5. CRUD Y EDICIÓN
+// 6. CRUD Y EDICIÓN
 // ==========================================
 window.handleFormSubmit = async function (e) {
   e.preventDefault();
-  const getVal = (id) => document.getElementById(id)?.value || "";
 
   if (state.form.advancedSteps.length === 0)
     return alert("Debe incluir al menos 1 paso en el procedimiento.");
@@ -415,22 +450,22 @@ window.handleFormSubmit = async function (e) {
 
   const poeData = {
     id: poeId,
-    code: getVal("code"),
-    category: getVal("category"),
-    subCategory: getVal("poeSubCategory"),
-    title: getVal("title"),
-    version: getVal("poeVersion"),
-    status: getVal("poeStatus"),
-    objective: getVal("objective"),
-    scope: getVal("scope"),
-    frequency: getVal("monitoring"),
-    responsibles: getVal("responsibles"),
-    definitions: getVal("definitions"),
-    materials: getVal("materials"),
-    monitoring: getVal("monitoring"),
-    corrective_actions: getVal("correctiveActions"),
-    records: getVal("records"),
-    references: getVal("references"),
+    code: getFieldValue("code"),
+    category: getFieldValue("category"),
+    subCategory: getFieldValue("poeSubCategory"),
+    title: getFieldValue("title"),
+    version: getFieldValue("poeVersion"),
+    status: getFieldValue("poeStatus"),
+    objective: getFieldValue("objective"),
+    scope: getFieldValue("scope"),
+    frequency: getFieldValue("monitoring"),
+    responsibles: getFieldValue("responsibles"),
+    definitions: getFieldValue("definitions"),
+    materials: getFieldValue("materials"),
+    monitoring: getFieldValue("monitoring"),
+    corrective_actions: getFieldValue("correctiveActions"),
+    records: getFieldValue("records"),
+    references: getFieldValue("references"),
     procedure: JSON.stringify(state.form.advancedSteps),
     date: originalDate,
     _syncStatus: "pending"
@@ -445,12 +480,7 @@ window.handleFormSubmit = async function (e) {
 };
 
 window.deletePOE = async function (id) {
-  if (
-    !confirm(
-      "¿Está seguro de eliminar este procedimiento? (Desaparecerá de la vista)"
-    )
-  )
-    return;
+  if (!confirm("¿Está seguro de eliminar este procedimiento?")) return;
   const poe = state.poes.find((p) => p.id === id);
   if (poe) {
     poe.status = "OBS";
@@ -478,7 +508,6 @@ window.editPOE = function (id) {
   catSelect.value = poe.category;
   catSelect.disabled = true;
   catSelect.classList.add("bg-gray-100", "cursor-not-allowed");
-
   window.updateSubCategories();
 
   setTimeout(() => {
@@ -491,23 +520,22 @@ window.editPOE = function (id) {
   let nextVersion = (parseFloat(poe.version || 1.0) + 0.1).toFixed(1);
   if (isNaN(nextVersion)) nextVersion = "1.1";
 
-  const versionInput = document.getElementById("poeVersion");
-  versionInput.value = nextVersion;
-  versionInput.classList.add("bg-blue-50", "text-blue-800", "font-bold");
+  document.getElementById("poeVersion").value = nextVersion;
+  document
+    .getElementById("poeVersion")
+    .classList.add("bg-blue-50", "text-blue-800", "font-bold");
 
-  document.getElementById("title").value = poe.title;
-  document.getElementById("poeStatus").value = poe.status || "ACT";
-  document.getElementById("objective").value = poe.objective || "";
-  document.getElementById("scope").value = poe.scope || "";
-  document.getElementById("responsibles").value = poe.responsibles || "";
-  document.getElementById("definitions").value = poe.definitions || "";
-  document.getElementById("materials").value = poe.materials || "";
-  document.getElementById("monitoring").value =
-    poe.monitoring || poe.frequency || "";
-  document.getElementById("correctiveActions").value =
-    poe.corrective_actions || "";
-  document.getElementById("records").value = poe.records || "";
-  document.getElementById("references").value = poe.references || "";
+  setFieldValue("title", poe.title);
+  setFieldValue("poeStatus", poe.status || "ACT");
+  setFieldValue("objective", poe.objective);
+  setFieldValue("scope", poe.scope);
+  setFieldValue("responsibles", poe.responsibles);
+  setFieldValue("definitions", poe.definitions);
+  setFieldValue("materials", poe.materials);
+  setFieldValue("monitoring", poe.monitoring || poe.frequency);
+  setFieldValue("correctiveActions", poe.corrective_actions);
+  setFieldValue("records", poe.records);
+  setFieldValue("references", poe.references);
 
   try {
     state.form.advancedSteps = JSON.parse(poe.procedure);
@@ -524,13 +552,12 @@ window.editPOE = function (id) {
 };
 
 // ==========================================
-// 6. VISOR DE DOCUMENTO (MODAL VIEW)
+// 7. VISOR DE DOCUMENTO Y EXPORTACIÓN
 // ==========================================
 window.viewPOE = function (id) {
   const poe = state.poes.find((p) => p.id === id);
   if (!poe) return;
 
-  // Ligar botón de Exportación a Word
   const btnExportWord = document.getElementById("btnExportWord");
   if (btnExportWord)
     btnExportWord.onclick = () => window.exportPOEToWord(poe.id);
@@ -554,13 +581,13 @@ window.viewPOE = function (id) {
         <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-800 font-black flex items-center justify-center shrink-0 text-lg border border-blue-200">${
           i + 1
         }</div>
-        <div class="flex-grow">
+        <div class="flex-grow overflow-hidden">
            <span class="text-[10px] font-black px-2.5 py-1 rounded border uppercase mb-3 inline-block tracking-widest ${bColor}">${
           s.type
         }</span>
-           <p class="text-base font-medium text-gray-800 leading-relaxed">${
+           <div class="text-base font-medium text-gray-800 leading-relaxed">${
              s.desc
-           }</p>
+           }</div>
            ${img}
         </div>
       </div>`;
@@ -598,13 +625,11 @@ window.viewPOE = function (id) {
               poe.code
             }</p>
             <div class="flex items-center md:justify-end gap-3 mt-2 text-sm font-bold text-gray-500">
-              <span>Versión ${poe.version}</span>
-              <span>•</span>
-              <span>${new Date(poe.date).toLocaleDateString()}</span>
+              <span>Versión ${poe.version}</span><span>•</span><span>${new Date(
+      poe.date
+    ).toLocaleDateString()}</span>
             </div>
-            <div class="mt-4">
-               <span class="inline-flex items-center px-3 py-1 rounded-md text-xs font-black uppercase tracking-widest border ${statusColor}">${statusText}</span>
-            </div>
+            <div class="mt-4"><span class="inline-flex items-center px-3 py-1 rounded-md text-xs font-black uppercase tracking-widest border ${statusColor}">${statusText}</span></div>
           </div>
         </div>
 
@@ -673,7 +698,7 @@ window.exportPOEToWord = function (id) {
             i + 1
           }</strong> <span style="color: #555;">[${
             s.type
-          }]</span></p><p style="margin-top: 0;">${s.desc}</p>${
+          }]</span></p><div style="margin-top: 0;">${s.desc}</div>${
             s.image
               ? `<img src="${s.image}" width="400" style="border: 1px solid #ccc; margin-top: 10px;">`
               : ""
@@ -691,7 +716,7 @@ window.exportPOEToWord = function (id) {
 
   const htmlStr = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>${
     poe.code
-  }</title><style>body { font-family: 'Arial'; color: #000; } table { width: 100%; border-collapse: collapse; margin-bottom: 20px; } th, td { border: 1px solid #000; padding: 8px; text-align: left; vertical-align: top; } th { background-color: #f2f2f2; width: 25%; } h1 { color: #1e3a5f; font-size: 24px; text-transform: uppercase; text-align: center; border-bottom: 2px solid #1e3a5f; padding-bottom: 10px; margin-bottom: 20px; } h2 { color: #2d5a87; font-size: 16px; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-top: 25px; }</style></head><body>
+  }</title><style>body { font-family: 'Arial'; color: #000; } table { width: 100%; border-collapse: collapse; margin-bottom: 20px; } th, td { border: 1px solid #000; padding: 8px; text-align: left; vertical-align: top; } th { background-color: #f2f2f2; width: 25%; } h1 { color: #1e3a5f; font-size: 24px; text-transform: uppercase; text-align: center; border-bottom: 2px solid #1e3a5f; padding-bottom: 10px; margin-bottom: 20px; } h2 { color: #2d5a87; font-size: 16px; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-top: 25px; } ul { list-style-type: disc; margin-left: 20px; margin-bottom: 5px; } ol { list-style-type: decimal; margin-left: 20px; margin-bottom: 5px; } ol[type="a"] { list-style-type: lower-alpha; } h3 { color: #1e3a5f; font-size: 14px; margin-top: 15px; margin-bottom: 5px; text-transform: uppercase; }</style></head><body>
       <h1>La Genovesa Agroindustrias S.A.<br><span style="font-size:16px;">Procedimiento Operativo Estandarizado</span></h1>
       <table><tr><th>Código:</th><td>${poe.code}</td><th>Versión:</th><td>v${
     poe.version
@@ -700,22 +725,22 @@ window.exportPOEToWord = function (id) {
   }</strong></td></tr><tr><th>Área:</th><td>${catName}</td><th>Fecha:</th><td>${new Date(
     poe.date
   ).toLocaleDateString()}</td></tr></table>
-      <h2>1. Contexto Operativo</h2><p><strong>Objetivo:</strong> ${
+      <h2>1. Contexto Operativo</h2><p><strong>Objetivo:</strong></p> ${
         poe.objective || "N/A"
-      }</p><p><strong>Alcance:</strong> ${
+      }<p><strong>Alcance:</strong></p> ${
     poe.scope || "N/A"
-  }</p><p><strong>Responsabilidades:</strong> ${poe.responsibles || "N/A"}</p>
-      <h2>2. Control y Recursos</h2><p><strong>Frecuencia:</strong> ${
+  }<p><strong>Responsabilidades:</strong></p> ${poe.responsibles || "N/A"}
+      <h2>2. Control y Recursos</h2><p><strong>Frecuencia:</strong></p> ${
         poe.monitoring || poe.frequency || "N/A"
-      }</p><p><strong>Acciones Correctivas:</strong> ${
+      }<p><strong>Acciones Correctivas:</strong></p> ${
     poe.corrective_actions || "N/A"
-  }</p><p><strong>Equipos y Materiales:</strong> ${
+  }<p><strong>Equipos y Materiales:</strong></p> ${
     poe.materials || "N/A"
-  }</p><p><strong>Definiciones:</strong> ${
+  }<p><strong>Definiciones:</strong></p> ${
     poe.definitions || "N/A"
-  }</p><p><strong>Registros:</strong> ${poe.records || "N/A"} | ${
+  }<p><strong>Registros:</strong></p> ${poe.records || "N/A"} | ${
     poe.references || ""
-  }</p>
+  }
       <h2>3. Procedimiento Operativo (HACCP)</h2><div style="border: 1px solid #000; padding: 15px;">${stepsHTML}</div>
       <table style="border: none; margin-top: 50px;"><tr style="border: none;"><td style="border: none; text-align: center; width: 50%;">_________________________<br>Firma de Elaboración</td><td style="border: none; text-align: center; width: 50%;">_________________________<br>Aprobación Calidad</td></tr></table></body></html>`;
 
@@ -729,7 +754,7 @@ window.exportPOEToWord = function (id) {
 };
 
 // ==========================================
-// 7. FUNCIONES AUXILIARES DE MODALES
+// 8. MODALES AUXILIARES Y BOOTLOADER
 // ==========================================
 window.openModal = function () {
   const form = document.getElementById("poe-form");
@@ -738,6 +763,10 @@ window.openModal = function () {
   state.form.editingId = null;
   document.getElementById("modalTitle").textContent =
     "Registrar Procedimiento (GFSI)";
+
+  document
+    .querySelectorAll(".rich-editor")
+    .forEach((el) => (el.innerHTML = ""));
 
   const catSelect = document.getElementById("category");
   const subCatSelect = document.getElementById("poeSubCategory");
@@ -774,7 +803,6 @@ window.closeModal = function () {
     m.classList.remove("flex");
   }
 };
-
 window.closeViewModal = function () {
   const m = document.getElementById("viewModal");
   if (m) {
@@ -783,14 +811,10 @@ window.closeViewModal = function () {
   }
 };
 
-// ==========================================
-// 8. MOTOR DE RED (SYNC ENGINE) Y BOOTLOADER
-// ==========================================
 window.updateNet = function (status) {
   const ind = document.getElementById("network-indicator");
   const txt = document.getElementById("network-text");
   if (!ind || !txt) return;
-
   if (status === "online") {
     ind.className = "w-2.5 h-2.5 rounded-full bg-green-400 shadow-md";
     txt.textContent = "ONLINE";
@@ -814,7 +838,6 @@ window.pushSync = async function () {
     window.updateNet("online");
     return;
   }
-
   window.updateNet("sync");
   for (let t of q) {
     try {
@@ -840,67 +863,41 @@ window.pushSync = async function () {
 window.pullSync = async function () {
   if (!navigator.onLine) return;
   try {
-    // 1. SINCRONIZAR CATÁLOGOS (SYS_CONFIG)
     const rC = await fetch(GAS_ENDPOINT + "?action=get_config");
     const jC = await rC.json();
     if (jC.status === "success") {
-      // Destruir catálogo viejo
       const oldConfig = await POEDB.getAll("sys_config");
       for (let oc of oldConfig) await POEDB.delete("sys_config", oc.key);
-      // Guardar catálogo nuevo
       for (let i of jC.data) await POEDB.save("sys_config", i);
     }
-
-    // 2. SINCRONIZAR DOCUMENTOS (DROP & REPLACE)
     const rP = await fetch(GAS_ENDPOINT + "?action=get_poes");
     const jP = await rP.json();
     if (jP.status === "success") {
       const q = await POEDB.getAll("sync_queue");
-
-      // PASO A: Destrucción total de la caché local
-      // (Protegiendo únicamente los registros que hiciste offline y aún no suben)
       const localPoes = await POEDB.getAll("poes");
-      for (let local of localPoes) {
-        if (!q.find((x) => x.id === local.id)) {
+      for (let local of localPoes)
+        if (!q.find((x) => x.id === local.id))
           await POEDB.delete("poes", local.id);
-        }
-      }
-
-      // PASO B: Inyectar la verdad absoluta desde la Nube (Sheets)
-      for (let p of jP.data) {
-        if (!q.find((x) => x.id === p.id)) {
-          await POEDB.save("poes", p);
-        }
-      }
+      for (let p of jP.data)
+        if (!q.find((x) => x.id === p.id)) await POEDB.save("poes", p);
     }
     window.refreshUI();
-  } catch (e) {
-    console.warn("Error en sincronización en segundo plano:", e);
-  }
+  } catch (e) {}
 };
 
 window.forceSync = async function () {
   if (!navigator.onLine)
     return alert("⚠️ Sistema en modo offline. Revise su conexión a Internet.");
-
   const btn = document.getElementById("btnForceSync");
   if (!btn) return;
-
   const originalHTML = btn.innerHTML;
-  // Feedback visual de destrucción de caché
   btn.innerHTML = `<svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> <span>Destruyendo Caché...</span>`;
   btn.disabled = true;
   btn.classList.add("opacity-75", "cursor-wait");
-
   try {
     window.updateNet("sync");
-
-    // 1. Primero subimos cualquier cambio que tengas pendiente localmente
     await window.pushSync();
-
-    // 2. Ejecutamos la aniquilación de la memoria y clonado de Sheets
     await window.pullSync();
-
     alert(
       "✅ Caché destruida con éxito. La base de datos local ahora es un espejo exacto de Google Sheets."
     );
@@ -916,11 +913,10 @@ window.forceSync = async function () {
 
 window.addEventListener("online", () => window.pushSync());
 window.addEventListener("offline", () => window.updateNet("offline"));
-
-// ARRANQUE SEGURO
 document.addEventListener("DOMContentLoaded", async () => {
   window.updateNet(navigator.onLine ? "online" : "offline");
   await POEDB.init();
+  window.initRichEditors(); // Inicializar Barras de Herramientas
   await window.refreshUI();
 
   setTimeout(async () => {
