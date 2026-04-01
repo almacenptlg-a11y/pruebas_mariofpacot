@@ -5,20 +5,74 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sistema POE - La Genovesa Agroindustrias S.A. (HACCP)</title>
-
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
-
   <link rel="stylesheet" href="styles.css">
+
+  <style>
+    /* MOTOR WYSIWYG - Estilos Nativos */
+    .rich-editor {
+      min-height: 80px;
+      max-height: 500px;
+      overflow-y: auto;
+      resize: vertical;
+      outline: none;
+    }
+
+    .rich-editor:empty:before {
+      content: attr(data-placeholder);
+      color: #9ca3af;
+      pointer-events: none;
+      display: block;
+    }
+
+    .rich-text-content ul,
+    .rich-editor ul {
+      list-style-type: disc;
+      margin-left: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .rich-text-content ol,
+    .rich-editor ol {
+      list-style-type: decimal;
+      margin-left: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .rich-text-content ol[type="a"],
+    .rich-editor ol[type="a"] {
+      list-style-type: lower-alpha;
+    }
+
+    .rich-text-content ol[type="i"],
+    .rich-editor ol[type="i"] {
+      list-style-type: lower-roman;
+    }
+
+    .rich-text-content li,
+    .rich-editor li {
+      margin-bottom: 0.25rem;
+    }
+
+    .rich-text-content h3,
+    .rich-editor h3 {
+      color: #1e3a5f;
+      font-size: 1.1rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      margin-top: 0.5rem;
+      border-bottom: 1px solid #e5e7eb;
+      padding-bottom: 0.25rem;
+    }
+  </style>
 </head>
 
-<body class="bg-gray-50 min-h-screen text-gray-800">
+<body class="bg-gray-50 min-h-screen text-gray-800 font-['Inter']">
 
-  <div id="appContainer" class="print:hidden">
-
+  <div id="appContainer">
     <header class="gradient-bg text-white shadow-lg sticky top-0 z-40">
       <div class="container mx-auto px-4 py-4 md:py-6">
         <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -34,20 +88,17 @@
               <p class="text-blue-100 text-sm font-medium">La Genovesa Agroindustrias S.A.</p>
             </div>
           </div>
-
           <div class="flex items-center space-x-4 w-full md:w-auto justify-between md:justify-end">
             <div class="flex items-center space-x-2 bg-white/10 px-3 py-1.5 rounded-full border border-white/20">
               <div id="network-indicator" class="w-2.5 h-2.5 rounded-full bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.8)]"></div>
               <span id="network-text" class="text-xs font-semibold tracking-wide">ONLINE</span>
             </div>
-
-            <button type="button" id="btnForceSync" onclick="window.forceSync()" class="bg-blue-800 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg font-bold shadow-md transition text-sm flex items-center space-x-2" title="Descargar catálogo y configuración de la nube">
+            <button type="button" id="btnForceSync" onclick="window.forceSync()" class="bg-blue-800 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg font-bold shadow-md transition text-sm flex items-center space-x-2">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
               </svg>
               <span class="hidden md:inline">Actualizar BD</span>
             </button>
-
             <button type="button" onclick="window.openModal()" class="bg-white text-blue-900 hover:bg-blue-50 focus:ring-4 focus:ring-blue-300 px-6 py-2.5 rounded-lg font-bold shadow-md transition flex items-center space-x-2">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -93,15 +144,14 @@
           <table class="w-full text-left border-collapse whitespace-nowrap">
             <thead class="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Código</th>
-                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Título</th>
-                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Macro-Área</th>
-                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Estado Red</th>
-                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-right">Acciones</th>
+                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Código</th>
+                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Título</th>
+                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Macro-Área</th>
+                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Estado Red</th>
+                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Acciones</th>
               </tr>
             </thead>
-            <tbody id="table-body" class="divide-y divide-gray-100">
-            </tbody>
+            <tbody id="table-body" class="divide-y divide-gray-100"></tbody>
           </table>
         </div>
       </section>
@@ -110,49 +160,102 @@
     <div id="modal" role="dialog" class="fixed inset-0 bg-gray-50 hidden z-50 overflow-y-auto slide-in">
       <div class="bg-white min-h-screen w-full flex flex-col relative">
 
-        <div class="px-6 md:px-10 py-5 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white/95 backdrop-blur-sm z-30 shadow-sm">
-          <div class="flex items-center space-x-4">
-            <button type="button" onclick="window.closeModal()" class="text-gray-500 hover:text-blue-700 bg-gray-100 hover:bg-blue-50 transition p-2.5 rounded-full" title="Volver al Panel">
+        <div class="sticky top-0 z-40 flex flex-col shadow-sm">
+
+          <div class="px-6 md:px-10 py-4 border-b border-gray-200 flex items-center justify-between bg-white/95 backdrop-blur-sm">
+            <div class="flex items-center space-x-4">
+              <button type="button" onclick="window.closeModal()" class="text-gray-500 hover:text-blue-700 bg-gray-100 hover:bg-blue-50 transition p-2.5 rounded-full" title="Volver al Panel">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                </svg>
+              </button>
+              <h3 id="modalTitle" class="text-2xl font-black text-blue-900 tracking-tight">Registrar Procedimiento (GFSI)</h3>
+            </div>
+            <button type="button" onclick="window.closeModal()" class="text-gray-400 hover:text-red-500 bg-gray-50 hover:bg-red-50 transition p-2.5 rounded-full shadow-sm border border-gray-100">
               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
               </svg>
             </button>
-            <h3 id="modalTitle" class="text-2xl font-black text-blue-900 tracking-tight">Registrar Procedimiento (GFSI)</h3>
           </div>
-          <button type="button" onclick="window.closeModal()" class="text-gray-400 hover:text-red-500 bg-gray-50 hover:bg-red-50 transition p-2.5 rounded-full shadow-sm border border-gray-100" title="Cerrar y Cancelar">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-            </svg>
-          </button>
+
+          <div class="flex flex-wrap items-center bg-gray-50 border-b border-gray-300 px-6 md:px-10 py-1.5 gap-1 md:gap-3 text-gray-700 w-full overflow-x-auto">
+            <div class="flex items-center space-x-1 border-r border-gray-300 pr-2 md:pr-3">
+              <button type="button" class="p-1.5 hover:bg-gray-200 rounded" onmousedown="event.preventDefault(); document.execCommand('bold', false, null)" title="Negrita"><b>B</b></button>
+              <button type="button" class="p-1.5 hover:bg-gray-200 rounded" onmousedown="event.preventDefault(); document.execCommand('italic', false, null)" title="Cursiva"><i>I</i></button>
+              <button type="button" class="p-1.5 hover:bg-gray-200 rounded" onmousedown="event.preventDefault(); document.execCommand('underline', false, null)" title="Subrayado"><u>U</u></button>
+            </div>
+            <div class="flex items-center space-x-1 border-r border-gray-300 pr-2 md:pr-3">
+              <label class="p-1.5 hover:bg-gray-200 rounded cursor-pointer relative flex items-center" title="Color de Texto">
+                <span class="font-bold underline decoration-red-500">A</span>
+                <input type="color" class="absolute opacity-0 w-full h-full cursor-pointer" onchange="document.execCommand('foreColor', false, this.value)">
+              </label>
+              <label class="p-1.5 hover:bg-gray-200 rounded cursor-pointer relative flex items-center" title="Color de Resaltado">
+                <span class="font-bold bg-yellow-300 px-0.5">ab</span>
+                <input type="color" class="absolute opacity-0 w-full h-full cursor-pointer" onchange="document.execCommand('hiliteColor', false, this.value)">
+              </label>
+            </div>
+            <div class="flex items-center space-x-1 border-r border-gray-300 pr-2 md:pr-3">
+              <button type="button" class="p-1.5 hover:bg-gray-200 rounded" onmousedown="event.preventDefault(); document.execCommand('justifyLeft', false, null)" title="Alinear Izquierda"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                  <path d="M3 21h18v-2H3v2zm0-4h12v-2H3v2zm0-4h18v-2H3v2zm0-4h12V7H3v2zm0-6v2h18V3H3z"></path>
+                </svg></button>
+              <button type="button" class="p-1.5 hover:bg-gray-200 rounded" onmousedown="event.preventDefault(); document.execCommand('justifyCenter', false, null)" title="Centrar"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                  <path d="M7 15v2h10v-2H7zm-4 6h18v-2H3v2zm0-8h18v-2H3v2zm4-6v2h10V7H7zM3 3v2h18V3H3z"></path>
+                </svg></button>
+              <button type="button" class="p-1.5 hover:bg-gray-200 rounded" onmousedown="event.preventDefault(); document.execCommand('justifyRight', false, null)" title="Alinear Derecha"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                  <path d="M3 21h18v-2H3v2zm6-4h12v-2H9v2zm-6-4h18v-2H3v2zm6-4h12V7H9v2zm-6-6v2h18V3H3z"></path>
+                </svg></button>
+            </div>
+            <div class="flex items-center space-x-1 border-r border-gray-300 pr-2 md:pr-3">
+              <button type="button" class="p-1.5 hover:bg-gray-200 rounded" onmousedown="event.preventDefault(); document.execCommand('insertUnorderedList', false, null)" title="Viñetas"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                  <path d="M4 10.5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zm0-6c-.83 0-1.5.67-1.5 1.5S3.17 7.5 4 7.5 5.5 6.83 5.5 6 4.83 4.5 4 4.5zm0 12c-.83 0-1.5.68-1.5 1.5s.68 1.5 1.5 1.5 1.5-.68 1.5-1.5-.67-1.5-1.5-1.5zM7 19h14v-2H7v2zm0-6h14v-2H7v2zm0-8v2h14V5H7z"></path>
+                </svg></button>
+              <button type="button" class="p-1.5 hover:bg-gray-200 rounded font-bold text-[10px]" onmousedown="event.preventDefault(); document.execCommand('insertOrderedList', false, null); window.setListType('1')" title="Lista Numerada">1.</button>
+              <button type="button" class="p-1.5 hover:bg-gray-200 rounded font-bold text-[10px]" onmousedown="event.preventDefault(); document.execCommand('insertOrderedList', false, null); window.setListType('a')" title="Lista Alfabética">a)</button>
+            </div>
+            <div class="flex items-center space-x-1 border-r border-gray-300 pr-2 md:pr-3">
+              <button type="button" class="p-1.5 hover:bg-gray-200 rounded" onmousedown="event.preventDefault(); document.execCommand('outdent', false, null)" title="Reducir Sangría"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                  <path d="M11 17h10v-2H11v2zm-8-5l4 4V8l-4 4zm0 9h18v-2H3v2zM3 3v2h18V3H3zm8 6h10V7H11v2zm0 4h10v-2H11v2z"></path>
+                </svg></button>
+              <button type="button" class="p-1.5 hover:bg-gray-200 rounded" onmousedown="event.preventDefault(); document.execCommand('indent', false, null)" title="Aumentar Sangría"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                  <path d="M3 21h18v-2H3v2zM3 8v8l4-4-4-4zm8 9h10v-2H11v2zM3 3v2h18V3H3zm8 6h10V7H11v2zm0 4h10v-2H11v2z"></path>
+                </svg></button>
+            </div>
+            <div class="flex items-center space-x-1">
+              <button type="button" class="p-1.5 hover:bg-gray-200 rounded font-bold text-[10px] uppercase" onmousedown="event.preventDefault(); document.execCommand('formatBlock', false, 'H3')" title="Título">T</button>
+              <button type="button" class="p-1.5 hover:bg-red-100 text-red-500 rounded" onmousedown="event.preventDefault(); document.execCommand('removeFormat', false, null)" title="Borrar Formato"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                  <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4c-1.48 0-2.85.43-4.01 1.17l1.46 1.46C10.21 6.23 11.08 6 12 6c3.04 0 5.5 2.46 5.5 5.5v.5H19c1.66 0 3 1.34 3 3 0 1.13-.64 2.11-1.56 2.62l1.45 1.45C23.16 18.16 24 16.68 24 15c0-2.64-2.05-4.78-4.65-4.96zM3 5.27l2.75 2.74C3.56 8.79 2 10.82 2 13c0 3.31 2.69 6 6 6h11.73l2 2L23 19.73 4.27 1 3 5.27zM7.73 10l8 8H8c-2.21 0-4-1.79-4-4s1.79-4 3.73-4z"></path>
+                </svg></button>
+            </div>
+          </div>
         </div>
 
-        <div class="flex-grow w-full max-w-6xl mx-auto">
-          <form id="poe-form" onsubmit="window.handleFormSubmit(event)" class="p-6 md:p-10 space-y-8">
+        <div class="flex-grow w-full max-w-6xl mx-auto mt-4">
+          <form id="poe-form" onsubmit="window.handleFormSubmit(event)" class="p-6 md:px-10 pb-10 space-y-8">
 
             <div class="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
               <h4 class="font-black text-gray-800 border-b-2 border-gray-100 pb-3 mb-5 uppercase tracking-wide text-sm">1. Datos de Control Documental</h4>
               <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                 <div>
                   <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">Macro-Área *</label>
-                  <select id="category" required onchange="window.updateSubCategories()" class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition">
+                  <select id="category" required onchange="window.updateSubCategories()" class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none transition">
                     <option value="" disabled selected>Seleccione...</option>
                   </select>
                 </div>
                 <div>
                   <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">Sub-Área *</label>
-                  <select id="poeSubCategory" required onchange="window.generatePoeCode()" class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition">
+                  <select id="poeSubCategory" required onchange="window.generatePoeCode()" class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none transition">
                     <option value="" disabled selected>Seleccione área...</option>
                   </select>
                 </div>
                 <div>
                   <label class="block text-xs font-bold text-blue-600 mb-2 uppercase">Código Generado 🔒</label>
-                  <input type="text" id="code" required readonly class="w-full px-4 py-3 border border-blue-200 rounded-lg shadow-inner bg-blue-50 text-blue-800 font-mono font-bold outline-none cursor-not-allowed" placeholder="POE-XXX-XXX-000">
+                  <input type="text" id="code" required readonly class="w-full px-4 py-3 border border-blue-200 rounded-lg shadow-inner bg-blue-50 text-blue-800 font-mono font-bold outline-none cursor-not-allowed">
                 </div>
               </div>
               <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div class="md:col-span-2">
                   <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">Título del Procedimiento *</label>
-                  <input type="text" id="title" required class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" placeholder="Ej: Recepción de Carcasas, Desposte de Pierna, etc.">
+                  <input type="text" id="title" required class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none transition" placeholder="Ej: Recepción de Carcasas">
                 </div>
                 <div>
                   <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">Versión</label>
@@ -171,41 +274,35 @@
             <div class="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
               <h4 class="font-black text-gray-800 border-b-2 border-gray-100 pb-3 mb-5 uppercase tracking-wide text-sm">2. Contexto y Alcance</h4>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">Objetivo General *</label>
-                  <textarea id="objective" rows="3" required class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm transition" placeholder="Ej: Establecer los pasos estandarizados para garantizar la inocuidad, controlando el límite crítico de temperatura..."></textarea>
+                <div><label class="block text-xs font-bold text-gray-600 mb-2 uppercase">Objetivo General *</label>
+                  <div id="objective" class="rich-editor w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white rich-text-content" contenteditable="true" data-placeholder="Ej: Establecer los pasos estandarizados..."></div>
                 </div>
-                <div>
-                  <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">Alcance Operativo *</label>
-                  <textarea id="scope" rows="3" required class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm transition" placeholder="Ej: Aplica estrictamente a los operarios de la Línea 2, desde la recepción de la masa hasta el grapado."></textarea>
+                <div><label class="block text-xs font-bold text-gray-600 mb-2 uppercase">Alcance Operativo *</label>
+                  <div id="scope" class="rich-editor w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white rich-text-content" contenteditable="true" data-placeholder="Ej: Aplica estrictamente a los operarios..."></div>
                 </div>
-                <div>
-                  <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">Responsabilidades *</label>
-                  <textarea id="responsibles" rows="3" required class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm transition" placeholder="Ej: Operario de Máquina (Ejecución paso a paso). / Supervisor de Producción (Verificación)."></textarea>
+                <div><label class="block text-xs font-bold text-gray-600 mb-2 uppercase">Responsabilidades *</label>
+                  <div id="responsibles" class="rich-editor w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white rich-text-content" contenteditable="true" data-placeholder="Ej: Operario de Máquina (Ejecución)..."></div>
                 </div>
-                <div>
-                  <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">Definiciones (Glosario)</label>
-                  <textarea id="definitions" rows="3" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm transition" placeholder="Ej: PCC: Punto Crítico de Control. / Merma: Pérdida de peso por deshidratación."></textarea>
+                <div><label class="block text-xs font-bold text-gray-600 mb-2 uppercase">Definiciones (Glosario)</label>
+                  <div id="definitions" class="rich-editor w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white rich-text-content" contenteditable="true" data-placeholder="Ej: PCC: Punto Crítico de Control..."></div>
                 </div>
-                <div class="md:col-span-2">
-                  <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">Equipos, Materiales y EPPs</label>
-                  <textarea id="materials" rows="2" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm transition" placeholder="Ej: Termómetro de punzón calibrado, guantes de malla de acero anticorte, botas sanitarias blancas antideslizantes..."></textarea>
+                <div class="md:col-span-2"><label class="block text-xs font-bold text-gray-600 mb-2 uppercase">Equipos, Materiales y EPPs</label>
+                  <div id="materials" class="rich-editor w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white rich-text-content" contenteditable="true" data-placeholder="Ej: Termómetro de punzón calibrado..."></div>
                 </div>
               </div>
             </div>
 
             <div class="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
               <h4 class="font-black text-gray-800 border-b-2 border-gray-100 pb-3 mb-5 uppercase tracking-wide text-sm">3. Desarrollo del Procedimiento Operativo</h4>
-
               <div class="bg-blue-50/50 p-5 rounded-xl border border-blue-100 mb-6">
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-4">
-                  <div class="lg:col-span-2">
-                    <label class="block text-[10px] font-bold text-blue-800 mb-1 uppercase tracking-wider">Instrucción del Paso</label>
-                    <textarea id="stepDesc" rows="2" class="w-full px-4 py-3 border border-blue-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" placeholder="Ej: Insertar la sonda del termómetro en el centro térmico de la pieza cárnica más gruesa del lote..."></textarea>
+                  <div class="lg:col-span-2 flex flex-col">
+                    <label class="block text-[10px] font-bold text-blue-800 mb-2 uppercase tracking-wider">Instrucción del Paso</label>
+                    <div id="stepDesc" class="rich-editor w-full border border-blue-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white rich-text-content" contenteditable="true" data-placeholder="Ej: Insertar la sonda del termómetro en el centro térmico..."></div>
                   </div>
                   <div>
-                    <label class="block text-[10px] font-bold text-blue-800 mb-1 uppercase tracking-wider">Tipo de Control</label>
-                    <select id="stepType" class="w-full px-4 py-3 border border-blue-200 rounded-lg text-sm font-bold shadow-sm outline-none">
+                    <label class="block text-[10px] font-bold text-blue-800 mb-2 uppercase tracking-wider">Tipo de Control</label>
+                    <select id="stepType" class="w-full px-4 py-3 border border-blue-200 rounded-lg text-sm font-bold shadow-sm outline-none bg-white">
                       <option value="INFO">📝 Instrucción Operativa</option>
                       <option value="PC">⚠️ Punto de Control (PC)</option>
                       <option value="PCC" class="text-red-600">🛑 Punto Crítico (PCC)</option>
@@ -226,11 +323,8 @@
                 </div>
               </div>
 
-              <div id="advancedStepsList" class="space-y-3 max-h-96 overflow-y-auto p-4 bg-gray-50 rounded-xl border border-gray-200 shadow-inner">
+              <div id="advancedStepsList" class="space-y-3 max-h-96 overflow-y-auto p-4 bg-gray-50 rounded-xl border border-gray-200 shadow-inner rich-text-content">
                 <div class="flex flex-col items-center justify-center py-10 text-gray-400">
-                  <svg class="w-12 h-12 mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
-                  </svg>
                   <p class="text-sm font-medium">Agregue el primer paso del procedimiento en el panel superior.</p>
                 </div>
               </div>
@@ -239,21 +333,17 @@
             <div class="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
               <h4 class="font-black text-gray-800 border-b-2 border-gray-100 pb-3 mb-5 uppercase tracking-wide text-sm">4. Monitoreo, Control y Referencias</h4>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">Frecuencia de Monitoreo *</label>
-                  <textarea id="monitoring" rows="3" required class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm transition" placeholder="Ej: Control visual continuo durante la marcha. Medición de temperatura interna (< 4°C) cada 2 horas..."></textarea>
+                <div><label class="block text-xs font-bold text-gray-600 mb-2 uppercase">Frecuencia de Monitoreo *</label>
+                  <div id="monitoring" class="rich-editor w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white rich-text-content" contenteditable="true" data-placeholder="Ej: Medición de temperatura interna cada 2 horas..."></div>
                 </div>
-                <div>
-                  <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">Acciones Correctivas (Desvíos) *</label>
-                  <textarea id="correctiveActions" rows="3" required class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm transition" placeholder="Ej: Si la temperatura de la masa supera los 12°C, DETENER el equipo inmediatamente..."></textarea>
+                <div><label class="block text-xs font-bold text-gray-600 mb-2 uppercase">Acciones Correctivas (Desvíos) *</label>
+                  <div id="correctiveActions" class="rich-editor w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white rich-text-content" contenteditable="true" data-placeholder="Ej: DETENER el equipo inmediatamente..."></div>
                 </div>
-                <div>
-                  <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">Registros Asociados (Formatos)</label>
-                  <input type="text" id="records" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm transition" placeholder="Ej: F-PROD-05 (Registro de T° Cocción)">
+                <div><label class="block text-xs font-bold text-gray-600 mb-2 uppercase">Registros Asociados (Formatos)</label>
+                  <div id="records" class="rich-editor w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white rich-text-content" contenteditable="true" data-placeholder="Ej: F-PROD-05 (Registro de T° Cocción)"></div>
                 </div>
-                <div>
-                  <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">Referencias Normativas y Anexos</label>
-                  <input type="text" id="references" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm transition" placeholder="Ej: RM N° 087-2008/MINSA (Norma Sanitaria)">
+                <div><label class="block text-xs font-bold text-gray-600 mb-2 uppercase">Referencias Normativas y Anexos</label>
+                  <div id="references" class="rich-editor w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white rich-text-content" contenteditable="true" data-placeholder="Ej: RM N° 087-2008/MINSA"></div>
                 </div>
               </div>
             </div>
@@ -261,9 +351,6 @@
             <div class="flex flex-col-reverse sm:flex-row justify-end sm:space-x-4 pt-4 mt-8 pb-4">
               <button type="button" onclick="window.closeModal()" class="w-full sm:w-auto px-8 py-3.5 border-2 border-gray-200 rounded-xl font-bold text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition mt-3 sm:mt-0">Cancelar Edición</button>
               <button type="submit" class="w-full sm:w-auto bg-green-600 hover:bg-green-700 transition px-10 py-3.5 rounded-xl text-white font-black shadow-lg transform hover:-translate-y-0.5 tracking-wide text-lg flex items-center justify-center space-x-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
-                </svg>
                 <span>Firmar y Guardar POE</span>
               </button>
             </div>
@@ -274,10 +361,9 @@
 
     <div id="viewModal" role="dialog" class="fixed inset-0 bg-gray-50 hidden z-50 overflow-y-auto slide-in">
       <div class="bg-gray-50 min-h-screen w-full flex flex-col relative">
-
         <div class="px-6 md:px-10 py-4 border-b border-gray-200 flex flex-col sm:flex-row items-center justify-between sticky top-0 bg-white/95 backdrop-blur-sm z-30 shadow-sm gap-4">
           <div class="flex items-center space-x-4 w-full sm:w-auto">
-            <button type="button" onclick="window.closeViewModal()" class="text-gray-500 hover:text-blue-700 bg-gray-100 hover:bg-blue-50 transition p-2.5 rounded-full" title="Volver al Panel">
+            <button type="button" onclick="window.closeViewModal()" class="text-gray-500 hover:text-blue-700 bg-gray-100 hover:bg-blue-50 transition p-2.5 rounded-full">
               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
               </svg>
@@ -286,18 +372,11 @@
           </div>
           <div class="flex items-center space-x-3 w-full sm:w-auto justify-end">
             <button type="button" id="btnExportWord" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-bold text-sm flex items-center space-x-2 transition shadow shrink-0">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-              </svg>
-              <span class="hidden sm:inline">Exportar .DOC</span>
-              <span class="sm:hidden">.DOC</span>
+              <span class="hidden sm:inline">Exportar .DOC</span><span class="sm:hidden">.DOC</span>
             </button>
           </div>
         </div>
-
-        <div class="flex-grow w-full max-w-6xl mx-auto p-6 md:p-10" id="viewContent">
-        </div>
-
+        <div class="flex-grow w-full max-w-6xl mx-auto p-6 md:p-10 rich-text-content" id="viewContent"></div>
       </div>
     </div>
 
