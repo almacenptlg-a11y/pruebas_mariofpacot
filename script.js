@@ -48,7 +48,7 @@ const POEDB = {
   init() {
     return new Promise((resolve) => {
       try {
-        const req = indexedDB.open("POE_DB_V6", 1);
+        const req = indexedDB.open("POE_DB_V7", 1);
         req.onupgradeneeded = (e) => {
           const db = e.target.result;
           if (!db.objectStoreNames.contains("poes"))
@@ -119,12 +119,24 @@ const POEDB = {
 window.refreshUI = async function () {
   state.config = await POEDB.getAll("sys_config");
   const allPoes = await POEDB.getAll("poes");
-  state.poes = allPoes.filter((p) => p.status !== "Obsoleto");
+
+  // FILTRO ALLOWLIST
+  state.poes = allPoes.filter((p) => {
+    const s = String(p.status || "")
+      .trim()
+      .toUpperCase();
+    return (
+      s === "ACT" ||
+      s === "REV" ||
+      s === "ACTIVO" ||
+      s === "EN REVISION" ||
+      s === "EN REVISIÓN"
+    );
+  });
 
   window.buildDynamicDictionaries();
   window.renderPOEs();
 
-  // Actualizar contadores
   const safeSet = (id, val) => {
     const el = document.getElementById(id);
     if (el) el.textContent = val;
@@ -164,7 +176,6 @@ window.buildDynamicDictionaries = function () {
         .join("");
     if (cv) selectCategory.value = cv;
   }
-
   if (selectStatus && statuses.length > 0) {
     const cv = selectStatus.value;
     selectStatus.innerHTML = statuses
@@ -172,7 +183,6 @@ window.buildDynamicDictionaries = function () {
       .join("");
     if (cv) selectStatus.value = cv;
   }
-
   if (selectStepType && stepTypes.length > 0) {
     selectStepType.innerHTML = stepTypes
       .map((c) => `<option value="${c.key}">${c.value}</option>`)
@@ -198,7 +208,7 @@ window.updateSubCategories = function () {
 };
 
 window.generatePoeCode = function () {
-  if (state.form.editingId) return; // 🔒 Si estamos editando, NO sobreescribir el código
+  if (state.form.editingId) return;
 
   const cat = document.getElementById("category")?.value;
   const sub = document.getElementById("poeSubCategory")?.value;
@@ -277,7 +287,7 @@ window.updateFileText = function (input) {
     d.textContent = "📸 " + input.files[0].name;
     d.classList.add("text-blue-600", "font-bold");
   } else {
-    d.textContent = "📸 Adjuntar evidencia...";
+    d.textContent = "📸 Adjuntar evidencia visual (Opcional)...";
     d.classList.remove("text-blue-600", "font-bold");
   }
 };
@@ -347,7 +357,7 @@ window.renderAdvancedSteps = function () {
   if (!container) return;
 
   if (state.form.advancedSteps.length === 0) {
-    container.innerHTML = `<p class="text-center text-sm text-gray-400 py-4">Aún no hay pasos. Añada el Paso 1 arriba.</p>`;
+    container.innerHTML = `<div class="flex flex-col items-center justify-center py-10 text-gray-400"><p class="text-sm font-medium">Agregue el primer paso del procedimiento.</p></div>`;
     return;
   }
 
@@ -385,7 +395,7 @@ window.renderAdvancedSteps = function () {
 };
 
 // ==========================================
-// 5. CRUD Y FORMULARIOS
+// 5. CRUD Y EDICIÓN
 // ==========================================
 window.handleFormSubmit = async function (e) {
   e.preventDefault();
@@ -394,15 +404,13 @@ window.handleFormSubmit = async function (e) {
   if (state.form.advancedSteps.length === 0)
     return alert("Debe incluir al menos 1 paso en el procedimiento.");
 
-  // Si estamos editando, usamos el ID existente. Si no, creamos uno nuevo.
   const isEditing = !!state.form.editingId;
   const poeId = isEditing ? state.form.editingId : `UUID-${Date.now()}`;
 
-  // Buscar fecha original si existe
   let originalDate = new Date().toISOString();
   if (isEditing) {
     const existing = state.poes.find((p) => p.id === poeId);
-    if (existing) originalDate = existing.date; // Mantenemos fecha de creación
+    if (existing) originalDate = existing.date;
   }
 
   const poeData = {
@@ -415,7 +423,7 @@ window.handleFormSubmit = async function (e) {
     status: getVal("poeStatus"),
     objective: getVal("objective"),
     scope: getVal("scope"),
-    frequency: getVal("monitoring"), // Mapeo histórico
+    frequency: getVal("monitoring"),
     responsibles: getVal("responsibles"),
     definitions: getVal("definitions"),
     materials: getVal("materials"),
@@ -437,30 +445,96 @@ window.handleFormSubmit = async function (e) {
 };
 
 window.deletePOE = async function (id) {
-  if (!confirm("¿Marcar registro como Obsoleto (Borrado Lógico)?")) return;
+  if (
+    !confirm(
+      "¿Está seguro de eliminar este procedimiento? (Desaparecerá de la vista)"
+    )
+  )
+    return;
   const poe = state.poes.find((p) => p.id === id);
   if (poe) {
     poe.status = "OBS";
     poe._syncStatus = "pending";
-    await POEDB.save("poes", poe);
     await POEDB.save("sync_queue", { id, payload: poe });
+    await POEDB.delete("poes", id);
     await window.refreshUI();
     window.pushSync();
   }
 };
 
+window.editPOE = function (id) {
+  const poe = state.poes.find((p) => p.id === id);
+  if (!poe) return;
+
+  state.form.editingId = poe.id;
+  document.getElementById(
+    "modalTitle"
+  ).textContent = `Editar Procedimiento: ${poe.code}`;
+
+  const catSelect = document.getElementById("category");
+  const subCatSelect = document.getElementById("poeSubCategory");
+  const codeInput = document.getElementById("code");
+
+  catSelect.value = poe.category;
+  catSelect.disabled = true;
+  catSelect.classList.add("bg-gray-100", "cursor-not-allowed");
+
+  window.updateSubCategories();
+
+  setTimeout(() => {
+    subCatSelect.value = poe.subCategory;
+    subCatSelect.disabled = true;
+    subCatSelect.classList.add("bg-gray-100", "cursor-not-allowed");
+    codeInput.value = poe.code;
+  }, 50);
+
+  let nextVersion = (parseFloat(poe.version || 1.0) + 0.1).toFixed(1);
+  if (isNaN(nextVersion)) nextVersion = "1.1";
+
+  const versionInput = document.getElementById("poeVersion");
+  versionInput.value = nextVersion;
+  versionInput.classList.add("bg-blue-50", "text-blue-800", "font-bold");
+
+  document.getElementById("title").value = poe.title;
+  document.getElementById("poeStatus").value = poe.status || "ACT";
+  document.getElementById("objective").value = poe.objective || "";
+  document.getElementById("scope").value = poe.scope || "";
+  document.getElementById("responsibles").value = poe.responsibles || "";
+  document.getElementById("definitions").value = poe.definitions || "";
+  document.getElementById("materials").value = poe.materials || "";
+  document.getElementById("monitoring").value =
+    poe.monitoring || poe.frequency || "";
+  document.getElementById("correctiveActions").value =
+    poe.corrective_actions || "";
+  document.getElementById("records").value = poe.records || "";
+  document.getElementById("references").value = poe.references || "";
+
+  try {
+    state.form.advancedSteps = JSON.parse(poe.procedure);
+  } catch (e) {
+    state.form.advancedSteps = [];
+  }
+  window.renderAdvancedSteps();
+
+  const m = document.getElementById("modal");
+  if (m) {
+    m.classList.remove("hidden");
+    m.classList.add("flex");
+  }
+};
+
 // ==========================================
-// 6. EXPORTACIÓN Y VISTA DE DOCUMENTOS (MODAL VIEW)
+// 6. VISOR DE DOCUMENTO (MODAL VIEW)
 // ==========================================
 window.viewPOE = function (id) {
   const poe = state.poes.find((p) => p.id === id);
   if (!poe) return;
 
+  // Ligar botón de Exportación a Word
   const btnExportWord = document.getElementById("btnExportWord");
   if (btnExportWord)
     btnExportWord.onclick = () => window.exportPOEToWord(poe.id);
 
-  // 1. Renderizado Visual del Array de Pasos (HACCP)
   let stepsHTML = "";
   try {
     const arr = JSON.parse(poe.procedure);
@@ -508,12 +582,10 @@ window.viewPOE = function (id) {
       : "bg-yellow-100 text-yellow-800 border-yellow-200";
   const statusText = poe.status === "ACT" ? "ACTIVO" : "EN REVISIÓN";
 
-  // 2. Inyección HTML del Documento Estructurado
   const vContent = document.getElementById("viewContent");
   if (vContent) {
     vContent.innerHTML = `
       <div class="bg-white p-8 md:p-10 rounded-2xl border border-gray-200 shadow-sm mb-8">
-        
         <div class="flex flex-col md:flex-row justify-between items-start border-b-2 border-gray-100 pb-8 mb-8 gap-6">
           <div class="w-full md:w-2/3">
             <span class="inline-block px-3 py-1 bg-gray-100 text-gray-700 font-bold text-xs rounded-lg uppercase tracking-wider mb-3 border border-gray-200">${catName}</span>
@@ -579,10 +651,9 @@ window.viewPOE = function (id) {
     `;
   }
 
-  // 3. Abrir la vista en Flex
   const m = document.getElementById("viewModal");
   if (m) {
-    document.getElementById("viewTitle").textContent = "Visor de Documento"; // Corrección de ID de modal
+    document.getElementById("viewTitle").textContent = "Visor de Documento";
     m.classList.remove("hidden");
     m.classList.add("flex");
   }
@@ -613,9 +684,10 @@ window.exportPOEToWord = function (id) {
     stepsHTML = `<p>${poe.procedure}</p>`;
   }
 
-  const catName =
-    state.config.find((c) => c.key === poe.category && c.type === "CATEGORY")
-      ?.value || poe.category;
+  const catObj = state.config.find(
+    (c) => c.key === poe.category && c.type === "CATEGORY"
+  );
+  const catName = catObj ? catObj.value : poe.category;
 
   const htmlStr = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>${
     poe.code
@@ -634,7 +706,7 @@ window.exportPOEToWord = function (id) {
     poe.scope || "N/A"
   }</p><p><strong>Responsabilidades:</strong> ${poe.responsibles || "N/A"}</p>
       <h2>2. Control y Recursos</h2><p><strong>Frecuencia:</strong> ${
-        poe.frequency || "N/A"
+        poe.monitoring || poe.frequency || "N/A"
       }</p><p><strong>Acciones Correctivas:</strong> ${
     poe.corrective_actions || "N/A"
   }</p><p><strong>Equipos y Materiales:</strong> ${
@@ -657,17 +729,16 @@ window.exportPOEToWord = function (id) {
 };
 
 // ==========================================
-// 7. FUNCIONES DEL MODAL GENERAL
+// 7. FUNCIONES AUXILIARES DE MODALES
 // ==========================================
 window.openModal = function () {
   const form = document.getElementById("poe-form");
   if (form) form.reset();
 
-  state.form.editingId = null; // 🔓 LIMPIAR MODO EDICIÓN
+  state.form.editingId = null;
   document.getElementById("modalTitle").textContent =
     "Registrar Procedimiento (GFSI)";
 
-  // DESBLOQUEAR CAMPOS PARA NUEVOS REGISTROS
   const catSelect = document.getElementById("category");
   const subCatSelect = document.getElementById("poeSubCategory");
   const versionInput = document.getElementById("poeVersion");
@@ -680,8 +751,6 @@ window.openModal = function () {
     subCatSelect.disabled = false;
     subCatSelect.classList.remove("bg-gray-100", "cursor-not-allowed");
   }
-
-  // Resetear versión a la inicial
   if (versionInput) {
     versionInput.value = "1.0";
     versionInput.classList.remove("bg-blue-50", "text-blue-800", "font-bold");
@@ -697,19 +766,12 @@ window.openModal = function () {
     m.classList.add("flex");
   }
 };
+
 window.closeModal = function () {
   const m = document.getElementById("modal");
   if (m) {
     m.classList.add("hidden");
     m.classList.remove("flex");
-  }
-};
-
-window.openViewModal = function () {
-  const m = document.getElementById("viewModal");
-  if (m) {
-    m.classList.remove("hidden");
-    m.classList.add("flex");
   }
 };
 
@@ -769,7 +831,7 @@ window.pushSync = async function () {
       }
     } catch (e) {
       break;
-    } // Sale del loop si falla la red
+    }
   }
   window.updateNet(navigator.onLine ? "online" : "offline");
   window.refreshUI();
@@ -778,22 +840,43 @@ window.pushSync = async function () {
 window.pullSync = async function () {
   if (!navigator.onLine) return;
   try {
+    // 1. SINCRONIZAR CATÁLOGOS (SYS_CONFIG)
     const rC = await fetch(GAS_ENDPOINT + "?action=get_config");
     const jC = await rC.json();
     if (jC.status === "success") {
+      // Destruir catálogo viejo
+      const oldConfig = await POEDB.getAll("sys_config");
+      for (let oc of oldConfig) await POEDB.delete("sys_config", oc.key);
+      // Guardar catálogo nuevo
       for (let i of jC.data) await POEDB.save("sys_config", i);
     }
 
+    // 2. SINCRONIZAR DOCUMENTOS (DROP & REPLACE)
     const rP = await fetch(GAS_ENDPOINT + "?action=get_poes");
     const jP = await rP.json();
     if (jP.status === "success") {
       const q = await POEDB.getAll("sync_queue");
+
+      // PASO A: Destrucción total de la caché local
+      // (Protegiendo únicamente los registros que hiciste offline y aún no suben)
+      const localPoes = await POEDB.getAll("poes");
+      for (let local of localPoes) {
+        if (!q.find((x) => x.id === local.id)) {
+          await POEDB.delete("poes", local.id);
+        }
+      }
+
+      // PASO B: Inyectar la verdad absoluta desde la Nube (Sheets)
       for (let p of jP.data) {
-        if (!q.find((x) => x.id === p.id)) await POEDB.save("poes", p);
+        if (!q.find((x) => x.id === p.id)) {
+          await POEDB.save("poes", p);
+        }
       }
     }
     window.refreshUI();
-  } catch (e) {}
+  } catch (e) {
+    console.warn("Error en sincronización en segundo plano:", e);
+  }
 };
 
 window.forceSync = async function () {
@@ -804,15 +887,23 @@ window.forceSync = async function () {
   if (!btn) return;
 
   const originalHTML = btn.innerHTML;
-  btn.innerHTML = `<svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> <span>Descargando...</span>`;
+  // Feedback visual de destrucción de caché
+  btn.innerHTML = `<svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> <span>Destruyendo Caché...</span>`;
   btn.disabled = true;
   btn.classList.add("opacity-75", "cursor-wait");
 
   try {
     window.updateNet("sync");
-    await window.pullSync();
+
+    // 1. Primero subimos cualquier cambio que tengas pendiente localmente
     await window.pushSync();
-    alert("✅ Base de datos local actualizada correctamente desde la Nube.");
+
+    // 2. Ejecutamos la aniquilación de la memoria y clonado de Sheets
+    await window.pullSync();
+
+    alert(
+      "✅ Caché destruida con éxito. La base de datos local ahora es un espejo exacto de Google Sheets."
+    );
   } catch (error) {
     alert("❌ Error de red al intentar sincronizar.");
   } finally {
@@ -823,91 +914,17 @@ window.forceSync = async function () {
   }
 };
 
-// Eventos del Sistema
 window.addEventListener("online", () => window.pushSync());
 window.addEventListener("offline", () => window.updateNet("offline"));
 
-// ARRANQUE SEGURO (Bootloader)
+// ARRANQUE SEGURO
 document.addEventListener("DOMContentLoaded", async () => {
   window.updateNet(navigator.onLine ? "online" : "offline");
   await POEDB.init();
   await window.refreshUI();
 
-  // Ejecución en segundo plano para no bloquear la UI
   setTimeout(async () => {
     await window.pullSync();
     window.pushSync();
   }, 1000);
 });
-
-// ==========================================
-// 9. LÓGICA DE EDICIÓN Y VERSIÓN (HACCP COMPLIANCE)
-// ==========================================
-
-window.editPOE = function (id) {
-  const poe = state.poes.find((p) => p.id === id);
-  if (!poe) return;
-
-  // 1. Activar modo edición
-  state.form.editingId = poe.id;
-  document.getElementById(
-    "modalTitle"
-  ).textContent = `Editar Procedimiento: ${poe.code}`;
-
-  // 2. BLOQUEO DE LLAVE PRIMARIA (Área y Sub-Área inmutables)
-  const catSelect = document.getElementById("category");
-  const subCatSelect = document.getElementById("poeSubCategory");
-  const codeInput = document.getElementById("code");
-
-  catSelect.value = poe.category;
-  catSelect.disabled = true; // Bloquea interacción
-  catSelect.classList.add("bg-gray-100", "cursor-not-allowed");
-
-  window.updateSubCategories();
-
-  setTimeout(() => {
-    subCatSelect.value = poe.subCategory;
-    subCatSelect.disabled = true; // Bloquea interacción
-    subCatSelect.classList.add("bg-gray-100", "cursor-not-allowed");
-    codeInput.value = poe.code; // Restaurar el código original
-  }, 50);
-
-  // 3. AUTO-INCREMENTO DE VERSIÓN
-  // Convierte "1.0" a 1.0, suma 0.1 y fija a 1 decimal ("1.1")
-  let nextVersion = (parseFloat(poe.version || 1.0) + 0.1).toFixed(1);
-  if (isNaN(nextVersion)) nextVersion = "1.1";
-
-  const versionInput = document.getElementById("poeVersion");
-  versionInput.value = nextVersion;
-  versionInput.classList.add("bg-blue-50", "text-blue-800", "font-bold"); // Feedback visual de subida de versión
-
-  // 4. Poblar resto de campos
-  document.getElementById("title").value = poe.title;
-  document.getElementById("poeStatus").value = poe.status || "ACT";
-  document.getElementById("objective").value = poe.objective || "";
-  document.getElementById("scope").value = poe.scope || "";
-  document.getElementById("responsibles").value = poe.responsibles || "";
-  document.getElementById("definitions").value = poe.definitions || "";
-  document.getElementById("materials").value = poe.materials || "";
-  document.getElementById("monitoring").value =
-    poe.monitoring || poe.frequency || "";
-  document.getElementById("correctiveActions").value =
-    poe.corrective_actions || "";
-  document.getElementById("records").value = poe.records || "";
-  document.getElementById("references").value = poe.references || "";
-
-  // 5. Poblar Array HACCP
-  try {
-    state.form.advancedSteps = JSON.parse(poe.procedure);
-  } catch (e) {
-    state.form.advancedSteps = [];
-  }
-  window.renderAdvancedSteps();
-
-  // Abrir Modal
-  const m = document.getElementById("modal");
-  if (m) {
-    m.classList.remove("hidden");
-    m.classList.add("flex");
-  }
-};
