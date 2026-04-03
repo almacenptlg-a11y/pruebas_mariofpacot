@@ -369,52 +369,67 @@
         <div class="flex-grow w-full max-w-6xl mx-auto p-6 md:p-10 rich-text-content" id="viewContent"></div>
       </div>
     </div>
-
   </div>
-  <div id="areaFormModal" role="dialog" class="fixed inset-0 bg-gray-900/40 dark:bg-gray-900/80 hidden z-[60] overflow-y-auto backdrop-blur-sm items-center justify-center fade-in">
-        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden border border-gray-200 dark:border-gray-700 my-8">
+
+<div id="areaFormModal" role="dialog" class="fixed inset-0 bg-gray-900/40 dark:bg-gray-900/80 hidden z-[60] overflow-y-auto backdrop-blur-sm items-center justify-center fade-in">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-xl mx-4 overflow-hidden border border-gray-200 dark:border-gray-700 my-8">
             <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
                 <h3 id="areaFormTitle" class="text-lg font-black text-gray-800 dark:text-white uppercase tracking-wide">Configurar Área</h3>
-                <button onclick="window.closeAreaForm()" class="text-gray-400 hover:text-red-500 transition bg-white dark:bg-gray-800 p-1.5 rounded-full shadow-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+                <button type="button" onclick="window.closeAreaForm()" class="text-gray-400 hover:text-red-500 transition bg-white dark:bg-gray-800 p-1.5 rounded-full shadow-sm border border-gray-100 dark:border-gray-700"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
             </div>
+            
             <form id="area-config-form" onsubmit="window.handleAreaSubmit(event)" class="p-6 space-y-5">
+                
                 <div>
-                    <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 uppercase">Macro-Área</label>
-                    <select id="cfgAreaMacro" required class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none">
-                        <option value="PROD|Producción">Producción (PROD)</option>
-                        <option value="LOG|Logística">Logística (LOG)</option>
-                        <option value="CAL|Calidad">Calidad (CAL)</option>
-                        <option value="SAN|Saneamiento">Saneamiento (SAN)</option>
-                        <option value="MANT|Mantenimiento">Mantenimiento (MANT)</option>
-                    </select>
+                    <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 uppercase">Macro-Área a la que pertenece</label>
+                    <select id="cfgAreaMacro" required onchange="window.toggleNewMacroFields()" class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition cursor-pointer">
+                        </select>
                 </div>
                 
-                <div class="grid grid-cols-3 gap-4">
-                    <div class="col-span-2">
-                        <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 uppercase">Nombre Oficial</label>
+                <div id="newMacroContainer" class="hidden grid grid-cols-2 gap-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800/50 transition-all">
+                    <div class="col-span-2 text-xs font-black text-blue-800 dark:text-blue-400 uppercase tracking-wide flex items-center gap-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Definir Nueva Macro-Área</div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-600 dark:text-gray-400 mb-1 uppercase">Nombre de la Macro</label>
+                        <input type="text" id="cfgNewMacroName" placeholder="Ej: Gerencia General" class="w-full px-3 py-2 border border-white dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white outline-none shadow-sm focus:ring-2 focus:ring-blue-400">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-600 dark:text-gray-400 mb-1 uppercase">Abreviatura Macro</label>
+                        <input type="text" id="cfgNewMacroAbbr" placeholder="Ej: GER" maxlength="4" class="w-full px-3 py-2 border border-white dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white outline-none font-mono uppercase shadow-sm focus:ring-2 focus:ring-blue-400">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-gray-100 dark:border-gray-700 pt-4">
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 uppercase">Nombre Oficial del Área</label>
                         <input type="text" id="cfgAreaName" required placeholder="Ej: Empaque Skin" class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none">
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 uppercase">Prefijo POE</label>
-                        <input type="text" id="cfgAreaPrefix" required placeholder="Ej: SKN" maxlength="4" class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none font-mono uppercase text-center">
+                        <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 uppercase">Abrev. Área</label>
+                        <input type="text" id="cfgAreaAbbr" required placeholder="Ej: ESK" maxlength="4" class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none font-mono uppercase text-center">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-bold text-blue-600 dark:text-blue-400 mb-1.5 uppercase tracking-wide">Prefijo Código POE</label>
+                        <input type="text" id="cfgAreaPrefix" required placeholder="Ej: SKN" maxlength="4" class="w-full px-3 py-2.5 border border-blue-300 dark:border-blue-700 rounded-lg text-sm bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-200 focus:ring-2 focus:ring-blue-500 outline-none font-mono uppercase text-center font-bold">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-[10px] font-bold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">Estado Operativo</label>
+                        <select id="cfgAreaStatus" class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none font-bold">
+                            <option value="ACT" class="text-green-600 dark:text-green-400">Activo (Visible en todo el sistema)</option>
+                            <option value="OBS" class="text-red-600 dark:text-red-400">Obsoleto (Ocultar del mapa)</option>
+                        </select>
                     </div>
                 </div>
 
                 <div>
                     <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 uppercase">Descripción Técnica</label>
-                    <textarea id="cfgAreaDesc" rows="3" placeholder="Resumen de procesos ejecutados..." class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none resize-none"></textarea>
-                </div>
-
-                <div>
-                    <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 uppercase">Estado Operativo</label>
-                    <select id="cfgAreaStatus" class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none font-bold">
-                        <option value="ACT" class="text-green-600">Activo (Habilitado para POEs)</option>
-                        <option value="OBS" class="text-red-600">Obsoleto (Oculto)</option>
-                    </select>
+                    <textarea id="cfgAreaDesc" rows="2" placeholder="Resumen de procesos ejecutados..." class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none resize-none"></textarea>
                 </div>
 
                 <div class="pt-4 border-t border-gray-100 dark:border-gray-700 flex justify-end gap-3">
-                    <button type="button" onclick="window.closeAreaForm()" class="px-5 py-2.5 rounded-lg text-sm font-bold text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition">Cancelar</button>
+                    <button type="button" onclick="window.closeAreaForm()" class="px-5 py-2.5 rounded-lg text-sm font-bold text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition border border-transparent hover:border-gray-200 dark:hover:border-gray-600">Cancelar</button>
                     <button type="submit" id="btnSaveArea" class="px-6 py-2.5 rounded-lg text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-md transition flex items-center gap-2">
                         <i class="ph ph-floppy-disk text-lg"></i> Guardar Área
                     </button>
@@ -422,6 +437,7 @@
             </form>
         </div>
     </div>
+  
   <script src="script.js"></script>
 </body>
 </html>
