@@ -28,6 +28,7 @@
         color: #9ca3af;
         pointer-events: none;
         display: block;
+        font-style: italic;
     }
     .rich-text-content ul, .rich-editor ul { list-style-type: disc; margin-left: 1.5rem; margin-bottom: 0.5rem; }
     .rich-text-content ol, .rich-editor ol { list-style-type: decimal; margin-left: 1.5rem; margin-bottom: 0.5rem; }
@@ -36,7 +37,6 @@
     .rich-text-content li, .rich-editor li { margin-bottom: 0.25rem; }
     .rich-text-content h3, .rich-editor h3 { color: #1e3a5f; font-size: 1.1rem; font-weight: 900; text-transform: uppercase; margin-top: 0.5rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.25rem;}
     
-    /* Adaptación de H3 para Modo Oscuro */
     .dark .rich-text-content h3, .dark .rich-editor h3 { color: #60a5fa; border-bottom-color: #374151; }
   </style>
 </head>
@@ -114,7 +114,7 @@
           
           <div class="px-6 md:px-10 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm">
             <div class="flex items-center space-x-4">
-              <button type="button" onclick="window.closeModal()" class="text-gray-500 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 bg-gray-100 dark:bg-gray-700 hover:bg-blue-50 dark:hover:bg-gray-600 transition p-2.5 rounded-full">
+              <button type="button" onclick="window.closeModal()" class="text-gray-500 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 bg-gray-100 dark:bg-gray-700 hover:bg-blue-50 dark:hover:bg-gray-600 transition p-2.5 rounded-full" title="Volver al Panel">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
               </button>
               <h3 id="modalTitle" class="text-2xl font-black text-blue-900 dark:text-white tracking-tight">Registrar Procedimiento</h3>
@@ -186,7 +186,7 @@
               <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div class="md:col-span-2">
                   <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Título del Procedimiento *</label>
-                  <input type="text" id="title" required class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white outline-none transition" placeholder="Ej: Recepción de Carcasas">
+                  <input type="text" id="title" required class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white outline-none transition" placeholder="Indique el nombre oficial. Estructura: [Acción] + [Proceso/Equipo] + [Condición]">
                 </div>
                 <div>
                   <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Versión</label>
@@ -205,11 +205,11 @@
             <div class="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
               <h4 class="font-black text-gray-800 dark:text-gray-100 border-b-2 border-gray-100 dark:border-gray-700 pb-3 mb-5 uppercase tracking-wide text-sm">2. Contexto y Alcance</h4>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Objetivo General *</label><div id="objective" class="rich-editor w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white dark:bg-gray-700 dark:text-white rich-text-content" contenteditable="true" data-placeholder="Ej: Establecer los pasos estandarizados..."></div></div>
-                <div><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Alcance Operativo *</label><div id="scope" class="rich-editor w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white dark:bg-gray-700 dark:text-white rich-text-content" contenteditable="true" data-placeholder="Ej: Aplica estrictamente a los operarios..."></div></div>
-                <div><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Responsabilidades *</label><div id="responsibles" class="rich-editor w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white dark:bg-gray-700 dark:text-white rich-text-content" contenteditable="true" data-placeholder="Ej: Operario de Máquina (Ejecución)..."></div></div>
-                <div><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Definiciones (Glosario)</label><div id="definitions" class="rich-editor w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white dark:bg-gray-700 dark:text-white rich-text-content" contenteditable="true" data-placeholder="Ej: PCC: Punto Crítico de Control..."></div></div>
-                <div class="md:col-span-2"><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Equipos, Materiales y EPPs</label><div id="materials" class="rich-editor w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white dark:bg-gray-700 dark:text-white rich-text-content" contenteditable="true" data-placeholder="Ej: Termómetro de punzón calibrado..."></div></div>
+                <div><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Objetivo General *</label><div id="objective" class="rich-editor w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white dark:bg-gray-700 dark:text-white rich-text-content" contenteditable="true" data-placeholder="Defina el propósito fundamental del documento. Estructura: Qué se hace, mediante qué método y con qué fin (Inocuidad/Calidad)."></div></div>
+                <div><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Alcance Operativo *</label><div id="scope" class="rich-editor w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white dark:bg-gray-700 dark:text-white rich-text-content" contenteditable="true" data-placeholder="Delimite las fronteras. Estructura: Inicia en [Paso/Área A] y finaliza en [Paso/Área B], indicando a qué líneas aplica."></div></div>
+                <div><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Responsabilidades *</label><div id="responsibles" class="rich-editor w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white dark:bg-gray-700 dark:text-white rich-text-content" contenteditable="true" data-placeholder="Desglose los cargos. Estructura: [Cargo Oficial]: [Rol específico en la ejecución, verificación o liberación]."></div></div>
+                <div><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Definiciones (Glosario)</label><div id="definitions" class="rich-editor w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white dark:bg-gray-700 dark:text-white rich-text-content" contenteditable="true" data-placeholder="Liste términos técnicos o siglas. Estructura: [Término/Sigla]: [Definición concisa según normativa]."></div></div>
+                <div class="md:col-span-2"><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Equipos, Materiales y EPPs</label><div id="materials" class="rich-editor w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white dark:bg-gray-700 dark:text-white rich-text-content" contenteditable="true" data-placeholder="Enumere herramientas, maquinaria y EPPs requeridos. Estructure mediante listas para mayor claridad."></div></div>
               </div>
             </div>
 
@@ -219,7 +219,7 @@
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-4">
                   <div class="lg:col-span-2 flex flex-col">
                       <label class="block text-[10px] font-bold text-blue-800 dark:text-blue-400 mb-2 uppercase tracking-wider">Instrucción del Paso</label>
-                      <div id="stepDesc" class="rich-editor w-full border border-blue-200 dark:border-gray-600 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white dark:bg-gray-700 dark:text-white rich-text-content" contenteditable="true" data-placeholder="Ej: Insertar la sonda del termómetro en el centro térmico..."></div>
+                      <div id="stepDesc" class="rich-editor w-full border border-blue-200 dark:border-gray-600 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white dark:bg-gray-700 dark:text-white rich-text-content" contenteditable="true" data-placeholder="Describa la acción operativa en modo imperativo. Estructura: [Verbo] + [Parámetro de control] + [Condición]. Detalle límites si aplica."></div>
                   </div>
                   <div>
                     <label class="block text-[10px] font-bold text-blue-800 dark:text-blue-400 mb-2 uppercase tracking-wider">Tipo de Control</label>
@@ -255,10 +255,10 @@
             <div class="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
               <h4 class="font-black text-gray-800 dark:text-gray-100 border-b-2 border-gray-100 dark:border-gray-700 pb-3 mb-5 uppercase tracking-wide text-sm">4. Monitoreo, Control y Referencias</h4>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Frecuencia de Monitoreo *</label><div id="monitoring" class="rich-editor w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white dark:bg-gray-700 dark:text-white rich-text-content" contenteditable="true" data-placeholder="Ej: Medición de temperatura interna cada 2 horas..."></div></div>
-                <div><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Acciones Correctivas (Desvíos) *</label><div id="correctiveActions" class="rich-editor w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white dark:bg-gray-700 dark:text-white rich-text-content" contenteditable="true" data-placeholder="Ej: DETENER el equipo inmediatamente..."></div></div>
-                <div><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Registros Asociados (Formatos)</label><div id="records" class="rich-editor w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white dark:bg-gray-700 dark:text-white rich-text-content" contenteditable="true" data-placeholder="Ej: F-PROD-05 (Registro de T° Cocción)"></div></div>
-                <div><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Referencias Normativas y Anexos</label><div id="references" class="rich-editor w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white dark:bg-gray-700 dark:text-white rich-text-content" contenteditable="true" data-placeholder="Ej: RM N° 087-2008/MINSA"></div></div>
+                <div><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Frecuencia de Monitoreo *</label><div id="monitoring" class="rich-editor w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white dark:bg-gray-700 dark:text-white rich-text-content" contenteditable="true" data-placeholder="Describa la vigilancia. Estructura: [Qué se mide] + [Cómo se mide] + [Frecuencia] + [Quién ejecuta]."></div></div>
+                <div><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Acciones Correctivas (Desvíos) *</label><div id="correctiveActions" class="rich-editor w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white dark:bg-gray-700 dark:text-white rich-text-content" contenteditable="true" data-placeholder="Defina acciones ante desviaciones. Estructura: Si [Condición fuera de límite], entonces [Acción de contención] y notificar a [Cargo]."></div></div>
+                <div><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Registros Asociados (Formatos)</label><div id="records" class="rich-editor w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white dark:bg-gray-700 dark:text-white rich-text-content" contenteditable="true" data-placeholder="Declare formatos de evidencia. Estructura: [Código] - [Nombre del Formato]"></div></div>
+                <div><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Referencias Normativas y Anexos</label><div id="references" class="rich-editor w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white dark:bg-gray-700 dark:text-white rich-text-content" contenteditable="true" data-placeholder="Cite base legal o técnica. Estructura: [Norma/Ley/Manual] - [Artículo pertinente]"></div></div>
               </div>
             </div>
 
@@ -274,7 +274,7 @@
     </div>
 
     <div id="viewModal" role="dialog" class="fixed inset-0 bg-gray-50 dark:bg-gray-900 hidden z-50 overflow-y-auto slide-in">
-      <div class="min-h-screen w-full flex flex-col relative">
+      <div class="bg-gray-50 dark:bg-gray-900 min-h-screen w-full flex flex-col relative">
         <div class="px-6 md:px-10 py-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row items-center justify-between sticky top-0 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm z-30 shadow-sm gap-4">
           <div class="flex items-center space-x-4 w-full sm:w-auto">
             <button type="button" onclick="window.closeViewModal()" class="text-gray-500 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 bg-gray-100 dark:bg-gray-700 hover:bg-blue-50 dark:hover:bg-gray-600 transition p-2.5 rounded-full">
