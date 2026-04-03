@@ -319,25 +319,19 @@
     <div id="areasModal" role="dialog" class="fixed inset-0 bg-gray-50 dark:bg-gray-900 hidden z-50 overflow-y-auto slide-in">
       <div class="bg-gray-50 dark:bg-gray-900 min-h-screen w-full flex flex-col relative">
         
-        <div class="px-6 md:px-10 py-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row items-center justify-between sticky top-0 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm z-30 shadow-sm gap-4">
+       <div class="px-6 md:px-10 py-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row items-start sm:items-center justify-between sticky top-0 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm z-30 shadow-sm gap-6">
           <div class="flex items-center space-x-4 w-full sm:w-auto">
             <button type="button" onclick="window.closeAreasModal()" class="text-gray-500 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 bg-gray-100 dark:bg-gray-700 hover:bg-blue-50 dark:hover:bg-gray-600 transition p-2.5 rounded-full">
               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
             </button>
             <div>
-              <h3 class="text-2xl font-black text-blue-900 dark:text-white tracking-tight">Mapa de Áreas (Plantas)</h3>
-              <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Gestor de Diccionarios y Códigos</p>
+              <h3 class="text-2xl font-black text-blue-950 dark:text-white tracking-tight">Áreas de la Planta</h3>
+              <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Organización estructural de La Genovesa Agroindustrias S.A.</p>
             </div>
           </div>
-          <div class="flex items-center space-x-3 w-full sm:w-auto justify-end">
-            <div id="area-filters" class="flex flex-wrap gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl border border-gray-200 dark:border-gray-700">
-                <button onclick="window.setAreaFilter('PROD')" data-macro="PROD" class="filter-pill px-4 py-1.5 rounded-lg text-[10px] font-black transition-all">PROD</button>
-                <button onclick="window.setAreaFilter('LOG')" data-macro="LOG" class="filter-pill px-4 py-1.5 rounded-lg text-[10px] font-black transition-all">LOGÍSTICA</button>
-                <button onclick="window.setAreaFilter('CAL')" data-macro="CAL" class="filter-pill px-4 py-1.5 rounded-lg text-[10px] font-black transition-all">CALIDAD</button>
-                <button onclick="window.setAreaFilter('SAN')" data-macro="SAN" class="filter-pill px-4 py-1.5 rounded-lg text-[10px] font-black transition-all">SANEAMIENTO</button>
-                <button onclick="window.setAreaFilter('MANT')" data-macro="MANT" class="filter-pill px-4 py-1.5 rounded-lg text-[10px] font-black transition-all">MANTENIMIENTO</button>
-            </div>
-          </div>
+          
+          <div id="area-filters" class="flex flex-wrap gap-2 w-full sm:w-auto">
+              </div>
         </div>
         
         <div class="flex-grow w-full max-w-7xl mx-auto p-6 md:p-10">
