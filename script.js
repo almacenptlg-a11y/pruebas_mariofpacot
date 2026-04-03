@@ -1,22 +1,22 @@
 /**
- * @fileoverview CORE GENAPP - Sistema POE Industrial (WYSIWYG + RBAC + DARK)
- * @architecture Headless, Offline-First, O(1) Memory, Separated Structure
+ * @fileoverview CORE GENAPP - Sistema POE Industrial (DUAL API + RBAC + WYSIWYG)
+ * @architecture Headless, Offline-First, Microservicios
  */
 
 // ==========================================
 // 1. CONFIGURACIÓN Y ESTADO GLOBALES
 // ==========================================
-const GAS_ENDPOINT = "https://script.google.com/macros/s/AKfycbylXo9sXzLBYCdyB1AiDOa7-cyvPutjmy0XCun33Ic1YSFM0YdruE6WfkSt0SCz_PSO2Q/exec"; 
-const GAS_DICT_ENDPOINT = "https://script.google.com/macros/s/AKfycbxAHJeIS_Dq91olhikoJpRPZEVPf-wPOCs_NGQ796oowVOQRRX8jeOeiNeFeDw3zrxE/exec";
+const GAS_ENDPOINT = "https://script.google.com/macros/s/AKfycbylXo9sXzLBYCdyB1AiDOa7-cyvPutjmy0XCun33Ic1YSFM0YdruE6WfkSt0SCz_PSO2Q/exec"; // BD POES
+const GAS_DICT_ENDPOINT = "https://script.google.com/macros/s/AKfycbxAHJeIS_Dq91olhikoJpRPZEVPf-wPOCs_NGQ796oowVOQRRX8jeOeiNeFeDw3zrxE/exec"; // BD ÁREAS
 
 let state = { 
     poes: [], 
-    areas: [], // 🆕 Nuevo almacén de áreas
+    areas: [],        // 🆕 Catálogo de Áreas Dinámicas
     config: [], 
     form: { advancedSteps: [], editingId: null },
     user: null,               
     isSessionVerified: false,
-    activeAreaFilter: 'PROD' // 🆕 Filtro inicial del mapa
+    activeAreaFilter: 'PROD'  // 🆕 Filtro Activo del Mapa
 };
 
 // ==========================================
@@ -54,21 +54,19 @@ window.getPermisos = function() {
 };
 
 // ==========================================
-// 3. MOTOR WYSIWYG Y LECTURA DE CAMPOS (SIN REGEX)
+// 3. MOTOR WYSIWYG Y LECTURA DE CAMPOS
 // ==========================================
 window.initRichEditors = function() {
   document.querySelectorAll('.rich-editor').forEach(editor => {
       if (editor.classList.contains('initialized')) return;
       editor.classList.add("initialized");
 
-      // Pegado en texto plano para no traer estilos basura de Word
       editor.addEventListener('paste', function(e) {
           e.preventDefault();
           const text = (e.originalEvent || e).clipboardData.getData('text/plain');
           document.execCommand('insertText', false, text);
       });
 
-      // Prevenir la creación nativa de <div> que rompe las listas
       editor.addEventListener('keydown', function(e) {
           if (e.key === 'Enter' && !document.queryCommandState('insertOrderedList') && !document.queryCommandState('insertUnorderedList')) {
               document.execCommand('insertLineBreak');
@@ -78,7 +76,6 @@ window.initRichEditors = function() {
   });
 };
 
-// Modificador de tipo de lista para la barra estática (Ej: a. b. c.)
 window.setListType = function(type) {
     let node = document.getSelection().anchorNode;
     while(node && node.nodeName !== 'OL' && node.nodeName !== 'DIV') { node = node.parentNode; }
@@ -99,23 +96,21 @@ const setFieldValue = (id, val) => {
 };
 
 // ==========================================
-// 4. MOTOR DE BASE DE DATOS (INDEXEDDB)
+// 4. MOTOR DE BASE DE DATOS LOCAL (INDEXEDDB)
 // ==========================================
 const POEDB = {
-  db: null, useRAM: false, ramDB: { poes: [], sync_queue: [], sys_config: [] },
+  db: null, useRAM: false, ramDB: { poes: [], sync_queue: [], sys_config: [], areas: [] },
   init() {
     return new Promise((resolve) => {
       try {
-        const req = indexedDB.open("POE_DB_V7", 2); // 💡 Subimos versión a 2
+        const req = indexedDB.open("POE_DB_V8", 2); // 💡 Versión 2 para forzar creación de 'areas'
         req.onupgradeneeded = (e) => {
           const db = e.target.result;
           if (!db.objectStoreNames.contains("poes")) db.createObjectStore("poes", { keyPath: "id" });
           if (!db.objectStoreNames.contains("sync_queue")) db.createObjectStore("sync_queue", { keyPath: "id" });
           if (!db.objectStoreNames.contains("sys_config")) db.createObjectStore("sys_config", { keyPath: "key" });
-          // Nuevo almacén para el Mapa de Áreas
-          if (!db.objectStoreNames.contains("areas")) db.createObjectStore("areas", { keyPath: "id" });
+          if (!db.objectStoreNames.contains("areas")) db.createObjectStore("areas", { keyPath: "id" }); // 🆕 Almacén de Áreas
         };
-        // ... resto de la funciónonsuccess/onerror queda igual
         req.onsuccess = (e) => { this.db = e.target.result; resolve(); };
         req.onerror = () => { this.useRAM = true; resolve(); };
       } catch (e) { this.useRAM = true; resolve(); }
@@ -146,10 +141,11 @@ const POEDB = {
 };
 
 // ==========================================
-// 5. UI DINÁMICA Y RENDERIZADO (CON FILTROS RBAC)
+// 5. RENDERIZADO UI Y DICCIONARIOS DINÁMICOS
 // ==========================================
 window.refreshUI = async function () {
   state.config = await POEDB.getAll("sys_config");
+  state.areas = await POEDB.getAll("areas"); // 🆕 Cargar áreas de memoria local
   const allPoes = await POEDB.getAll("poes");
   const permisos = window.getPermisos();
 
@@ -158,18 +154,19 @@ window.refreshUI = async function () {
     const isActive = (s === "ACT" || s === "REV" || s === "ACTIVO" || s === "EN REVISION" || s === "EN REVISIÓN");
     if (!isActive) return false;
 
+    // Filtro estricto para Operarios (Solo ven POEs de su Macro-Área o Sub-Área)
     if (permisos.isOperario) {
-        const catObj = state.config.find((c) => c.key === p.category && c.type === "CATEGORY");
-        const catName = String(catObj ? catObj.value : p.category).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        if (!catName.includes(permisos.area) && !permisos.area.includes(catName)) {
-            return false; 
-        }
+        const catStr = String(p.category + " " + p.subCategory).toUpperCase();
+        if (!catStr.includes(permisos.area)) return false; 
     }
     return true;
   });
 
+  // 🛡️ Ocultar botones administrativos a Operarios
   const btnNuevo = document.getElementById('btn-nuevo-poe');
+  const btnMapa = document.getElementById('btn-mapa-areas');
   if (btnNuevo) btnNuevo.style.display = permisos.canEdit ? 'flex' : 'none';
+  if (btnMapa) btnMapa.style.display = permisos.canEdit ? 'flex' : 'none';
 
   window.buildDynamicDictionaries();
   window.renderPOEs();
@@ -181,22 +178,24 @@ window.refreshUI = async function () {
   safeSet("calidadCount", state.poes.filter((p) => p.category === "CAL").length);
 };
 
+// 🆕 DICCIONARIOS BASADOS EN LA NUEVA BD DE ÁREAS
 window.buildDynamicDictionaries = function () {
-  if (state.config.length === 0) return;
   const selectCategory = document.getElementById("category");
-  const selectStatus = document.getElementById("poeStatus");
-  const categories = state.config.filter((c) => c.type === "CATEGORY");
-  const statuses = state.config.filter((c) => c.type === "STATUS");
+  
+  // Las Macro-Áreas son estáticas y definen el flujo general de la planta
+  const macros = [
+      { id: 'PROD', name: 'Producción' },
+      { id: 'LOG', name: 'Logística' },
+      { id: 'CAL', name: 'Calidad' },
+      { id: 'SAN', name: 'Saneamiento' },
+      { id: 'MANT', name: 'Mantenimiento' }
+  ];
 
-  if (selectCategory && categories.length > 0) {
+  if (selectCategory) {
     const cv = selectCategory.value;
-    selectCategory.innerHTML = '<option value="" disabled selected>Seleccione área...</option>' + categories.map((c) => `<option value="${c.key}">${c.value}</option>`).join("");
+    selectCategory.innerHTML = '<option value="" disabled selected>Seleccione Macro-Área...</option>' + 
+        macros.map((m) => `<option value="${m.id}">${m.name}</option>`).join("");
     if (cv) selectCategory.value = cv;
-  }
-  if (selectStatus && statuses.length > 0) {
-    const cv = selectStatus.value;
-    selectStatus.innerHTML = statuses.map((c) => `<option value="${c.key}">${c.value}</option>`).join("");
-    if (cv) selectStatus.value = cv;
   }
 };
 
@@ -206,9 +205,12 @@ window.updateSubCategories = function () {
   if (!subSelect) return;
   subSelect.innerHTML = "";
 
-  const subs = state.config.filter((c) => c.type === `SUBCAT_${catSelect}`);
+  // 🆕 Extraemos las sub-categorías directamente del catálogo dinámico (Microservicio de Áreas)
+  const subs = state.areas.filter(a => a.macro === catSelect);
+  
   if (subs.length > 0) {
-    subSelect.innerHTML = subs.map((s) => `<option value="${s.key}">${s.value}</option>`).join("");
+    subSelect.innerHTML = '<option value="" disabled selected>Seleccione Sub-Área...</option>' + 
+        subs.map((s) => `<option value="${s.prefix}">${s.name}</option>`).join("");
   } else {
     subSelect.innerHTML = `<option value="GEN">General</option>`;
   }
@@ -223,7 +225,7 @@ window.generatePoeCode = function () {
 
   const count = state.poes.filter((p) => p.category === cat && p.subCategory === sub).length;
   const codeEl = document.getElementById("code");
-  if (codeEl) codeEl.value = `POE-${cat}-${sub}-${String(count + 1).padStart(3, "0")}`;
+  if (codeEl) codeEl.value = `POE-${sub}-${String(count + 1).padStart(3, "0")}`; // Ej: POE-DSP-001
 };
 
 window.renderPOEs = function () {
@@ -231,11 +233,11 @@ window.renderPOEs = function () {
   if (!tbody) return;
 
   const query = document.getElementById("searchInput")?.value.toLowerCase() || "";
-  const filtered = state.poes.filter((p) => p.code.toLowerCase().includes(query) || p.title.toLowerCase().includes(query));
+  const filtered = state.poes.filter((p) => p.code.toLowerCase().includes(query) || p.title.toLowerCase().includes(query) || String(p.subCategory).toLowerCase().includes(query));
   const permisos = window.getPermisos(); 
 
   if (filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" class="text-center p-6 text-gray-500 dark:text-gray-400">Sin procedimientos disponibles.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center p-6 text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">Sin procedimientos disponibles.</td></tr>`;
     return;
   }
 
@@ -245,8 +247,9 @@ window.renderPOEs = function () {
       ? `<span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-[10px] font-bold uppercase dark:bg-yellow-900/40 dark:text-yellow-300">En Cola</span>`
       : `<span class="bg-green-100 text-green-800 px-2 py-1 rounded text-[10px] font-bold uppercase dark:bg-green-900/40 dark:text-green-300">En Nube</span>`;
 
-    const catObj = state.config.find((c) => c.key === poe.category && c.type === "CATEGORY");
-    const catName = catObj ? catObj.value : FALLBACK_CAT[poe.category]?.name || poe.category;
+    // 🆕 Buscamos el nombre del área en el diccionario dinámico
+    const areaObj = state.areas.find((a) => a.prefix === poe.subCategory);
+    const areaName = areaObj ? areaObj.name : poe.subCategory;
 
     const actionButtons = permisos.canEdit ? `
         <button type="button" onclick="window.editPOE('${poe.id}')" class="text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 dark:text-yellow-400 px-3 py-1.5 rounded font-semibold transition hover:bg-yellow-100 dark:hover:bg-yellow-900/40" title="Editar Documento">✏️</button>
@@ -254,10 +257,10 @@ window.renderPOEs = function () {
     ` : '';
 
     return `
-    <tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/40 ${isPending ? "bg-yellow-50/30 dark:bg-yellow-900/10" : ""}">
+    <tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors ${isPending ? "bg-yellow-50/30 dark:bg-yellow-900/10" : ""}">
       <td class="p-4 text-xs font-bold text-blue-900 dark:text-blue-400">${poe.code}</td>
       <td class="p-4 font-bold text-gray-800 dark:text-gray-200">${poe.title}</td>
-      <td class="p-4 text-xs font-bold text-gray-600 dark:text-gray-400">${catName}</td>
+      <td class="p-4 text-xs font-bold text-gray-600 dark:text-gray-400">${areaName}</td>
       <td class="p-4">${badge}</td>
       <td class="p-4 text-right flex justify-end space-x-2">
         <button type="button" onclick="window.viewPOE('${poe.id}')" class="text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 px-3 py-1.5 rounded font-semibold transition hover:bg-blue-100 dark:hover:bg-blue-900/40" title="Ver Documento">👁️</button>
@@ -268,7 +271,51 @@ window.renderPOEs = function () {
 };
 
 // ==========================================
-// 6. BUILDER DE PASOS E IMÁGENES
+// 6. MAPA DE ÁREAS (LÓGICA DEL MÓDULO)
+// ==========================================
+window.setAreaFilter = function(macro) {
+    state.activeAreaFilter = macro;
+    window.renderMapaAreas();
+};
+
+window.renderMapaAreas = function() {
+    const grid = document.getElementById('grid-areas');
+    if (!grid) return;
+
+    // Actualizar estilo de las píldoras de filtro
+    document.querySelectorAll('.filter-pill').forEach(btn => {
+        const isAct = btn.dataset.macro === state.activeAreaFilter;
+        const color = state.activeAreaFilter === 'PROD' ? 'bg-red-600' : 'bg-blue-800';
+        btn.className = `filter-pill px-4 py-1.5 rounded-lg text-[10px] font-black transition-all ${isAct ? color + ' text-white shadow-md' : 'text-gray-500 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700'}`;
+    });
+
+    const filtered = state.areas.filter(a => a.macro === state.activeAreaFilter);
+    
+    if (filtered.length === 0) {
+        grid.innerHTML = `<div class="col-span-full py-20 text-center border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-3xl text-gray-400 dark:text-gray-500">No hay áreas operativas registradas en esta categoría.<br><span class="text-xs">Registre áreas en la BD para autogenerar códigos POE.</span></div>`;
+        return;
+    }
+
+    grid.innerHTML = filtered.map(area => `
+        <div class="bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-xl transition-all group flex flex-col h-full fade-in">
+            <div class="flex justify-between items-start mb-4">
+                <div class="w-12 h-12 bg-blue-50 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-7h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                </div>
+                <span class="text-[10px] font-black bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-2 py-1 rounded-lg tracking-widest border border-gray-200 dark:border-gray-600">${area.prefix}</span>
+            </div>
+            <h3 class="text-xl font-black text-gray-900 dark:text-white mb-2">${area.name}</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed mb-6 flex-grow">${area.desc || 'Área operativa y de control de La Genovesa.'}</p>
+            <div class="flex gap-2 mt-auto">
+                <button onclick="alert('Funcionalidad de edición de BD en desarrollo.')" class="flex-1 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-[10px] uppercase font-bold hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 transition-colors border border-gray-200 dark:border-gray-600">CONFIGURAR</button>
+                <button onclick="window.closeAreasModal(); document.getElementById('searchInput').value = '${area.prefix}'; window.refreshUI();" class="px-4 py-2.5 rounded-xl bg-blue-600 text-white text-[10px] uppercase font-bold hover:bg-blue-700 shadow-md transition-all flex items-center justify-center gap-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg> VER POEs</button>
+            </div>
+        </div>
+    `).join('');
+};
+
+// ==========================================
+// 7. BUILDER DE PASOS E IMÁGENES
 // ==========================================
 window.updateFileText = function (input) {
   const d = document.getElementById("fileNameDisplay");
@@ -276,7 +323,7 @@ window.updateFileText = function (input) {
   if (input.files.length > 0) {
     d.textContent = "📸 " + input.files[0].name; d.classList.add("text-blue-600", "font-bold", "dark:text-blue-400");
   } else {
-    d.textContent = "📸 Adjuntar evidencia visual (Opcional)..."; d.classList.remove("text-blue-600", "font-bold", "dark:text-blue-400");
+    d.textContent = "Tomar Foto o Subir Archivo..."; d.classList.remove("text-blue-600", "font-bold", "dark:text-blue-400");
   }
 };
 
@@ -325,7 +372,7 @@ window.renderAdvancedSteps = function () {
   if (!container) return;
 
   if (state.form.advancedSteps.length === 0) {
-    container.innerHTML = `<div class="flex flex-col items-center justify-center py-10 text-gray-400 dark:text-gray-500"><p class="text-sm font-medium">Agregue el primer paso del procedimiento.</p></div>`;
+    container.innerHTML = `<div class="flex flex-col items-center justify-center py-10 text-gray-400 dark:text-gray-500"><svg class="w-12 h-12 mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg><p class="text-sm font-medium">Historial vacío. Diseñe el primer paso en el panel superior.</p></div>`;
     return;
   }
 
@@ -348,15 +395,12 @@ window.renderAdvancedSteps = function () {
 };
 
 // ==========================================
-// 7. CRUD Y EDICIÓN (AUTORÍA)
+// 8. CRUD Y EDICIÓN (AUTORÍA)
 // ==========================================
 window.handleFormSubmit = async function (e) {
   e.preventDefault();
   
-  if (!state.isSessionVerified || !state.user) {
-      alert("Acción bloqueada: Esperando sincronización de sesión con el HUB GenApps.");
-      return;
-  }
+  if (!state.isSessionVerified || !state.user) return alert("Acción bloqueada: Esperando sincronización de sesión con el HUB GenApps.");
   if (!window.getPermisos().canEdit) return alert("Acción denegada por seguridad (Rol: Operario).");
   if (state.form.advancedSteps.length === 0) return alert("Debe incluir al menos 1 paso en el procedimiento.");
 
@@ -416,14 +460,13 @@ window.editPOE = function (id) {
 
   const catSelect = document.getElementById("category");
   const subCatSelect = document.getElementById("poeSubCategory");
-  const codeInput = document.getElementById("code");
 
   catSelect.value = poe.category; catSelect.disabled = true; catSelect.classList.add("bg-gray-100", "dark:bg-gray-600", "cursor-not-allowed");
   window.updateSubCategories();
 
   setTimeout(() => {
     subCatSelect.value = poe.subCategory; subCatSelect.disabled = true; subCatSelect.classList.add("bg-gray-100", "dark:bg-gray-600", "cursor-not-allowed");
-    codeInput.value = poe.code;
+    document.getElementById("code").value = poe.code;
   }, 50);
 
   let nextVersion = (parseFloat(poe.version || 1.0) + 0.1).toFixed(1);
@@ -453,7 +496,7 @@ window.editPOE = function (id) {
 };
 
 // ==========================================
-// 8. VISOR DE DOCUMENTO Y EXPORTACIÓN
+// 9. VISOR DE DOCUMENTO Y EXPORTACIÓN
 // ==========================================
 window.viewPOE = function (id) {
   const poe = state.poes.find((p) => p.id === id);
@@ -482,8 +525,8 @@ window.viewPOE = function (id) {
     stepsHTML = `<div class="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700"><p class="text-base font-medium text-gray-800 dark:text-gray-200 leading-relaxed">${poe.procedure}</p></div>`;
   }
 
-  const catObj = state.config.find((c) => c.key === poe.category && c.type === "CATEGORY");
-  const catName = catObj ? catObj.value : FALLBACK_CAT[poe.category]?.name || poe.category;
+  const catObj = state.areas.find((c) => c.prefix === poe.subCategory);
+  const catName = catObj ? catObj.name : poe.subCategory;
   const statusColor = poe.status === "ACT" || poe.status === "Activo" ? "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-800" : "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/40 dark:text-yellow-300 dark:border-yellow-800";
   const statusText = poe.status === "ACT" ? "ACTIVO" : "EN REVISIÓN";
 
@@ -548,8 +591,8 @@ window.exportPOEToWord = function (id) {
     stepsHTML = arr.map((s, i) => `<div style="margin-bottom: 20px;"><p><strong>Paso ${i + 1}</strong> <span style="color: #555;">[${s.type}]</span></p><div style="margin-top: 0;">${s.desc}</div>${s.image ? `<img src="${s.image}" width="400" style="border: 1px solid #ccc; margin-top: 10px;">` : ""}</div>`).join("");
   } catch (e) { stepsHTML = `<p>${poe.procedure}</p>`; }
 
-  const catObj = state.config.find((c) => c.key === poe.category && c.type === "CATEGORY");
-  const catName = catObj ? catObj.value : poe.category;
+  const catObj = state.areas.find((c) => c.prefix === poe.subCategory);
+  const catName = catObj ? catObj.name : poe.subCategory;
 
   const htmlStr = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>${poe.code}</title><style>body { font-family: 'Arial'; color: #000; } table { width: 100%; border-collapse: collapse; margin-bottom: 20px; } th, td { border: 1px solid #000; padding: 8px; text-align: left; vertical-align: top; } th { background-color: #f2f2f2; width: 25%; } h1 { color: #1e3a5f; font-size: 24px; text-transform: uppercase; text-align: center; border-bottom: 2px solid #1e3a5f; padding-bottom: 10px; margin-bottom: 20px; } h2 { color: #2d5a87; font-size: 16px; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-top: 25px; } ul { list-style-type: disc; margin-left: 20px; margin-bottom: 5px; } ol { list-style-type: decimal; margin-left: 20px; margin-bottom: 5px; } ol[type="a"] { list-style-type: lower-alpha; } h3 { color: #1e3a5f; font-size: 14px; margin-top: 15px; margin-bottom: 5px; text-transform: uppercase; }</style></head><body>
       <h1>La Genovesa Agroindustrias S.A.<br><span style="font-size:16px;">Procedimiento Operativo Estandarizado</span></h1>
@@ -569,7 +612,7 @@ window.exportPOEToWord = function (id) {
 };
 
 // ==========================================
-// 9. MODALES AUXILIARES Y BOOTLOADER
+// 10. MODALES AUXILIARES Y GESTORES (POEs + Áreas)
 // ==========================================
 window.openModal = function () {
   const form = document.getElementById("poe-form");
@@ -582,11 +625,9 @@ window.openModal = function () {
 
   const catSelect = document.getElementById("category");
   const subCatSelect = document.getElementById("poeSubCategory");
-  const versionInput = document.getElementById("poeVersion");
 
   if (catSelect) { catSelect.disabled = false; catSelect.classList.remove("bg-gray-100", "dark:bg-gray-600", "cursor-not-allowed"); }
   if (subCatSelect) { subCatSelect.disabled = false; subCatSelect.classList.remove("bg-gray-100", "dark:bg-gray-600", "cursor-not-allowed"); }
-  if (versionInput) { versionInput.value = "1.0"; versionInput.classList.remove("bg-blue-50", "text-blue-800", "font-bold", "dark:bg-blue-900/40", "dark:text-blue-300"); }
 
   state.form.advancedSteps = [];
   window.renderAdvancedSteps();
@@ -599,6 +640,26 @@ window.openModal = function () {
 window.closeModal = function () { const m = document.getElementById("modal"); if (m) { m.classList.add("hidden"); m.classList.remove("flex"); } };
 window.closeViewModal = function () { const m = document.getElementById("viewModal"); if (m) { m.classList.add("hidden"); m.classList.remove("flex"); } };
 
+window.openAreasModal = function () {
+    const m = document.getElementById("areasModal");
+    if (m) {
+        m.classList.remove("hidden");
+        m.classList.add("flex");
+        window.setAreaFilter('PROD'); // Por defecto, abrir en Producción
+    }
+};
+
+window.closeAreasModal = function () {
+    const m = document.getElementById("areasModal");
+    if (m) {
+        m.classList.add("hidden");
+        m.classList.remove("flex");
+    }
+};
+
+// ==========================================
+// 11. MOTOR DE RED Y SINCRONIZACIÓN (DUAL)
+// ==========================================
 window.updateNet = function (status) {
   const ind = document.getElementById("network-indicator"); const txt = document.getElementById("network-text");
   if (!ind || !txt) return;
@@ -625,25 +686,33 @@ window.pushSync = async function () {
 window.pullSync = async function () {
   if (!navigator.onLine) return;
   try {
+    // 1. BD Configuración General
     const rC = await fetch(GAS_ENDPOINT + "?action=get_config"); const jC = await rC.json();
     if (jC.status === "success") { const oldConfig = await POEDB.getAll("sys_config"); for (let oc of oldConfig) await POEDB.delete("sys_config", oc.key); for (let i of jC.data) await POEDB.save("sys_config", i); }
+    
+    // 2. 🌐 MICROSERVICIO: Catálogo de Áreas
+    const rA = await fetch(GAS_DICT_ENDPOINT + "?action=get_areas"); const jA = await rA.json();
+    if (jA.status === "success") { const oldAreas = await POEDB.getAll("areas"); for (let oa of oldAreas) await POEDB.delete("areas", oa.id); for (let a of jA.data) await POEDB.save("areas", a); }
+
+    // 3. BD Documentos Oficiales (POEs)
     const rP = await fetch(GAS_ENDPOINT + "?action=get_poes"); const jP = await rP.json();
     if (jP.status === "success") {
       const q = await POEDB.getAll("sync_queue"); const localPoes = await POEDB.getAll("poes");
       for (let local of localPoes) if (!q.find((x) => x.id === local.id)) await POEDB.delete("poes", local.id);
       for (let p of jP.data) if (!q.find((x) => x.id === p.id)) await POEDB.save("poes", p);
     }
+    
     window.refreshUI();
-  } catch (e) {}
+  } catch (e) { console.error("Error en PullSync:", e); }
 };
 
 window.forceSync = async function () {
   if (!navigator.onLine) return alert("⚠️ Sistema en modo offline. Revise su conexión a Internet.");
   const btn = document.getElementById("btnForceSync"); if (!btn) return;
   const originalHTML = btn.innerHTML;
-  btn.innerHTML = `<svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> <span>Destruyendo Caché...</span>`;
+  btn.innerHTML = `<svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> <span>Sincronizando...</span>`;
   btn.disabled = true; btn.classList.add("opacity-75", "cursor-wait");
-  try { window.updateNet("sync"); await window.pushSync(); await window.pullSync(); alert("✅ Caché destruida con éxito. La base de datos local ahora es un espejo exacto de Google Sheets."); } 
+  try { window.updateNet("sync"); await window.pushSync(); await window.pullSync(); } 
   catch (error) { alert("❌ Error de red al intentar sincronizar."); } 
   finally { window.updateNet(navigator.onLine ? "online" : "offline"); btn.innerHTML = originalHTML; btn.disabled = false; btn.classList.remove("opacity-75", "cursor-wait"); }
 };
@@ -655,82 +724,19 @@ window.addEventListener("offline", () => window.updateNet("offline"));
 document.addEventListener("DOMContentLoaded", async () => {
   window.updateNet(navigator.onLine ? "online" : "offline"); 
   await POEDB.init(); 
-  window.initRichEditors(); 
   
   const savedUser = sessionStorage.getItem('moduloUserPOE');
   if (savedUser) {
       state.user = JSON.parse(savedUser);
       state.isSessionVerified = true;
   }
-  
+
   await window.refreshUI(); 
+  
+  // Evitar doble inicialización del WYSIWYG
+  setTimeout(() => window.initRichEditors(), 100); 
   
   window.parent.postMessage({ type: 'MODULO_LISTO' }, '*');
   
   setTimeout(async () => { await window.pullSync(); window.pushSync(); }, 1000);
 });
-
-// ==========================================
-// MÓDULO MAPA DE ÁREAS (LÓGICA)
-// ==========================================
-
-window.setAreaFilter = function(macro) {
-    state.activeAreaFilter = macro;
-    window.renderMapaAreas();
-};
-
-window.renderMapaAreas = function() {
-    const grid = document.getElementById('grid-areas');
-    if (!grid) return;
-
-    // Actualizar estilo de las píldoras
-    document.querySelectorAll('.filter-pill').forEach(btn => {
-        const isAct = btn.dataset.macro === state.activeAreaFilter;
-        const color = state.activeAreaFilter === 'PROD' ? 'bg-red-600' : 'bg-blue-800';
-        btn.className = `filter-pill px-5 py-2 rounded-xl text-xs font-black transition-all ${isAct ? color + ' text-white shadow-lg' : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'}`;
-    });
-
-    const filtered = state.areas.filter(a => a.macro === state.activeAreaFilter);
-    
-    if (filtered.length === 0) {
-        grid.innerHTML = `<div class="col-span-full py-20 text-center border-2 border-dashed rounded-3xl text-gray-400">No hay áreas registradas en esta categoría.</div>`;
-        return;
-    }
-
-    grid.innerHTML = filtered.map(area => `
-        <div class="bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-xl transition-all group">
-            <div class="flex justify-between items-start mb-4">
-                <div class="w-12 h-12 bg-blue-50 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-7h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
-                </div>
-                <span class="text-[10px] font-black bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-lg tracking-widest text-gray-500">${area.prefix}</span>
-            </div>
-            <h3 class="text-xl font-black text-gray-900 dark:text-white mb-2">${area.name}</h3>
-            <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed mb-6">${area.desc || 'Área operativa LGA.'}</p>
-            <div class="flex gap-2">
-                <button onclick="window.editArea('${area.id}')" class="flex-1 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-700 text-xs font-bold hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 transition-colors">CONFIGURAR</button>
-                <button onclick="window.openPoeByArea('${area.prefix}')" class="px-4 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 shadow-md transition-all">VER POEs</button>
-            </div>
-        </div>
-    `).join('');
-};
-
-// Actualizar pullSync para bajar las áreas del Microservicio
-const originalPull = window.pullSync;
-window.pullSync = async function() {
-    await originalPull(); // Ejecuta lo de POEs
-    
-    // 🆕 Nuevo: Sincronizar Áreas
-    if (!navigator.onLine) return;
-    try {
-        const res = await fetch(GAS_DICT_ENDPOINT + "?action=get_areas");
-        const json = await res.json();
-        if (json.status === "success") {
-            const localAreas = await POEDB.getAll("areas");
-            for(let la of localAreas) await POEDB.delete("areas", la.id); // Wipe
-            for(let a of json.data) await POEDB.save("areas", a); // Replace
-            state.areas = json.data;
-            window.renderMapaAreas();
-        }
-    } catch(e) { console.error("Error sincronizando áreas:", e); }
-};
