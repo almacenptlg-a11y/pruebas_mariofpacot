@@ -179,15 +179,25 @@ window.generatePoeCode = function () {
   if (!cat || !sub) return;
 
   const areaDef = state.areas.find(a => a.macroAbbr === cat && a.areaAbbr === sub);
-  
-  // Extraer el prefijo oficial de la BD o armar uno de respaldo seguro
   const prefix = areaDef && areaDef.poePrefix ? areaDef.poePrefix : `${cat}-${sub}`;
+
+  // 🧠 LÓGICA INTELIGENTE: Detectar si el área es de Saneamiento/Higiene
+  const areaName = areaDef ? areaDef.areaName.toUpperCase() : '';
+  const isPOES = areaName.includes('SANEAMIENTO') || areaName.includes('LIMPIEZA') || areaName.includes('TÓXICO') || areaName.includes('TOXICO') || sub === 'SAN';
+  
+  const docType = isPOES ? 'POES' : 'POE';
 
   const count = state.poes.filter((p) => p.category === cat && p.subCategory === sub).length;
   const codeEl = document.getElementById("code");
   
-  // Resultado final: POE-PROD-SKN-001
-  if (codeEl) codeEl.value = `POE-${prefix}-${String(count + 1).padStart(3, "0")}`;
+  // Resultado: POES-LXP-001 (en lugar de POE)
+  if (codeEl) codeEl.value = `${docType}-${prefix}-${String(count + 1).padStart(3, "0")}`;
+
+  // Detalle UI: Cambiar el título del Modal para que el usuario sepa que está redactando un POES
+  const modalTitle = document.getElementById("modalTitle");
+  if (modalTitle && !state.form.editingId) {
+      modalTitle.textContent = `Registrar ${docType} (GFSI)`;
+  }
 };
 
 window.renderPOEs = function () {
@@ -765,12 +775,16 @@ window.exportPOEToWord = function (id) {
   const catObj = state.areas.find((c) => c.areaAbbr === poe.subCategory);
   const catName = catObj ? catObj.areaName : poe.subCategory;
 
+  // 🧠 DETECCIÓN PARA EL TÍTULO DEL DOCUMENTO OFICIAL (POE vs POES)
+  const isPOES = poe.code.startsWith('POES');
+  const docTitle = isPOES ? 'Procedimiento Operativo Estandarizado de Saneamiento' : 'Procedimiento Operativo Estandarizado';
+
   const htmlStr = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>${poe.code}</title><style>body { font-family: 'Arial'; color: #000; } table { width: 100%; border-collapse: collapse; margin-bottom: 20px; } th, td { border: 1px solid #000; padding: 8px; text-align: left; vertical-align: top; } th { background-color: #f2f2f2; width: 25%; } h1 { color: #1e3a5f; font-size: 24px; text-transform: uppercase; text-align: center; border-bottom: 2px solid #1e3a5f; padding-bottom: 10px; margin-bottom: 20px; } h2 { color: #2d5a87; font-size: 16px; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-top: 25px; } ul { list-style-type: disc; margin-left: 20px; margin-bottom: 5px; } ol { list-style-type: decimal; margin-left: 20px; margin-bottom: 5px; } ol[type="a"] { list-style-type: lower-alpha; } h3 { color: #1e3a5f; font-size: 14px; margin-top: 15px; margin-bottom: 5px; text-transform: uppercase; }</style></head><body>
-      <h1>La Genovesa Agroindustrias S.A.<br><span style="font-size:16px;">Procedimiento Operativo Estandarizado</span></h1>
+      <h1>La Genovesa Agroindustrias S.A.<br><span style="font-size:16px;">${docTitle}</span></h1>
       <table><tr><th>Código:</th><td>${poe.code}</td><th>Versión:</th><td>v${poe.version} - ${poe.status}</td></tr><tr><th>Título:</th><td colspan="3"><strong>${poe.title}</strong></td></tr><tr><th>Área:</th><td>${catName}</td><th>Fecha:</th><td>${new Date(poe.date).toLocaleDateString()}</td></tr></table>
       <h2>1. Contexto Operativo</h2><p><strong>Objetivo:</strong></p> ${poe.objective || "N/A"}<p><strong>Alcance:</strong></p> ${poe.scope || "N/A"}<p><strong>Responsabilidades:</strong></p> ${poe.responsibles || "N/A"}
       <h2>2. Control y Recursos</h2><p><strong>Frecuencia:</strong></p> ${poe.monitoring || poe.frequency || "N/A"}<p><strong>Acciones Correctivas:</strong></p> ${poe.corrective_actions || "N/A"}<p><strong>Equipos y Materiales:</strong></p> ${poe.materials || "N/A"}<p><strong>Definiciones:</strong></p> ${poe.definitions || "N/A"}<p><strong>Registros:</strong></p> ${poe.records || "N/A"} | ${poe.references || ""}
-      <h2>3. Procedimiento Operativo (HACCP)</h2><div style="border: 1px solid #000; padding: 15px;">${stepsHTML}</div>
+      <h2>3. Desarrollo del Procedimiento</h2><div style="border: 1px solid #000; padding: 15px;">${stepsHTML}</div>
       <table style="border: none; margin-top: 50px;"><tr style="border: none;">
       <td style="border: none; text-align: center; width: 50%;">_________________________<br><strong>Elaborado/Editado por:</strong><br>${poe.lastEditor || poe.author || 'Responsable de Área'}</td>
       <td style="border: none; text-align: center; width: 50%;">_________________________<br><strong>Aprobación Calidad</strong></td></tr></table></body></html>`;
