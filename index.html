@@ -17,7 +17,7 @@
   <style>
     /* MOTOR WYSIWYG - Estilos Nativos y Modo Oscuro */
     .rich-editor {
-        min-height: 120px; /* Altura ampliada para que quepan las instrucciones */
+        min-height: 120px; 
         max-height: 500px;
         overflow-y: auto;
         resize: vertical; 
@@ -29,7 +29,7 @@
         pointer-events: none;
         display: block;
         font-style: italic;
-        white-space: pre-wrap; /* 🛠️ PERMITE SALTOS DE LÍNEA EN EL PLACEHOLDER */
+        white-space: pre-wrap; 
         line-height: 1.5;
     }
     .rich-text-content ul, .rich-editor ul { list-style-type: disc; margin-left: 1.5rem; margin-bottom: 0.5rem; }
@@ -51,22 +51,29 @@
         <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div class="flex items-center space-x-4">
             <div class="w-12 h-12 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg flex items-center justify-center">
-              <svg class="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" /><path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd" /></svg>
+              <svg class="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" /><path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd" /></svg>
             </div>
             <div>
               <h1 class="text-2xl font-bold tracking-tight">Sistema POE</h1>
               <p class="text-blue-200 dark:text-gray-400 text-sm font-medium">La Genovesa Agroindustrias S.A.</p>
             </div>
           </div>
-          <div class="flex items-center space-x-4 w-full md:w-auto justify-between md:justify-end">
+          <div class="flex items-center space-x-3 w-full md:w-auto justify-between md:justify-end">
             <div class="flex items-center space-x-2 bg-white/10 px-3 py-1.5 rounded-full border border-white/20">
               <div id="network-indicator" class="w-2.5 h-2.5 rounded-full bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.8)]"></div>
               <span id="network-text" class="text-xs font-semibold tracking-wide">ONLINE</span>
             </div>
+            
             <button type="button" id="btnForceSync" onclick="window.forceSync()" class="bg-blue-800 hover:bg-blue-700 dark:bg-gray-800 dark:hover:bg-gray-700 text-white px-4 py-2.5 rounded-lg font-bold shadow-md transition text-sm flex items-center space-x-2">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-              <span class="hidden md:inline">Actualizar BD</span>
+              <span class="hidden md:inline">Sincronizar</span>
             </button>
+
+            <button type="button" id="btn-mapa-areas" onclick="window.openAreasModal()" class="bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 px-4 py-2.5 rounded-lg font-bold shadow-sm border border-gray-300 dark:border-gray-600 transition flex items-center space-x-2 hidden">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
+              <span class="hidden md:inline">Mapa Áreas</span>
+            </button>
+
             <button type="button" id="btn-nuevo-poe" onclick="window.openModal()" class="bg-white dark:bg-blue-600 text-blue-900 dark:text-white hover:bg-blue-50 dark:hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 dark:focus:ring-blue-800 px-6 py-2.5 rounded-lg font-bold shadow-md transition flex items-center space-x-2 hidden">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
               <span>Nuevo POE</span>
@@ -77,25 +84,6 @@
     </header>
 
     <main class="container mx-auto px-4 py-8">
-
-<section class="container mx-auto mt-12 mb-20 px-4 fade-in">
-      <div class="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
-        <div>
-          <h2 class="text-3xl font-black text-blue-950 dark:text-white tracking-tight">Mapa de Áreas</h2>
-          <p class="text-gray-500 dark:text-gray-400 font-medium">Gestión de centros de producción y control LGA</p>
-        </div>
-        <div id="area-filters" class="flex flex-wrap gap-2 bg-gray-100 dark:bg-gray-800 p-1.5 rounded-2xl border dark:border-gray-700">
-            <button onclick="window.setAreaFilter('PROD')" data-macro="PROD" class="filter-pill px-5 py-2 rounded-xl text-xs font-black transition-all">PRODUCCIÓN</button>
-            <button onclick="window.setAreaFilter('LOG')" data-macro="LOG" class="filter-pill px-5 py-2 rounded-xl text-xs font-black transition-all">LOGÍSTICA</button>
-            <button onclick="window.setAreaFilter('CAL')" data-macro="CAL" class="filter-pill px-5 py-2 rounded-xl text-xs font-black transition-all">CALIDAD</button>
-            <button onclick="window.setAreaFilter('SAN')" data-macro="SAN" class="filter-pill px-5 py-2 rounded-xl text-xs font-black transition-all">SANEAMIENTO</button>
-            <button onclick="window.setAreaFilter('MANT')" data-macro="MANT" class="filter-pill px-5 py-2 rounded-xl text-xs font-black transition-all">MANTENIMIENTO</button>
-        </div>
-      </div>
-
-      <div id="grid-areas" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          </div>
-    </section>
       
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-8">
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 md:p-6 fade-in"><p class="text-gray-500 dark:text-gray-400 text-xs md:text-sm font-semibold uppercase tracking-wider">Total POEs</p><p class="text-2xl md:text-3xl font-bold text-gray-800 dark:text-white mt-1" id="totalPOEs">0</p></div>
@@ -130,11 +118,8 @@
     </main>
 
     <div id="modal" role="dialog" class="fixed inset-0 bg-gray-50 dark:bg-gray-900 hidden z-50 slide-in">
-      
       <div class="h-screen w-full flex flex-col relative">
-
         <div class="flex-shrink-0 z-40 shadow-sm flex flex-col">
-          
           <div class="px-6 md:px-10 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-white dark:bg-gray-800">
             <div class="flex items-center space-x-4">
               <button type="button" onclick="window.closeModal()" class="text-gray-500 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 bg-gray-100 dark:bg-gray-700 hover:bg-blue-50 dark:hover:bg-gray-600 transition p-2.5 rounded-full" title="Volver al Panel">
@@ -186,7 +171,7 @@
         <div class="flex-1 overflow-y-auto w-full pb-20">
           <div class="max-w-6xl mx-auto mt-6">
             <form id="poe-form" onsubmit="window.handleFormSubmit(event)" class="px-4 md:px-10 space-y-8">
-
+              
               <div class="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
                 <h4 class="font-black text-gray-800 dark:text-gray-100 border-b-2 border-gray-100 dark:border-gray-700 pb-3 mb-5 uppercase tracking-wide text-sm">1. Datos de Control Documental</h4>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
@@ -229,7 +214,6 @@
               <div class="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
                 <h4 class="font-black text-gray-800 dark:text-gray-100 border-b-2 border-gray-100 dark:border-gray-700 pb-3 mb-5 uppercase tracking-wide text-sm">2. Contexto y Alcance</h4>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  
                   <div><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Objetivo General *</label>
                   <div id="objective" class="rich-editor w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white dark:bg-gray-700 dark:text-white rich-text-content" contenteditable="true" 
                   data-placeholder="► Instrucción: Defina el propósito fundamental del documento.&#10;► Estructura: [Qué se hace] + [Mediante qué método] + [Con qué fin normativo].&#10;► Ejemplo: Establecer los pasos estandarizados para el desposte mediante control de temperatura para evitar proliferación bacteriana."></div></div>
@@ -328,6 +312,37 @@
               </div>
             </form>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="areasModal" role="dialog" class="fixed inset-0 bg-gray-50 dark:bg-gray-900 hidden z-50 overflow-y-auto slide-in">
+      <div class="bg-gray-50 dark:bg-gray-900 min-h-screen w-full flex flex-col relative">
+        
+        <div class="px-6 md:px-10 py-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row items-center justify-between sticky top-0 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm z-30 shadow-sm gap-4">
+          <div class="flex items-center space-x-4 w-full sm:w-auto">
+            <button type="button" onclick="window.closeAreasModal()" class="text-gray-500 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 bg-gray-100 dark:bg-gray-700 hover:bg-blue-50 dark:hover:bg-gray-600 transition p-2.5 rounded-full">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+            </button>
+            <div>
+              <h3 class="text-2xl font-black text-blue-900 dark:text-white tracking-tight">Mapa de Áreas (Plantas)</h3>
+              <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Gestor de Diccionarios y Códigos</p>
+            </div>
+          </div>
+          <div class="flex items-center space-x-3 w-full sm:w-auto justify-end">
+            <div id="area-filters" class="flex flex-wrap gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl border border-gray-200 dark:border-gray-700">
+                <button onclick="window.setAreaFilter('PROD')" data-macro="PROD" class="filter-pill px-4 py-1.5 rounded-lg text-[10px] font-black transition-all">PROD</button>
+                <button onclick="window.setAreaFilter('LOG')" data-macro="LOG" class="filter-pill px-4 py-1.5 rounded-lg text-[10px] font-black transition-all">LOGÍSTICA</button>
+                <button onclick="window.setAreaFilter('CAL')" data-macro="CAL" class="filter-pill px-4 py-1.5 rounded-lg text-[10px] font-black transition-all">CALIDAD</button>
+                <button onclick="window.setAreaFilter('SAN')" data-macro="SAN" class="filter-pill px-4 py-1.5 rounded-lg text-[10px] font-black transition-all">SANEAMIENTO</button>
+                <button onclick="window.setAreaFilter('MANT')" data-macro="MANT" class="filter-pill px-4 py-1.5 rounded-lg text-[10px] font-black transition-all">MANTENIMIENTO</button>
+            </div>
+          </div>
+        </div>
+        
+        <div class="flex-grow w-full max-w-7xl mx-auto p-6 md:p-10">
+           <div id="grid-areas" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              </div>
         </div>
       </div>
     </div>
