@@ -380,9 +380,9 @@
             
             <form id="area-config-form" onsubmit="window.handleAreaSubmit(event)" class="p-6 space-y-5">
                 
-                <div>
+               <div>
                     <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 uppercase">Macro-Área a la que pertenece</label>
-                    <select id="cfgAreaMacro" required onchange="window.toggleNewMacroFields()" class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition cursor-pointer">
+                    <select id="cfgAreaMacro" required onchange="window.toggleNewMacroFields(); window.autoCalcPrefix();" class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition cursor-pointer">
                         </select>
                 </div>
                 
@@ -394,7 +394,7 @@
                     </div>
                     <div>
                         <label class="block text-[10px] font-bold text-gray-600 dark:text-gray-400 mb-1 uppercase">Abreviatura Macro</label>
-                        <input type="text" id="cfgNewMacroAbbr" placeholder="Ej: GER" maxlength="4" class="w-full px-3 py-2 border border-white dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white outline-none font-mono uppercase shadow-sm focus:ring-2 focus:ring-blue-400">
+                        <input type="text" id="cfgNewMacroAbbr" placeholder="Ej: GER" maxlength="6" oninput="window.autoCalcPrefix()" class="w-full px-3 py-2 border border-white dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white outline-none font-mono uppercase shadow-sm focus:ring-2 focus:ring-blue-400">
                     </div>
                 </div>
 
@@ -405,14 +405,14 @@
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 uppercase">Abrev. Área</label>
-                        <input type="text" id="cfgAreaAbbr" required placeholder="Ej: ESK" maxlength="4" class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none font-mono uppercase text-center">
+                        <input type="text" id="cfgAreaAbbr" required placeholder="Ej: SKN" maxlength="6" oninput="window.autoCalcPrefix()" class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none font-mono uppercase text-center">
                     </div>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                         <label class="block text-[10px] font-bold text-blue-600 dark:text-blue-400 mb-1.5 uppercase tracking-wide">Prefijo Código POE</label>
-                        <input type="text" id="cfgAreaPrefix" required placeholder="Ej: SKN" maxlength="4" class="w-full px-3 py-2.5 border border-blue-300 dark:border-blue-700 rounded-lg text-sm bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-200 focus:ring-2 focus:ring-blue-500 outline-none font-mono uppercase text-center font-bold">
+                        <input type="text" id="cfgAreaPrefix" required placeholder="Ej: PROD-SKN" maxlength="15" class="w-full px-3 py-2.5 border border-blue-300 dark:border-blue-700 rounded-lg text-sm bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-200 focus:ring-2 focus:ring-blue-500 outline-none font-mono uppercase text-center font-bold">
                     </div>
                     <div class="md:col-span-2">
                         <label class="block text-[10px] font-bold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">Estado Operativo</label>
