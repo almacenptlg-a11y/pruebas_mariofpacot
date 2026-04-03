@@ -1,5 +1,5 @@
 /**
- * @fileoverview CORE GENAPP - Sistema POE Industrial (RBAC & AUTORÍA)
+ * @fileoverview CORE GENAPP - Sistema POE Industrial (WYSIWYG + RBAC + DARK)
  * @architecture Headless, Offline-First, O(1) Memory, Separated Structure
  */
 
@@ -53,75 +53,26 @@ window.getPermisos = function() {
     return { 
         canEdit: canEdit, 
         isOperario: !canEdit, 
-        // Normalizamos el área para búsquedas sin acentos ni mayúsculas locas
         area: String(state.user.area).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") 
     };
 };
 
-
 // ==========================================
-// 3. MOTOR WYSIWYG Y LECTURA DE CAMPOS
+// 3. MOTOR WYSIWYG Y LECTURA DE CAMPOS (SIN REGEX)
 // ==========================================
 window.initRichEditors = function() {
-  const svgIcon = (path) => `<svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="${path}"></path></svg>`;
-
   document.querySelectorAll('.rich-editor').forEach(editor => {
-      if(editor.parentNode.classList.contains('editor-wrapper')) return; 
-      
-      const wrapper = document.createElement('div');
-      wrapper.className = "editor-wrapper w-full border border-gray-300 rounded-lg shadow-sm focus-within:ring-2 focus-within:ring-blue-500 overflow-hidden bg-white transition-all flex flex-col";
-      
-      const toolbar = document.createElement('div');
-      toolbar.className = "flex flex-wrap items-center bg-gray-50 border-b border-gray-200 px-2 py-1 gap-1 text-gray-600";
-      
-      toolbar.innerHTML = `
-          <div class="flex items-center space-x-1 border-r border-gray-300 pr-2 my-1">
-              <button type="button" class="p-1.5 hover:bg-gray-200 rounded" onmousedown="event.preventDefault(); document.execCommand('bold', false, null)" title="Negrita"><b>B</b></button>
-              <button type="button" class="p-1.5 hover:bg-gray-200 rounded" onmousedown="event.preventDefault(); document.execCommand('italic', false, null)" title="Cursiva"><i>I</i></button>
-              <button type="button" class="p-1.5 hover:bg-gray-200 rounded" onmousedown="event.preventDefault(); document.execCommand('underline', false, null)" title="Subrayado"><u>U</u></button>
-          </div>
-          <div class="flex items-center space-x-1 border-r border-gray-300 pr-2 my-1">
-              <label class="p-1.5 hover:bg-gray-200 rounded cursor-pointer relative flex items-center" title="Color de Texto">
-                 <span class="font-bold underline decoration-red-500">A</span>
-                 <input type="color" class="absolute opacity-0 w-full h-full cursor-pointer" onchange="document.execCommand('foreColor', false, this.value)">
-              </label>
-              <label class="p-1.5 hover:bg-gray-200 rounded cursor-pointer relative flex items-center" title="Color de Resaltado">
-                 <span class="font-bold bg-yellow-300 px-0.5">ab</span>
-                 <input type="color" class="absolute opacity-0 w-full h-full cursor-pointer" onchange="document.execCommand('hiliteColor', false, this.value)">
-              </label>
-          </div>
-          <div class="flex items-center space-x-1 border-r border-gray-300 pr-2 my-1">
-              <button type="button" class="p-1.5 hover:bg-gray-200 rounded" onmousedown="event.preventDefault(); document.execCommand('justifyLeft', false, null)" title="Alinear Izquierda">${svgIcon('M3 21h18v-2H3v2zm0-4h12v-2H3v2zm0-4h18v-2H3v2zm0-4h12V7H3v2zm0-6v2h18V3H3z')}</button>
-              <button type="button" class="p-1.5 hover:bg-gray-200 rounded" onmousedown="event.preventDefault(); document.execCommand('justifyCenter', false, null)" title="Centrar">${svgIcon('M7 15v2h10v-2H7zm-4 6h18v-2H3v2zm0-8h18v-2H3v2zm4-6v2h10V7H7zM3 3v2h18V3H3z')}</button>
-              <button type="button" class="p-1.5 hover:bg-gray-200 rounded" onmousedown="event.preventDefault(); document.execCommand('justifyRight', false, null)" title="Alinear Derecha">${svgIcon('M3 21h18v-2H3v2zm6-4h12v-2H9v2zm-6-4h18v-2H3v2zm6-4h12V7H9v2zm-6-6v2h18V3H3z')}</button>
-          </div>
-          <div class="flex items-center space-x-1 border-r border-gray-300 pr-2 my-1">
-              <button type="button" class="p-1.5 hover:bg-gray-200 rounded" onmousedown="event.preventDefault(); document.execCommand('insertUnorderedList', false, null)" title="Viñetas">${svgIcon('M4 10.5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zm0-6c-.83 0-1.5.67-1.5 1.5S3.17 7.5 4 7.5 5.5 6.83 5.5 6 4.83 4.5 4 4.5zm0 12c-.83 0-1.5.68-1.5 1.5s.68 1.5 1.5 1.5 1.5-.68 1.5-1.5-.67-1.5-1.5-1.5zM7 19h14v-2H7v2zm0-6h14v-2H7v2zm0-8v2h14V5H7z')}</button>
-              <button type="button" class="p-1.5 hover:bg-gray-200 rounded font-bold text-[10px]" onmousedown="event.preventDefault(); document.execCommand('insertOrderedList', false, null); window.setListType('1')" title="Lista Numerada">1.</button>
-              <button type="button" class="p-1.5 hover:bg-gray-200 rounded font-bold text-[10px]" onmousedown="event.preventDefault(); document.execCommand('insertOrderedList', false, null); window.setListType('a')" title="Lista Alfabética">a)</button>
-          </div>
-          <div class="flex items-center space-x-1 border-r border-gray-300 pr-2 my-1">
-              <button type="button" class="p-1.5 hover:bg-gray-200 rounded" onmousedown="event.preventDefault(); document.execCommand('outdent', false, null)" title="Reducir Sangría">${svgIcon('M11 17h10v-2H11v2zm-8-5l4 4V8l-4 4zm0 9h18v-2H3v2zM3 3v2h18V3H3zm8 6h10V7H11v2zm0 4h10v-2H11v2z')}</button>
-              <button type="button" class="p-1.5 hover:bg-gray-200 rounded" onmousedown="event.preventDefault(); document.execCommand('indent', false, null)" title="Aumentar Sangría">${svgIcon('M3 21h18v-2H3v2zM3 8v8l4-4-4-4zm8 9h10v-2H11v2zM3 3v2h18V3H3zm8 6h10V7H11v2zm0 4h10v-2H11v2z')}</button>
-          </div>
-          <div class="flex items-center space-x-1 my-1">
-              <button type="button" class="p-1.5 hover:bg-gray-200 rounded font-bold text-[10px] uppercase" onmousedown="event.preventDefault(); document.execCommand('formatBlock', false, 'H3')" title="Título">T</button>
-              <button type="button" class="p-1.5 hover:bg-red-100 text-red-500 rounded" onmousedown="event.preventDefault(); document.execCommand('removeFormat', false, null)" title="Borrar Formato">${svgIcon('M19.35 10.04C18.67 6.59 15.64 4 12 4c-1.48 0-2.85.43-4.01 1.17l1.46 1.46C10.21 6.23 11.08 6 12 6c3.04 0 5.5 2.46 5.5 5.5v.5H19c1.66 0 3 1.34 3 3 0 1.13-.64 2.11-1.56 2.62l1.45 1.45C23.16 18.16 24 16.68 24 15c0-2.64-2.05-4.78-4.65-4.96zM3 5.27l2.75 2.74C3.56 8.79 2 10.82 2 13c0 3.31 2.69 6 6 6h11.73l2 2L23 19.73 4.27 1 3 5.27zM7.73 10l8 8H8c-2.21 0-4-1.79-4-4s1.79-4 3.73-4z')}</button>
-          </div>
-      `;
-      
-      editor.parentNode.insertBefore(wrapper, editor);
-      wrapper.appendChild(toolbar);
-      wrapper.appendChild(editor);
-      
-      editor.classList.add("p-3", "text-sm", "bg-white", "rich-text-content");
-      
+      if (editor.classList.contains('initialized')) return;
+      editor.classList.add("initialized");
+
+      // Pegado en texto plano para no traer estilos basura de Word
       editor.addEventListener('paste', function(e) {
           e.preventDefault();
           const text = (e.originalEvent || e).clipboardData.getData('text/plain');
           document.execCommand('insertText', false, text);
       });
 
+      // Prevenir la creación nativa de <div> que rompe las listas
       editor.addEventListener('keydown', function(e) {
           if (e.key === 'Enter' && !document.queryCommandState('insertOrderedList') && !document.queryCommandState('insertUnorderedList')) {
               document.execCommand('insertLineBreak');
@@ -131,6 +82,7 @@ window.initRichEditors = function() {
   });
 };
 
+// Modificador de tipo de lista para la barra estática (Ej: a. b. c.)
 window.setListType = function(type) {
     let node = document.getSelection().anchorNode;
     while(node && node.nodeName !== 'OL' && node.nodeName !== 'DIV') { node = node.parentNode; }
@@ -207,18 +159,16 @@ window.refreshUI = async function () {
     const isActive = (s === "ACT" || s === "REV" || s === "ACTIVO" || s === "EN REVISION" || s === "EN REVISIÓN");
     if (!isActive) return false;
 
-    // 🛡️ Filtro de Operario: Solo puede ver POEs de su Área correspondiente
     if (permisos.isOperario) {
         const catObj = state.config.find((c) => c.key === p.category && c.type === "CATEGORY");
         const catName = String(catObj ? catObj.value : p.category).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
         if (!catName.includes(permisos.area) && !permisos.area.includes(catName)) {
-            return false; // El POE no pertenece a su área
+            return false; 
         }
     }
     return true;
   });
 
-  // Ocultar botón "Nuevo POE" a Operarios
   const btnNuevo = document.getElementById('btn-nuevo-poe');
   if (btnNuevo) btnNuevo.style.display = permisos.canEdit ? 'flex' : 'none';
 
@@ -283,36 +233,35 @@ window.renderPOEs = function () {
 
   const query = document.getElementById("searchInput")?.value.toLowerCase() || "";
   const filtered = state.poes.filter((p) => p.code.toLowerCase().includes(query) || p.title.toLowerCase().includes(query));
-  const permisos = window.getPermisos(); // 🛡️ Verificamos Rol para la UI
+  const permisos = window.getPermisos(); 
 
   if (filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" class="text-center p-6 text-gray-500">Sin procedimientos disponibles.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center p-6 text-gray-500 dark:text-gray-400">Sin procedimientos disponibles.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = filtered.slice().reverse().map((poe) => {
     const isPending = poe._syncStatus === "pending";
     const badge = isPending
-      ? `<span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-[10px] font-bold uppercase">En Cola</span>`
-      : `<span class="bg-green-100 text-green-800 px-2 py-1 rounded text-[10px] font-bold uppercase">En Nube</span>`;
+      ? `<span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-[10px] font-bold uppercase dark:bg-yellow-900/40 dark:text-yellow-300">En Cola</span>`
+      : `<span class="bg-green-100 text-green-800 px-2 py-1 rounded text-[10px] font-bold uppercase dark:bg-green-900/40 dark:text-green-300">En Nube</span>`;
 
     const catObj = state.config.find((c) => c.key === poe.category && c.type === "CATEGORY");
     const catName = catObj ? catObj.value : FALLBACK_CAT[poe.category]?.name || poe.category;
 
-    // 🛡️ Solo Jefes/Gerentes ven los botones de Edición y Eliminación
     const actionButtons = permisos.canEdit ? `
-        <button type="button" onclick="window.editPOE('${poe.id}')" class="text-yellow-600 bg-yellow-50 px-3 py-1.5 rounded font-semibold transition hover:bg-yellow-100" title="Editar Documento">✏️</button>
-        <button type="button" onclick="window.deletePOE('${poe.id}')" class="text-red-600 bg-red-50 px-3 py-1.5 rounded font-semibold transition hover:bg-red-100" title="Marcar Obsoleto">✖</button>
+        <button type="button" onclick="window.editPOE('${poe.id}')" class="text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 dark:text-yellow-400 px-3 py-1.5 rounded font-semibold transition hover:bg-yellow-100 dark:hover:bg-yellow-900/40" title="Editar Documento">✏️</button>
+        <button type="button" onclick="window.deletePOE('${poe.id}')" class="text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 px-3 py-1.5 rounded font-semibold transition hover:bg-red-100 dark:hover:bg-red-900/40" title="Marcar Obsoleto">✖</button>
     ` : '';
 
     return `
-    <tr class="border-b hover:bg-gray-50 ${isPending ? "bg-yellow-50/30" : ""}">
-      <td class="p-4 text-xs font-bold text-blue-900">${poe.code}</td>
-      <td class="p-4 font-bold text-gray-800">${poe.title}</td>
-      <td class="p-4 text-xs font-bold text-gray-600">${catName}</td>
+    <tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/40 ${isPending ? "bg-yellow-50/30 dark:bg-yellow-900/10" : ""}">
+      <td class="p-4 text-xs font-bold text-blue-900 dark:text-blue-400">${poe.code}</td>
+      <td class="p-4 font-bold text-gray-800 dark:text-gray-200">${poe.title}</td>
+      <td class="p-4 text-xs font-bold text-gray-600 dark:text-gray-400">${catName}</td>
       <td class="p-4">${badge}</td>
       <td class="p-4 text-right flex justify-end space-x-2">
-        <button type="button" onclick="window.viewPOE('${poe.id}')" class="text-blue-600 bg-blue-50 px-3 py-1.5 rounded font-semibold transition hover:bg-blue-100" title="Ver Documento">👁️</button>
+        <button type="button" onclick="window.viewPOE('${poe.id}')" class="text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 px-3 py-1.5 rounded font-semibold transition hover:bg-blue-100 dark:hover:bg-blue-900/40" title="Ver Documento">👁️</button>
         ${actionButtons}
       </td>
     </tr>`;
@@ -326,9 +275,9 @@ window.updateFileText = function (input) {
   const d = document.getElementById("fileNameDisplay");
   if (!d) return;
   if (input.files.length > 0) {
-    d.textContent = "📸 " + input.files[0].name; d.classList.add("text-blue-600", "font-bold");
+    d.textContent = "📸 " + input.files[0].name; d.classList.add("text-blue-600", "font-bold", "dark:text-blue-400");
   } else {
-    d.textContent = "📸 Adjuntar evidencia visual (Opcional)..."; d.classList.remove("text-blue-600", "font-bold");
+    d.textContent = "📸 Adjuntar evidencia visual (Opcional)..."; d.classList.remove("text-blue-600", "font-bold", "dark:text-blue-400");
   }
 };
 
@@ -377,22 +326,22 @@ window.renderAdvancedSteps = function () {
   if (!container) return;
 
   if (state.form.advancedSteps.length === 0) {
-    container.innerHTML = `<div class="flex flex-col items-center justify-center py-10 text-gray-400"><p class="text-sm font-medium">Agregue el primer paso del procedimiento.</p></div>`;
+    container.innerHTML = `<div class="flex flex-col items-center justify-center py-10 text-gray-400 dark:text-gray-500"><p class="text-sm font-medium">Agregue el primer paso del procedimiento.</p></div>`;
     return;
   }
 
   container.innerHTML = state.form.advancedSteps.map((s, i) => {
-      const badgeColor = s.type === "PCC" ? "bg-red-100 text-red-800" : s.type === "PC" ? "bg-yellow-100 text-yellow-800" : "bg-gray-100 text-gray-800";
-      const imgHTML = s.image ? `<img src="${s.image}" class="mt-2 h-16 object-cover rounded border">` : "";
+      const badgeColor = s.type === "PCC" ? "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-400" : s.type === "PC" ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-400" : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300";
+      const imgHTML = s.image ? `<img src="${s.image}" class="mt-2 h-16 object-cover rounded border dark:border-gray-600">` : "";
       return `
-    <div class="bg-white p-3 rounded border border-gray-200 mb-2 flex gap-3 fade-in">
-      <div class="w-6 h-6 rounded-full bg-blue-100 text-blue-800 font-bold flex items-center justify-center shrink-0 text-xs">${i + 1}</div>
+    <div class="bg-white dark:bg-gray-800 p-3 rounded border border-gray-200 dark:border-gray-600 mb-2 flex gap-3 fade-in">
+      <div class="w-6 h-6 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-400 font-bold flex items-center justify-center shrink-0 text-xs">${i + 1}</div>
       <div class="flex-grow overflow-hidden">
           <div class="flex justify-between items-center mb-1">
             <span class="text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${badgeColor}">${s.type}</span>
             <button type="button" onclick="window.removeAdvancedStep(${s.id})" class="text-red-400 font-bold hover:text-red-600 transition">X</button>
           </div>
-          <div class="text-sm font-medium text-gray-800 leading-relaxed">${s.desc}</div>
+          <div class="text-sm font-medium text-gray-800 dark:text-gray-200 leading-relaxed">${s.desc}</div>
           ${imgHTML}
       </div>
     </div>`;
@@ -415,17 +364,16 @@ window.handleFormSubmit = async function (e) {
   const isEditing = !!state.form.editingId;
   const poeId = isEditing ? state.form.editingId : `UUID-${Date.now()}`;
 
-  // 🛡️ LÓGICA DE AUTORÍA Y FECHAS
   let originalDate = new Date().toISOString();
-  let autorOriginal = state.user.nombre; // Si es nuevo, el creador es quien está en sesión
+  let autorOriginal = state.user.nombre; 
   let ultimoEditor = "";
 
   if (isEditing) {
     const existing = state.poes.find((p) => p.id === poeId);
     if (existing) {
         originalDate = existing.date;
-        autorOriginal = existing.author || autorOriginal; // Mantiene el creador original
-        ultimoEditor = state.user.nombre;                 // Registra al modificador actual
+        autorOriginal = existing.author || autorOriginal; 
+        ultimoEditor = state.user.nombre;                 
     }
   }
 
@@ -435,8 +383,7 @@ window.handleFormSubmit = async function (e) {
     scope: getFieldValue("scope"), frequency: getFieldValue("monitoring"), responsibles: getFieldValue("responsibles"),
     definitions: getFieldValue("definitions"), materials: getFieldValue("materials"), monitoring: getFieldValue("monitoring"),
     corrective_actions: getFieldValue("correctiveActions"), records: getFieldValue("records"), references: getFieldValue("references"),
-    author: autorOriginal,          // <--- SE ENVÍA EL AUTOR AL BACKEND
-    lastEditor: ultimoEditor,       // <--- SE ENVÍA EL ÚLTIMO EDITOR AL BACKEND
+    author: autorOriginal, lastEditor: ultimoEditor,
     procedure: JSON.stringify(state.form.advancedSteps), date: originalDate, _syncStatus: "pending"
   };
 
@@ -472,19 +419,20 @@ window.editPOE = function (id) {
   const subCatSelect = document.getElementById("poeSubCategory");
   const codeInput = document.getElementById("code");
 
-  catSelect.value = poe.category; catSelect.disabled = true; catSelect.classList.add("bg-gray-100", "cursor-not-allowed");
+  catSelect.value = poe.category; catSelect.disabled = true; catSelect.classList.add("bg-gray-100", "dark:bg-gray-600", "cursor-not-allowed");
   window.updateSubCategories();
 
   setTimeout(() => {
-    subCatSelect.value = poe.subCategory; subCatSelect.disabled = true; subCatSelect.classList.add("bg-gray-100", "cursor-not-allowed");
+    subCatSelect.value = poe.subCategory; subCatSelect.disabled = true; subCatSelect.classList.add("bg-gray-100", "dark:bg-gray-600", "cursor-not-allowed");
     codeInput.value = poe.code;
   }, 50);
 
   let nextVersion = (parseFloat(poe.version || 1.0) + 0.1).toFixed(1);
   if (isNaN(nextVersion)) nextVersion = "1.1";
 
-  document.getElementById("poeVersion").value = nextVersion;
-  document.getElementById("poeVersion").classList.add("bg-blue-50", "text-blue-800", "font-bold");
+  const vInput = document.getElementById("poeVersion");
+  vInput.value = nextVersion;
+  vInput.classList.add("bg-blue-50", "text-blue-800", "font-bold", "dark:bg-blue-900/40", "dark:text-blue-300");
 
   setFieldValue("title", poe.title);
   setFieldValue("poeStatus", poe.status || "ACT");
@@ -519,68 +467,66 @@ window.viewPOE = function (id) {
   try {
     const arr = JSON.parse(poe.procedure);
     stepsHTML = arr.map((s, i) => {
-        const bColor = s.type === "PCC" ? "bg-red-100 text-red-800 border-red-200" : s.type === "PC" ? "bg-yellow-100 text-yellow-800 border-yellow-200" : "bg-gray-100 text-gray-600 border-gray-200";
-        const img = s.image ? `<img src="${s.image}" class="mt-4 max-h-64 object-cover rounded-xl border border-gray-200 shadow-sm">` : "";
+        const bColor = s.type === "PCC" ? "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-400 border-red-200 dark:border-red-800" : s.type === "PC" ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800" : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600";
+        const img = s.image ? `<img src="${s.image}" class="mt-4 max-h-64 object-cover rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">` : "";
         return `
-      <div class="flex gap-4 p-5 md:p-6 bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition">
-        <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-800 font-black flex items-center justify-center shrink-0 text-lg border border-blue-200">${i + 1}</div>
+      <div class="flex gap-4 p-5 md:p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm hover:shadow-md transition">
+        <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-400 font-black flex items-center justify-center shrink-0 text-lg border border-blue-200 dark:border-blue-800">${i + 1}</div>
         <div class="flex-grow overflow-hidden">
            <span class="text-[10px] font-black px-2.5 py-1 rounded border uppercase mb-3 inline-block tracking-widest ${bColor}">${s.type}</span>
-           <div class="text-sm font-medium text-gray-800 leading-relaxed">${s.desc}</div>
+           <div class="text-base font-medium text-gray-800 dark:text-gray-200 leading-relaxed">${s.desc}</div>
            ${img}
         </div>
       </div>`;
       }).join("");
   } catch (e) {
-    stepsHTML = `<div class="bg-white p-6 rounded-xl border border-gray-200"><p class="text-base font-medium text-gray-800 leading-relaxed">${poe.procedure}</p></div>`;
+    stepsHTML = `<div class="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700"><p class="text-base font-medium text-gray-800 dark:text-gray-200 leading-relaxed">${poe.procedure}</p></div>`;
   }
 
   const catObj = state.config.find((c) => c.key === poe.category && c.type === "CATEGORY");
   const catName = catObj ? catObj.value : FALLBACK_CAT[poe.category]?.name || poe.category;
-  const statusColor = poe.status === "ACT" || poe.status === "Activo" ? "bg-green-100 text-green-800 border-green-200" : "bg-yellow-100 text-yellow-800 border-yellow-200";
+  const statusColor = poe.status === "ACT" || poe.status === "Activo" ? "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-800" : "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/40 dark:text-yellow-300 dark:border-yellow-800";
   const statusText = poe.status === "ACT" ? "ACTIVO" : "EN REVISIÓN";
 
   const vContent = document.getElementById("viewContent");
   if (vContent) {
     vContent.innerHTML = `
-      <div class="bg-white p-8 md:p-10 rounded-2xl border border-gray-200 shadow-sm mb-8">
-        <div class="flex flex-col md:flex-row justify-between items-start border-b-2 border-gray-100 pb-8 mb-8 gap-6">
+      <div class="bg-white dark:bg-gray-800 p-8 md:p-10 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm mb-8">
+        <div class="flex flex-col md:flex-row justify-between items-start border-b-2 border-gray-100 dark:border-gray-700 pb-8 mb-8 gap-6">
           <div class="w-full md:w-2/3">
-            <span class="inline-block px-3 py-1 bg-gray-100 text-gray-700 font-bold text-xs rounded-lg uppercase tracking-wider mb-3 border border-gray-200">${catName}</span>
-            <h2 class="text-3xl md:text-4xl font-black text-gray-900 uppercase tracking-tight leading-tight">${poe.title}</h2>
+            <span class="inline-block px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold text-xs rounded-lg uppercase tracking-wider mb-3 border border-gray-200 dark:border-gray-600">${catName}</span>
+            <h2 class="text-3xl md:text-4xl font-black text-gray-900 dark:text-white uppercase tracking-tight leading-tight">${poe.title}</h2>
           </div>
-          <div class="md:text-right flex flex-col md:items-end bg-gray-50 p-5 rounded-xl border border-gray-200 w-full md:w-1/3">
-            <p class="text-2xl font-black font-mono text-blue-800 tracking-wider">${poe.code}</p>
-            <div class="flex items-center md:justify-end gap-3 mt-2 text-sm font-bold text-gray-500">
+          <div class="md:text-right flex flex-col md:items-end bg-gray-50 dark:bg-gray-900/50 p-5 rounded-xl border border-gray-200 dark:border-gray-700 w-full md:w-1/3">
+            <p class="text-2xl font-black font-mono text-blue-800 dark:text-blue-400 tracking-wider">${poe.code}</p>
+            <div class="flex items-center md:justify-end gap-3 mt-2 text-sm font-bold text-gray-500 dark:text-gray-400">
               <span>Versión ${poe.version}</span><span>•</span><span>${new Date(poe.date).toLocaleDateString()}</span>
             </div>
-            
             <div class="mt-4 flex flex-col items-end gap-2">
                 <span class="inline-flex items-center px-3 py-1 rounded-md text-xs font-black uppercase tracking-widest border ${statusColor}">${statusText}</span>
-                <div class="text-xs text-gray-500 font-medium">✍️ Creado por: <span class="font-bold">${poe.author || 'Área Producción'}</span></div>
-                ${poe.lastEditor ? `<div class="text-xs text-gray-500 font-medium text-right">🔄 Últ. Edición: <span class="font-bold">${poe.lastEditor}</span></div>` : ''}
+                <div class="text-xs text-gray-500 dark:text-gray-400 font-medium">✍️ Creado por: <span class="font-bold text-gray-700 dark:text-gray-300">${poe.author || 'Área Producción'}</span></div>
+                ${poe.lastEditor ? `<div class="text-xs text-gray-500 dark:text-gray-400 font-medium text-right">🔄 Últ. Edición: <span class="font-bold text-gray-700 dark:text-gray-300">${poe.lastEditor}</span></div>` : ''}
             </div>
-
           </div>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-           <div><h4 class="text-xs font-black text-blue-800 uppercase tracking-widest mb-2 flex items-center gap-2">🎯 Objetivo General</h4><div class="text-sm text-gray-700 font-medium leading-relaxed bg-gray-50 p-5 rounded-xl border border-gray-100 h-full">${poe.objective || "No especificado"}</div></div>
-           <div><h4 class="text-xs font-black text-blue-800 uppercase tracking-widest mb-2 flex items-center gap-2">📏 Alcance Operativo</h4><div class="text-sm text-gray-700 font-medium leading-relaxed bg-gray-50 p-5 rounded-xl border border-gray-100 h-full">${poe.scope || "No especificado"}</div></div>
-           <div><h4 class="text-xs font-black text-blue-800 uppercase tracking-widest mb-2 flex items-center gap-2">👤 Responsabilidades</h4><div class="text-sm text-gray-700 font-medium leading-relaxed bg-gray-50 p-5 rounded-xl border border-gray-100 h-full">${poe.responsibles || "No especificadas"}</div></div>
-           <div><h4 class="text-xs font-black text-blue-800 uppercase tracking-widest mb-2 flex items-center gap-2">📝 Definiciones</h4><div class="text-sm text-gray-700 font-medium leading-relaxed bg-gray-50 p-5 rounded-xl border border-gray-100 h-full">${poe.definitions || "Ninguna"}</div></div>
-           <div class="md:col-span-2"><h4 class="text-xs font-black text-blue-800 uppercase tracking-widest mb-2 flex items-center gap-2">🛠️ Equipos, Materiales y EPPs</h4><div class="text-sm text-gray-700 font-medium leading-relaxed bg-gray-50 p-5 rounded-xl border border-gray-100 h-full">${poe.materials || "No especificados"}</div></div>
+           <div><h4 class="text-xs font-black text-blue-800 dark:text-blue-400 uppercase tracking-widest mb-2 flex items-center gap-2">🎯 Objetivo General</h4><div class="text-sm text-gray-700 dark:text-gray-200 font-medium leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-5 rounded-xl border border-gray-100 dark:border-gray-700 h-full">${poe.objective || "No especificado"}</div></div>
+           <div><h4 class="text-xs font-black text-blue-800 dark:text-blue-400 uppercase tracking-widest mb-2 flex items-center gap-2">📏 Alcance Operativo</h4><div class="text-sm text-gray-700 dark:text-gray-200 font-medium leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-5 rounded-xl border border-gray-100 dark:border-gray-700 h-full">${poe.scope || "No especificado"}</div></div>
+           <div><h4 class="text-xs font-black text-blue-800 dark:text-blue-400 uppercase tracking-widest mb-2 flex items-center gap-2">👤 Responsabilidades</h4><div class="text-sm text-gray-700 dark:text-gray-200 font-medium leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-5 rounded-xl border border-gray-100 dark:border-gray-700 h-full">${poe.responsibles || "No especificadas"}</div></div>
+           <div><h4 class="text-xs font-black text-blue-800 dark:text-blue-400 uppercase tracking-widest mb-2 flex items-center gap-2">📝 Definiciones</h4><div class="text-sm text-gray-700 dark:text-gray-200 font-medium leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-5 rounded-xl border border-gray-100 dark:border-gray-700 h-full">${poe.definitions || "Ninguna"}</div></div>
+           <div class="md:col-span-2"><h4 class="text-xs font-black text-blue-800 dark:text-blue-400 uppercase tracking-widest mb-2 flex items-center gap-2">🛠️ Equipos, Materiales y EPPs</h4><div class="text-sm text-gray-700 dark:text-gray-200 font-medium leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-5 rounded-xl border border-gray-100 dark:border-gray-700 h-full">${poe.materials || "No especificados"}</div></div>
         </div>
         
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-           <div><h4 class="text-xs font-black text-red-800 uppercase tracking-widest mb-2 flex items-center gap-2">⏱️ Frecuencia / Monitoreo</h4><div class="text-sm text-gray-800 font-bold leading-relaxed bg-red-50 p-5 rounded-xl border border-red-100 h-full">${poe.monitoring || poe.frequency || "No especificada"}</div></div>
-           <div><h4 class="text-xs font-black text-red-800 uppercase tracking-widest mb-2 flex items-center gap-2">⚠️ Acciones Correctivas (Desvíos)</h4><div class="text-sm text-gray-800 font-bold leading-relaxed bg-red-50 p-5 rounded-xl border border-red-100 h-full">${poe.corrective_actions || "No especificadas"}</div></div>
-           <div><h4 class="text-xs font-black text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-2">📎 Registros Asociados</h4><div class="text-sm text-gray-700 font-medium leading-relaxed bg-gray-50 p-5 rounded-xl border border-gray-100 h-full">${poe.records || "Ninguno"}</div></div>
-           <div><h4 class="text-xs font-black text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-2">📚 Referencias / Anexos</h4><div class="text-sm text-gray-700 font-medium leading-relaxed bg-gray-50 p-5 rounded-xl border border-gray-100 h-full">${poe.references || "Ninguna"}</div></div>
+           <div><h4 class="text-xs font-black text-red-800 dark:text-red-400 uppercase tracking-widest mb-2 flex items-center gap-2">⏱️ Frecuencia / Monitoreo</h4><div class="text-sm text-gray-800 dark:text-gray-100 font-bold leading-relaxed bg-red-50 dark:bg-red-900/20 p-5 rounded-xl border border-red-100 dark:border-red-900/50 h-full">${poe.monitoring || poe.frequency || "No especificada"}</div></div>
+           <div><h4 class="text-xs font-black text-red-800 dark:text-red-400 uppercase tracking-widest mb-2 flex items-center gap-2">⚠️ Acciones Correctivas (Desvíos)</h4><div class="text-sm text-gray-800 dark:text-gray-100 font-bold leading-relaxed bg-red-50 dark:bg-red-900/20 p-5 rounded-xl border border-red-100 dark:border-red-900/50 h-full">${poe.corrective_actions || "No especificadas"}</div></div>
+           <div><h4 class="text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">📎 Registros Asociados</h4><div class="text-sm text-gray-700 dark:text-gray-200 font-medium leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-5 rounded-xl border border-gray-100 dark:border-gray-700 h-full">${poe.records || "Ninguno"}</div></div>
+           <div><h4 class="text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">📚 Referencias / Anexos</h4><div class="text-sm text-gray-700 dark:text-gray-200 font-medium leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-5 rounded-xl border border-gray-100 dark:border-gray-700 h-full">${poe.references || "Ninguna"}</div></div>
         </div>
 
         <div>
-          <h4 class="text-sm font-black text-gray-800 uppercase tracking-widest mb-6 border-b-2 border-gray-200 pb-3">Desarrollo del Procedimiento Operativo</h4>
+          <h4 class="text-sm font-black text-gray-800 dark:text-gray-100 uppercase tracking-widest mb-6 border-b-2 border-gray-200 dark:border-gray-700 pb-3">Desarrollo del Procedimiento Operativo</h4>
           <div class="space-y-4">
             ${stepsHTML}
           </div>
@@ -639,9 +585,9 @@ window.openModal = function () {
   const subCatSelect = document.getElementById("poeSubCategory");
   const versionInput = document.getElementById("poeVersion");
 
-  if (catSelect) { catSelect.disabled = false; catSelect.classList.remove("bg-gray-100", "cursor-not-allowed"); }
-  if (subCatSelect) { subCatSelect.disabled = false; subCatSelect.classList.remove("bg-gray-100", "cursor-not-allowed"); }
-  if (versionInput) { versionInput.value = "1.0"; versionInput.classList.remove("bg-blue-50", "text-blue-800", "font-bold"); }
+  if (catSelect) { catSelect.disabled = false; catSelect.classList.remove("bg-gray-100", "dark:bg-gray-600", "cursor-not-allowed"); }
+  if (subCatSelect) { subCatSelect.disabled = false; subCatSelect.classList.remove("bg-gray-100", "dark:bg-gray-600", "cursor-not-allowed"); }
+  if (versionInput) { versionInput.value = "1.0"; versionInput.classList.remove("bg-blue-50", "text-blue-800", "font-bold", "dark:bg-blue-900/40", "dark:text-blue-300"); }
 
   state.form.advancedSteps = [];
   window.renderAdvancedSteps();
@@ -712,7 +658,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   await POEDB.init(); 
   window.initRichEditors(); 
   
-  // Rescate de sesión si se recarga la pestaña (Evita parpadeos de Auth)
   const savedUser = sessionStorage.getItem('moduloUserPOE');
   if (savedUser) {
       state.user = JSON.parse(savedUser);
@@ -721,7 +666,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   
   await window.refreshUI(); 
   
-  // ⚡ Aviso vital para el HUB de que el iFrame está listo para recibir el usuario
   window.parent.postMessage({ type: 'MODULO_LISTO' }, '*');
   
   setTimeout(async () => { await window.pullSync(); window.pushSync(); }, 1000);
