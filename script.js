@@ -319,8 +319,27 @@ window.closeAreasModal = function () {
 };
 
 // --------------------------------------------------------
-// LÓGICA DE FORMULARIO DE ÁREAS (CRUD)
+// LÓGICA DE FORMULARIO DE ÁREAS (CRUD DINÁMICO)
 // --------------------------------------------------------
+
+window.toggleNewMacroFields = function() {
+    const val = document.getElementById("cfgAreaMacro").value;
+    const container = document.getElementById("newMacroContainer");
+    const inName = document.getElementById("cfgNewMacroName");
+    const inAbbr = document.getElementById("cfgNewMacroAbbr");
+
+    if (val === 'NEW') {
+        container.classList.remove('hidden');
+        inName.setAttribute('required', 'true');
+        inAbbr.setAttribute('required', 'true');
+        inName.focus();
+    } else {
+        container.classList.add('hidden');
+        inName.removeAttribute('required');
+        inAbbr.removeAttribute('required');
+    }
+};
+
 window.openAreaForm = function(id = null) {
     const m = document.getElementById("areaFormModal");
     const form = document.getElementById("area-config-form");
@@ -330,11 +349,39 @@ window.openAreaForm = function(id = null) {
     state.form.editingAreaId = id;
     document.getElementById("areaFormTitle").textContent = id ? "Editar Área Operativa" : "Registrar Nueva Área";
 
+    // 1. Cargar Macro-Áreas dinámicas de la BD
+    const macroSelect = document.getElementById("cfgAreaMacro");
+    const macrosMap = new Map();
+    state.areas.forEach(a => macrosMap.set(a.macroAbbr, a.macroName));
+
+    let options = '<option value="" disabled selected>Seleccione Macro-Área...</option>';
+    for (let [abbr, name] of macrosMap.entries()) {
+        options += `<option value="${abbr}|${name}">${name} (${abbr})</option>`;
+    }
+    options += '<option value="NEW" class="font-bold text-blue-600 dark:text-blue-400">✨ CREAR NUEVA MACRO-ÁREA...</option>';
+    macroSelect.innerHTML = options;
+
+    window.toggleNewMacroFields(); // Ocultar campos nuevos por defecto
+
+    // 2. Cargar datos si es edición
     if (id) {
         const area = state.areas.find(a => a.id === id);
         if (area) {
-            document.getElementById("cfgAreaMacro").value = `${area.macroAbbr}|${area.macroName}`;
+            const macroVal = `${area.macroAbbr}|${area.macroName}`;
+            
+            // Si la macro existe en el select, la marcamos. Si no, forzamos creación.
+            const optionExists = Array.from(macroSelect.options).some(opt => opt.value === macroVal);
+            if (optionExists) {
+                macroSelect.value = macroVal;
+            } else {
+                macroSelect.value = 'NEW';
+                window.toggleNewMacroFields();
+                document.getElementById("cfgNewMacroName").value = area.macroName;
+                document.getElementById("cfgNewMacroAbbr").value = area.macroAbbr;
+            }
+
             document.getElementById("cfgAreaName").value = area.areaName;
+            document.getElementById("cfgAreaAbbr").value = area.areaAbbr;
             document.getElementById("cfgAreaPrefix").value = area.poePrefix;
             document.getElementById("cfgAreaDesc").value = area.desc;
             document.getElementById("cfgAreaStatus").value = area.status || 'ACT';
@@ -362,27 +409,37 @@ window.handleAreaSubmit = async function(e) {
 
     const isEditing = !!state.form.editingAreaId;
     const id = isEditing ? state.form.editingAreaId : `AREA-${Date.now()}`;
-    const macroVal = document.getElementById("cfgAreaMacro").value.split('|');
+    
+    let macroName, macroAbbr;
+    const macroSel = document.getElementById("cfgAreaMacro").value;
+    
+    // Validar de dónde sacamos la Macro (Del Select o de los inputs nuevos)
+    if (macroSel === 'NEW') {
+        macroName = document.getElementById("cfgNewMacroName").value.trim();
+        macroAbbr = document.getElementById("cfgNewMacroAbbr").value.trim().toUpperCase();
+    } else {
+        const parts = macroSel.split('|');
+        macroAbbr = parts[0];
+        macroName = parts[1];
+    }
 
     const payload = {
         action: 'save_area',
         id: id,
-        macroName: macroVal[1],
-        macroAbbr: macroVal[0],
-        areaName: document.getElementById("cfgAreaName").value,
-        areaAbbr: document.getElementById("cfgAreaPrefix").value.toUpperCase(),
-        poePrefix: document.getElementById("cfgAreaPrefix").value.toUpperCase(),
-        desc: document.getElementById("cfgAreaDesc").value,
+        macroName: macroName,
+        macroAbbr: macroAbbr,
+        areaName: document.getElementById("cfgAreaName").value.trim(),
+        areaAbbr: document.getElementById("cfgAreaAbbr").value.trim().toUpperCase(),
+        poePrefix: document.getElementById("cfgAreaPrefix").value.trim().toUpperCase(),
+        desc: document.getElementById("cfgAreaDesc").value.trim(),
         status: document.getElementById("cfgAreaStatus").value
     };
 
     try {
-        // Enviar a la nube (Microservicio de Áreas)
         const res = await fetch(GAS_DICT_ENDPOINT, { method: "POST", body: JSON.stringify(payload) });
         const r = await res.json();
         
         if (r.status === 'success') {
-            // Eliminar si es Obsoleto, Actualizar si es Activo en la UI local
             if (payload.status === 'OBS') {
                 state.areas = state.areas.filter(a => a.id !== id);
                 await POEDB.delete("areas", id);
@@ -393,8 +450,8 @@ window.handleAreaSubmit = async function(e) {
             }
             
             window.closeAreaForm();
-            window.renderMapaAreas(); // Refrescar el mapa
-            window.refreshUI();       // Refrescar los <select> del form POE
+            window.renderMapaAreas(); // 🔄 Refrescar tarjetas de áreas y filtros
+            window.refreshUI();       // 🔄 Refrescar los selectores del POE principal
         } else {
             alert("Error del Servidor: " + r.message);
         }
