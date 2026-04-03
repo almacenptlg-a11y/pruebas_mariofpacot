@@ -1,5 +1,5 @@
 /**
- * @fileoverview CORE GENAPP - Sistema POE Industrial (WYSIWYG + HUB SESSION)
+ * @fileoverview CORE GENAPP - Sistema POE Industrial (RBAC & AUTORÍA)
  * @architecture Headless, Offline-First, O(1) Memory, Separated Structure
  */
 
@@ -19,8 +19,8 @@ let state = {
     poes: [], 
     config: [], 
     form: { advancedSteps: [], editingId: null },
-    user: null,               // 🔒 Sesión del HUB
-    isSessionVerified: false  // 🔒 Estado del HUB
+    user: null,               
+    isSessionVerified: false  
 };
 
 // ==========================================
@@ -29,31 +29,35 @@ let state = {
 window.addEventListener('message', (event) => {
     const { type, user, theme } = event.data || {};
     
-    // Sincronización del Tema (Modo Claro/Oscuro)
     if (type === 'THEME_UPDATE') {
         document.documentElement.classList.toggle('dark', theme === 'dark');
     }
 
-    // Recepción de Credenciales y Verificación de Sesión
     if (type === 'SESSION_SYNC' && user) {
         document.documentElement.classList.toggle('dark', theme === 'dark');
-        
         const isNewUser = !state.user || state.user.usuario !== user.usuario;
         
         state.user = user;
         state.isSessionVerified = true;
-        sessionStorage.setItem('moduloUserPOE', JSON.stringify(user)); // Caché de sesión local
+        sessionStorage.setItem('moduloUserPOE', JSON.stringify(user)); 
         
-        // Opcional: Actualizar UI si tienes un elemento para mostrar el nombre
-        // const userEl = document.getElementById('txt-usuario-activo');
-        // if(userEl) userEl.innerHTML = `<i class="ph ph-user-check"></i> ${user.nombre} | ${user.area}`;
-
-        // Si es usuario nuevo, forzamos un refrezco de los diccionarios y POEs
-        if (isNewUser) {
-           window.refreshUI();
-        }
+        if (isNewUser) window.refreshUI();
     }
 });
+
+// 🛡️ MOTOR DE PERMISOS (RBAC)
+window.getPermisos = function() {
+    if (!state.user) return { canEdit: false, isOperario: true, area: '' };
+    const rol = String(state.user.rol).toUpperCase();
+    const canEdit = ['GERENTE', 'JEFE', 'SUPERVISOR', 'ADMINISTRADOR'].includes(rol);
+    return { 
+        canEdit: canEdit, 
+        isOperario: !canEdit, 
+        // Normalizamos el área para búsquedas sin acentos ni mayúsculas locas
+        area: String(state.user.area).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") 
+    };
+};
+
 
 // ==========================================
 // 3. MOTOR WYSIWYG Y LECTURA DE CAMPOS
@@ -191,16 +195,32 @@ const POEDB = {
 };
 
 // ==========================================
-// 5. UI DINÁMICA Y RENDERIZADO
+// 5. UI DINÁMICA Y RENDERIZADO (CON FILTROS RBAC)
 // ==========================================
 window.refreshUI = async function () {
   state.config = await POEDB.getAll("sys_config");
   const allPoes = await POEDB.getAll("poes");
+  const permisos = window.getPermisos();
 
   state.poes = allPoes.filter((p) => {
     const s = String(p.status || "").trim().toUpperCase();
-    return (s === "ACT" || s === "REV" || s === "ACTIVO" || s === "EN REVISION" || s === "EN REVISIÓN");
+    const isActive = (s === "ACT" || s === "REV" || s === "ACTIVO" || s === "EN REVISION" || s === "EN REVISIÓN");
+    if (!isActive) return false;
+
+    // 🛡️ Filtro de Operario: Solo puede ver POEs de su Área correspondiente
+    if (permisos.isOperario) {
+        const catObj = state.config.find((c) => c.key === p.category && c.type === "CATEGORY");
+        const catName = String(catObj ? catObj.value : p.category).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        if (!catName.includes(permisos.area) && !permisos.area.includes(catName)) {
+            return false; // El POE no pertenece a su área
+        }
+    }
+    return true;
   });
+
+  // Ocultar botón "Nuevo POE" a Operarios
+  const btnNuevo = document.getElementById('btn-nuevo-poe');
+  if (btnNuevo) btnNuevo.style.display = permisos.canEdit ? 'flex' : 'none';
 
   window.buildDynamicDictionaries();
   window.renderPOEs();
@@ -263,9 +283,10 @@ window.renderPOEs = function () {
 
   const query = document.getElementById("searchInput")?.value.toLowerCase() || "";
   const filtered = state.poes.filter((p) => p.code.toLowerCase().includes(query) || p.title.toLowerCase().includes(query));
+  const permisos = window.getPermisos(); // 🛡️ Verificamos Rol para la UI
 
   if (filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" class="text-center p-6 text-gray-500">Sin procedimientos registrados.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center p-6 text-gray-500">Sin procedimientos disponibles.</td></tr>`;
     return;
   }
 
@@ -278,6 +299,12 @@ window.renderPOEs = function () {
     const catObj = state.config.find((c) => c.key === poe.category && c.type === "CATEGORY");
     const catName = catObj ? catObj.value : FALLBACK_CAT[poe.category]?.name || poe.category;
 
+    // 🛡️ Solo Jefes/Gerentes ven los botones de Edición y Eliminación
+    const actionButtons = permisos.canEdit ? `
+        <button type="button" onclick="window.editPOE('${poe.id}')" class="text-yellow-600 bg-yellow-50 px-3 py-1.5 rounded font-semibold transition hover:bg-yellow-100" title="Editar Documento">✏️</button>
+        <button type="button" onclick="window.deletePOE('${poe.id}')" class="text-red-600 bg-red-50 px-3 py-1.5 rounded font-semibold transition hover:bg-red-100" title="Marcar Obsoleto">✖</button>
+    ` : '';
+
     return `
     <tr class="border-b hover:bg-gray-50 ${isPending ? "bg-yellow-50/30" : ""}">
       <td class="p-4 text-xs font-bold text-blue-900">${poe.code}</td>
@@ -286,8 +313,7 @@ window.renderPOEs = function () {
       <td class="p-4">${badge}</td>
       <td class="p-4 text-right flex justify-end space-x-2">
         <button type="button" onclick="window.viewPOE('${poe.id}')" class="text-blue-600 bg-blue-50 px-3 py-1.5 rounded font-semibold transition hover:bg-blue-100" title="Ver Documento">👁️</button>
-        <button type="button" onclick="window.editPOE('${poe.id}')" class="text-yellow-600 bg-yellow-50 px-3 py-1.5 rounded font-semibold transition hover:bg-yellow-100" title="Editar Documento">✏️</button>
-        <button type="button" onclick="window.deletePOE('${poe.id}')" class="text-red-600 bg-red-50 px-3 py-1.5 rounded font-semibold transition hover:bg-red-100" title="Marcar Obsoleto">✖</button>
+        ${actionButtons}
       </td>
     </tr>`;
   }).join("");
@@ -374,24 +400,33 @@ window.renderAdvancedSteps = function () {
 };
 
 // ==========================================
-// 7. CRUD Y EDICIÓN
+// 7. CRUD Y EDICIÓN (AUTORÍA)
 // ==========================================
 window.handleFormSubmit = async function (e) {
   e.preventDefault();
   
-  if (!state.isSessionVerified) {
+  if (!state.isSessionVerified || !state.user) {
       alert("Acción bloqueada: Esperando sincronización de sesión con el HUB GenApps.");
       return;
   }
+  if (!window.getPermisos().canEdit) return alert("Acción denegada por seguridad (Rol: Operario).");
   if (state.form.advancedSteps.length === 0) return alert("Debe incluir al menos 1 paso en el procedimiento.");
 
   const isEditing = !!state.form.editingId;
   const poeId = isEditing ? state.form.editingId : `UUID-${Date.now()}`;
 
+  // 🛡️ LÓGICA DE AUTORÍA Y FECHAS
   let originalDate = new Date().toISOString();
+  let autorOriginal = state.user.nombre; // Si es nuevo, el creador es quien está en sesión
+  let ultimoEditor = "";
+
   if (isEditing) {
     const existing = state.poes.find((p) => p.id === poeId);
-    if (existing) originalDate = existing.date;
+    if (existing) {
+        originalDate = existing.date;
+        autorOriginal = existing.author || autorOriginal; // Mantiene el creador original
+        ultimoEditor = state.user.nombre;                 // Registra al modificador actual
+    }
   }
 
   const poeData = {
@@ -400,6 +435,8 @@ window.handleFormSubmit = async function (e) {
     scope: getFieldValue("scope"), frequency: getFieldValue("monitoring"), responsibles: getFieldValue("responsibles"),
     definitions: getFieldValue("definitions"), materials: getFieldValue("materials"), monitoring: getFieldValue("monitoring"),
     corrective_actions: getFieldValue("correctiveActions"), records: getFieldValue("records"), references: getFieldValue("references"),
+    author: autorOriginal,          // <--- SE ENVÍA EL AUTOR AL BACKEND
+    lastEditor: ultimoEditor,       // <--- SE ENVÍA EL ÚLTIMO EDITOR AL BACKEND
     procedure: JSON.stringify(state.form.advancedSteps), date: originalDate, _syncStatus: "pending"
   };
 
@@ -412,8 +449,8 @@ window.handleFormSubmit = async function (e) {
 };
 
 window.deletePOE = async function (id) {
-  if (!state.isSessionVerified) return alert("Acción bloqueada: Esperando autorización del HUB.");
-  if (!confirm("¿Está seguro de eliminar este procedimiento?")) return;
+  if (!window.getPermisos().canEdit) return alert("Acción denegada por seguridad.");
+  if (!confirm("¿Está seguro de marcar como obsoleto este procedimiento?")) return;
   const poe = state.poes.find((p) => p.id === id);
   if (poe) {
     poe.status = "OBS"; poe._syncStatus = "pending";
@@ -489,7 +526,7 @@ window.viewPOE = function (id) {
         <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-800 font-black flex items-center justify-center shrink-0 text-lg border border-blue-200">${i + 1}</div>
         <div class="flex-grow overflow-hidden">
            <span class="text-[10px] font-black px-2.5 py-1 rounded border uppercase mb-3 inline-block tracking-widest ${bColor}">${s.type}</span>
-           <div class="text-base font-medium text-gray-800 leading-relaxed">${s.desc}</div>
+           <div class="text-sm font-medium text-gray-800 leading-relaxed">${s.desc}</div>
            ${img}
         </div>
       </div>`;
@@ -517,7 +554,13 @@ window.viewPOE = function (id) {
             <div class="flex items-center md:justify-end gap-3 mt-2 text-sm font-bold text-gray-500">
               <span>Versión ${poe.version}</span><span>•</span><span>${new Date(poe.date).toLocaleDateString()}</span>
             </div>
-            <div class="mt-4"><span class="inline-flex items-center px-3 py-1 rounded-md text-xs font-black uppercase tracking-widest border ${statusColor}">${statusText}</span></div>
+            
+            <div class="mt-4 flex flex-col items-end gap-2">
+                <span class="inline-flex items-center px-3 py-1 rounded-md text-xs font-black uppercase tracking-widest border ${statusColor}">${statusText}</span>
+                <div class="text-xs text-gray-500 font-medium">✍️ Creado por: <span class="font-bold">${poe.author || 'Área Producción'}</span></div>
+                ${poe.lastEditor ? `<div class="text-xs text-gray-500 font-medium text-right">🔄 Últ. Edición: <span class="font-bold">${poe.lastEditor}</span></div>` : ''}
+            </div>
+
           </div>
         </div>
 
@@ -569,7 +612,9 @@ window.exportPOEToWord = function (id) {
       <h2>1. Contexto Operativo</h2><p><strong>Objetivo:</strong></p> ${poe.objective || "N/A"}<p><strong>Alcance:</strong></p> ${poe.scope || "N/A"}<p><strong>Responsabilidades:</strong></p> ${poe.responsibles || "N/A"}
       <h2>2. Control y Recursos</h2><p><strong>Frecuencia:</strong></p> ${poe.monitoring || poe.frequency || "N/A"}<p><strong>Acciones Correctivas:</strong></p> ${poe.corrective_actions || "N/A"}<p><strong>Equipos y Materiales:</strong></p> ${poe.materials || "N/A"}<p><strong>Definiciones:</strong></p> ${poe.definitions || "N/A"}<p><strong>Registros:</strong></p> ${poe.records || "N/A"} | ${poe.references || ""}
       <h2>3. Procedimiento Operativo (HACCP)</h2><div style="border: 1px solid #000; padding: 15px;">${stepsHTML}</div>
-      <table style="border: none; margin-top: 50px;"><tr style="border: none;"><td style="border: none; text-align: center; width: 50%;">_________________________<br>Firma de Elaboración</td><td style="border: none; text-align: center; width: 50%;">_________________________<br>Aprobación Calidad</td></tr></table></body></html>`;
+      <table style="border: none; margin-top: 50px;"><tr style="border: none;">
+      <td style="border: none; text-align: center; width: 50%;">_________________________<br><strong>Elaborado/Editado por:</strong><br>${poe.lastEditor || poe.author || 'Responsable de Área'}</td>
+      <td style="border: none; text-align: center; width: 50%;">_________________________<br><strong>Aprobación Calidad</strong></td></tr></table></body></html>`;
 
   const blob = new Blob(["\ufeff", htmlStr], { type: "application/msword" });
   const a = document.createElement("a");
@@ -661,14 +706,13 @@ window.forceSync = async function () {
 window.addEventListener("online", () => window.pushSync());
 window.addEventListener("offline", () => window.updateNet("offline"));
 
-// ARRANQUE SEGURO
+// 🚀 ARRANQUE SEGURO
 document.addEventListener("DOMContentLoaded", async () => {
-  // Inicialización Inmediata
   window.updateNet(navigator.onLine ? "online" : "offline"); 
   await POEDB.init(); 
-  window.initRichEditors(); // Levantar motores WYSIWYG
+  window.initRichEditors(); 
   
-  // Buscar caché de sesión si existe
+  // Rescate de sesión si se recarga la pestaña (Evita parpadeos de Auth)
   const savedUser = sessionStorage.getItem('moduloUserPOE');
   if (savedUser) {
       state.user = JSON.parse(savedUser);
@@ -677,7 +721,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   
   await window.refreshUI(); 
   
-  // Notificar al Padre que estamos listos
+  // ⚡ Aviso vital para el HUB de que el iFrame está listo para recibir el usuario
   window.parent.postMessage({ type: 'MODULO_LISTO' }, '*');
   
   setTimeout(async () => { await window.pullSync(); window.pushSync(); }, 1000);
