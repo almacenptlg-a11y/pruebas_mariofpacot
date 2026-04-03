@@ -669,3 +669,68 @@ document.addEventListener("DOMContentLoaded", async () => {
   
   setTimeout(async () => { await window.pullSync(); window.pushSync(); }, 1000);
 });
+
+// ==========================================
+// MÓDULO MAPA DE ÁREAS (LÓGICA)
+// ==========================================
+
+window.setAreaFilter = function(macro) {
+    state.activeAreaFilter = macro;
+    window.renderMapaAreas();
+};
+
+window.renderMapaAreas = function() {
+    const grid = document.getElementById('grid-areas');
+    if (!grid) return;
+
+    // Actualizar estilo de las píldoras
+    document.querySelectorAll('.filter-pill').forEach(btn => {
+        const isAct = btn.dataset.macro === state.activeAreaFilter;
+        const color = state.activeAreaFilter === 'PROD' ? 'bg-red-600' : 'bg-blue-800';
+        btn.className = `filter-pill px-5 py-2 rounded-xl text-xs font-black transition-all ${isAct ? color + ' text-white shadow-lg' : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'}`;
+    });
+
+    const filtered = state.areas.filter(a => a.macro === state.activeAreaFilter);
+    
+    if (filtered.length === 0) {
+        grid.innerHTML = `<div class="col-span-full py-20 text-center border-2 border-dashed rounded-3xl text-gray-400">No hay áreas registradas en esta categoría.</div>`;
+        return;
+    }
+
+    grid.innerHTML = filtered.map(area => `
+        <div class="bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-xl transition-all group">
+            <div class="flex justify-between items-start mb-4">
+                <div class="w-12 h-12 bg-blue-50 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-7h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                </div>
+                <span class="text-[10px] font-black bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-lg tracking-widest text-gray-500">${area.prefix}</span>
+            </div>
+            <h3 class="text-xl font-black text-gray-900 dark:text-white mb-2">${area.name}</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed mb-6">${area.desc || 'Área operativa LGA.'}</p>
+            <div class="flex gap-2">
+                <button onclick="window.editArea('${area.id}')" class="flex-1 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-700 text-xs font-bold hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 transition-colors">CONFIGURAR</button>
+                <button onclick="window.openPoeByArea('${area.prefix}')" class="px-4 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 shadow-md transition-all">VER POEs</button>
+            </div>
+        </div>
+    `).join('');
+};
+
+// Actualizar pullSync para bajar las áreas del Microservicio
+const originalPull = window.pullSync;
+window.pullSync = async function() {
+    await originalPull(); // Ejecuta lo de POEs
+    
+    // 🆕 Nuevo: Sincronizar Áreas
+    if (!navigator.onLine) return;
+    try {
+        const res = await fetch(GAS_DICT_ENDPOINT + "?action=get_areas");
+        const json = await res.json();
+        if (json.status === "success") {
+            const localAreas = await POEDB.getAll("areas");
+            for(let la of localAreas) await POEDB.delete("areas", la.id); // Wipe
+            for(let a of json.data) await POEDB.save("areas", a); // Replace
+            state.areas = json.data;
+            window.renderMapaAreas();
+        }
+    } catch(e) { console.error("Error sincronizando áreas:", e); }
+};
