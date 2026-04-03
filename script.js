@@ -179,11 +179,15 @@ window.generatePoeCode = function () {
   if (!cat || !sub) return;
 
   const areaDef = state.areas.find(a => a.macroAbbr === cat && a.areaAbbr === sub);
-  const prefix = areaDef ? areaDef.poePrefix : `POE-${cat}-${sub}`;
+  
+  // Extraer el prefijo oficial de la BD o armar uno de respaldo seguro
+  const prefix = areaDef && areaDef.poePrefix ? areaDef.poePrefix : `${cat}-${sub}`;
 
   const count = state.poes.filter((p) => p.category === cat && p.subCategory === sub).length;
   const codeEl = document.getElementById("code");
-  if (codeEl) codeEl.value = `${prefix}-${String(count + 1).padStart(3, "0")}`;
+  
+  // Resultado final: POE-PROD-SKN-001
+  if (codeEl) codeEl.value = `POE-${prefix}-${String(count + 1).padStart(3, "0")}`;
 };
 
 window.renderPOEs = function () {
@@ -337,6 +341,25 @@ window.toggleNewMacroFields = function() {
         container.classList.add('hidden');
         inName.removeAttribute('required');
         inAbbr.removeAttribute('required');
+    }
+};
+
+window.autoCalcPrefix = function() {
+    const macroSel = document.getElementById("cfgAreaMacro").value;
+    let macroAbbr = "";
+    
+    // Extraer la abreviatura de la Macro elegida o la nueva escrita
+    if (macroSel === 'NEW') {
+        macroAbbr = document.getElementById("cfgNewMacroAbbr").value.trim().toUpperCase();
+    } else if (macroSel) {
+        macroAbbr = macroSel.split('|')[0];
+    }
+    
+    const areaAbbr = document.getElementById("cfgAreaAbbr").value.trim().toUpperCase();
+    
+    // Si tenemos ambas, calculamos el prefijo final dinámicamente
+    if (macroAbbr && areaAbbr) {
+        document.getElementById("cfgAreaPrefix").value = `${macroAbbr}-${areaAbbr}`;
     }
 };
 
