@@ -6,14 +6,17 @@
 // ==========================================
 // 1. CONFIGURACIÓN Y ESTADO GLOBALES
 // ==========================================
-const GAS_ENDPOINT = "https://script.google.com/macros/s/AKfycbylXo9sXzLBYCdyB1AiDOa7-cyvPutjmy0XCun33Ic1YSFM0YdruE6WfkSt0SCz_PSO2Q/exec";
+const GAS_ENDPOINT = "https://script.google.com/macros/s/AKfycbylXo9sXzLBYCdyB1AiDOa7-cyvPutjmy0XCun33Ic1YSFM0YdruE6WfkSt0SCz_PSO2Q/exec"; 
 const GAS_DICT_ENDPOINT = "https://script.google.com/macros/s/AKfycbxAHJeIS_Dq91olhikoJpRPZEVPf-wPOCs_NGQ796oowVOQRRX8jeOeiNeFeDw3zrxE/exec";
+
 let state = { 
     poes: [], 
+    areas: [], // 🆕 Nuevo almacén de áreas
     config: [], 
     form: { advancedSteps: [], editingId: null },
     user: null,               
-    isSessionVerified: false  
+    isSessionVerified: false,
+    activeAreaFilter: 'PROD' // 🆕 Filtro inicial del mapa
 };
 
 // ==========================================
@@ -103,13 +106,16 @@ const POEDB = {
   init() {
     return new Promise((resolve) => {
       try {
-        const req = indexedDB.open("POE_DB_V7", 1);
+        const req = indexedDB.open("POE_DB_V7", 2); // 💡 Subimos versión a 2
         req.onupgradeneeded = (e) => {
           const db = e.target.result;
           if (!db.objectStoreNames.contains("poes")) db.createObjectStore("poes", { keyPath: "id" });
           if (!db.objectStoreNames.contains("sync_queue")) db.createObjectStore("sync_queue", { keyPath: "id" });
           if (!db.objectStoreNames.contains("sys_config")) db.createObjectStore("sys_config", { keyPath: "key" });
+          // Nuevo almacén para el Mapa de Áreas
+          if (!db.objectStoreNames.contains("areas")) db.createObjectStore("areas", { keyPath: "id" });
         };
+        // ... resto de la funciónonsuccess/onerror queda igual
         req.onsuccess = (e) => { this.db = e.target.result; resolve(); };
         req.onerror = () => { this.useRAM = true; resolve(); };
       } catch (e) { this.useRAM = true; resolve(); }
