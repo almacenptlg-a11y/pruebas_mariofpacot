@@ -496,15 +496,18 @@ window.handleAreaSubmit = async function(e) {
 };
 
 // ==========================================
-// 7. BUILDER DE PASOS E IMÁGENES
+// 7. GESTOR TÉCNICO DE PASOS (BUILDER Y PLANTILLAS)
 // ==========================================
+
 window.updateFileText = function (input) {
   const d = document.getElementById("fileNameDisplay");
   if (!d) return;
   if (input.files.length > 0) {
-    d.textContent = "📸 " + input.files[0].name; d.classList.add("text-blue-600", "font-bold", "dark:text-blue-400");
+    d.textContent = "📸 " + input.files[0].name; 
+    d.classList.add("text-blue-600", "font-bold", "dark:text-blue-400");
   } else {
-    d.textContent = "Tomar Foto o Subir Archivo..."; d.classList.remove("text-blue-600", "font-bold", "dark:text-blue-400");
+    d.textContent = "Foto Cámara o Archivo..."; 
+    d.classList.remove("text-blue-600", "font-bold", "dark:text-blue-400");
   }
 };
 
@@ -548,6 +551,38 @@ window.removeAdvancedStep = function (id) {
   window.renderAdvancedSteps();
 };
 
+window.editStep = function(id) {
+    const step = state.form.advancedSteps.find(s => s.id === id);
+    if (!step) return;
+
+    setFieldValue("stepDesc", step.desc);
+    document.getElementById("stepType").value = step.type;
+    
+    state.form.advancedSteps = state.form.advancedSteps.filter(s => s.id !== id);
+    window.renderAdvancedSteps();
+    
+    document.getElementById("stepDesc").scrollIntoView({ behavior: 'smooth', block: 'center' });
+    document.getElementById("stepDesc").focus();
+};
+
+window.loadPoesTemplate = function() {
+    if (state.form.advancedSteps.length > 0) {
+        if (!confirm("Se perderán los pasos actuales para cargar la plantilla de 7 pasos. ¿Continuar?")) return;
+    }
+
+    state.form.advancedSteps = [
+        { id: 1, type: 'INFO', desc: '<b>PASO 1: Limpieza en Seco (Preparación).</b> Retirar restos gruesos orgánicos, desarmar piezas móviles y proteger componentes eléctricos con bolsas.', image: null },
+        { id: 2, type: 'INFO', desc: '<b>PASO 2: Pre-enjuague.</b> Aplicar agua a presión de arriba hacia abajo (T° tibia) para remover suciedad suelta superficial.', image: null },
+        { id: 3, type: 'PC', desc: '<b>PASO 3: Lavado (Acción Mecánica).</b> Aplicar detergente alcalino/espuma. Fregar mecánicamente todas las superficies con escobillas de nylon.', image: null },
+        { id: 4, type: 'INFO', desc: '<b>PASO 4: Enjuague Final.</b> Aplicar agua potable hasta eliminar por completo cualquier rastro de agentes químicos y suciedad suspendida.', image: null },
+        { id: 5, type: 'PC', desc: '<b>PASO 5: Inspección Pre-Operacional.</b> Realizar verificación visual minuciosa y/o hisopado de ATP para confirmar ausencia de restos orgánicos.', image: null },
+        { id: 6, type: 'PCC', desc: '<b>PASO 6: Sanitización / Desinfección.</b> Aplicar agente desinfectante respetando estrictamente la concentración (PPM) y tiempo de contacto especificado.', image: null },
+        { id: 7, type: 'INFO', desc: '<b>PASO 7: Secado y Montaje.</b> Retirar el exceso de humedad para evitar condensación y proceder al re-ensamblaje de equipos limpios.', image: null }
+    ];
+    
+    window.renderAdvancedSteps();
+};
+
 window.renderAdvancedSteps = function () {
   const container = document.getElementById("advancedStepsList");
   if (!container) return;
@@ -561,12 +596,15 @@ window.renderAdvancedSteps = function () {
       const badgeColor = s.type === "PCC" ? "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-400" : s.type === "PC" ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-400" : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300";
       const imgHTML = s.image ? `<img src="${s.image}" class="mt-2 h-16 object-cover rounded border dark:border-gray-600">` : "";
       return `
-    <div class="bg-white dark:bg-gray-800 p-3 rounded border border-gray-200 dark:border-gray-600 mb-2 flex gap-3 fade-in">
+    <div class="bg-white dark:bg-gray-800 p-3 rounded border border-gray-200 dark:border-gray-600 mb-2 flex gap-3 fade-in group">
       <div class="w-6 h-6 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-400 font-bold flex items-center justify-center shrink-0 text-xs">${i + 1}</div>
       <div class="flex-grow overflow-hidden">
           <div class="flex justify-between items-center mb-1">
             <span class="text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${badgeColor}">${s.type}</span>
-            <button type="button" onclick="window.removeAdvancedStep(${s.id})" class="text-red-400 font-bold hover:text-red-600 transition">X</button>
+            <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button type="button" onclick="window.editStep(${s.id})" class="text-blue-500 hover:text-blue-700 text-[10px] font-bold uppercase tracking-widest">✏️ Editar</button>
+                <button type="button" onclick="window.removeAdvancedStep(${s.id})" class="text-red-400 hover:text-red-600 font-bold">✖</button>
+            </div>
           </div>
           <div class="text-sm font-medium text-gray-800 dark:text-gray-200 leading-relaxed">${s.desc}</div>
           ${imgHTML}
