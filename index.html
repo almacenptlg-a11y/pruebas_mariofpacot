@@ -237,51 +237,53 @@
               </div>
 
               <div class="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
-                <h4 class="font-black text-gray-800 dark:text-gray-100 border-b-2 border-gray-100 dark:border-gray-700 pb-3 mb-5 uppercase tracking-wide text-sm">3. Desarrollo del Procedimiento Operativo</h4>
+              <div class="flex flex-col md:flex-row md:items-center justify-between border-b-2 border-gray-100 dark:border-gray-700 pb-3 mb-5 gap-3">
+                <h4 class="font-black text-gray-800 dark:text-gray-100 uppercase tracking-wide text-sm">3. Desarrollo del Procedimiento Operativo</h4>
+                <button type="button" onclick="window.loadPoesTemplate()" class="bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/30 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-400 px-3 py-1.5 rounded-lg text-[10px] font-black transition-all flex items-center gap-1 border border-amber-200 dark:border-amber-800">
+                   <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
+                   CARGAR 7 PASOS DE SANEAMIENTO (POES)
+                </button>
+              </div>
+              
+              <div class="bg-blue-50/40 dark:bg-gray-900/40 p-5 rounded-xl border border-blue-100 dark:border-gray-700 mb-6 transition-all hover:shadow-md">
+                <div class="mb-5">
+                    <label class="block text-[10px] font-bold text-blue-800 dark:text-blue-400 mb-2 uppercase tracking-wider">Instrucción del Paso Operativo</label>
+                    <div id="stepDesc" class="rich-editor w-full border border-blue-200 dark:border-gray-600 rounded-lg p-3.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-inner bg-white dark:bg-gray-700 dark:text-white rich-text-content transition-all" contenteditable="true" 
+                    data-placeholder="► Instrucción: Describa la acción operativa en modo imperativo.&#10;► Estructura: [Verbo] + [Parámetro/Elemento] + [Condición/Límite].&#10;► Ejemplo: Insertar la sonda del termómetro en el centro térmico asegurando T° < 4°C."></div>
+                </div>
                 
-                <div class="bg-blue-50/40 dark:bg-gray-900/40 p-5 rounded-xl border border-blue-100 dark:border-gray-700 mb-6 transition-all hover:shadow-md">
-                  <div class="mb-5">
-                      <label class="block text-[10px] font-bold text-blue-800 dark:text-blue-400 mb-2 uppercase tracking-wider">Instrucción del Paso Operativo</label>
-                      <div id="stepDesc" class="rich-editor w-full border border-blue-200 dark:border-gray-600 rounded-lg p-3.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-inner bg-white dark:bg-gray-700 dark:text-white rich-text-content transition-all" contenteditable="true" 
-                      data-placeholder="► Instrucción: Describa la acción operativa en modo imperativo.&#10;► Estructura: [Verbo] + [Parámetro/Elemento] + [Condición/Límite].&#10;► Ejemplo: Insertar la sonda del termómetro en el centro térmico asegurando T° < 4°C."></div>
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                  <div class="md:col-span-4 lg:col-span-3">
+                    <label class="block text-[10px] font-bold text-blue-800 dark:text-blue-400 mb-1.5 uppercase tracking-wider">Tipo de Control</label>
+                    <select id="stepType" class="w-full px-3 py-2.5 border border-blue-200 dark:border-gray-600 rounded-lg text-sm font-bold shadow-sm outline-none bg-white dark:bg-gray-700 dark:text-white cursor-pointer hover:border-blue-400 transition-colors">
+                      <option value="INFO">📝 Inst. Operativa</option>
+                      <option value="PC">⚠️ Control (PC)</option>
+                      <option value="PCC" class="text-red-600 dark:text-red-400">🛑 Crítico (PCC)</option>
+                      <option value="SEG">🛡️ Seguridad</option>
+                    </select>
                   </div>
                   
-                  <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-                    <div class="md:col-span-4 lg:col-span-3">
-                      <label class="block text-[10px] font-bold text-blue-800 dark:text-blue-400 mb-1.5 uppercase tracking-wider">Tipo de Control</label>
-                      <select id="stepType" class="w-full px-3 py-2.5 border border-blue-200 dark:border-gray-600 rounded-lg text-sm font-bold shadow-sm outline-none bg-white dark:bg-gray-700 dark:text-white cursor-pointer hover:border-blue-400 transition-colors">
-                        <option value="INFO">📝 Inst. Operativa</option>
-                        <option value="PC">⚠️ Control (PC)</option>
-                        <option value="PCC" class="text-red-600 dark:text-red-400">🛑 Crítico (PCC)</option>
-                        <option value="SEG">🛡️ Seguridad</option>
-                      </select>
-                    </div>
-                    
-                    <div class="md:col-span-4 lg:col-span-6 relative">
-                      <label class="block text-[10px] font-bold text-blue-800 dark:text-blue-400 mb-1.5 uppercase tracking-wider">Evidencia Visual</label>
-                      <input type="file" id="stepImage" accept="image/*" onchange="window.updateFileText(this)" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 mt-5">
-                      <div class="bg-white dark:bg-gray-700 border border-dashed border-blue-300 dark:border-gray-500 hover:border-blue-500 dark:hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-gray-600 rounded-lg py-2.5 px-4 text-center transition-all cursor-pointer shadow-sm flex items-center justify-center gap-2">
-                        <svg class="w-4 h-4 text-blue-500 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path></svg>
-                        <span id="fileNameDisplay" class="text-xs font-semibold text-blue-700 dark:text-blue-400 truncate">Tomar Foto o Subir Archivo...</span>
-                      </div>
-                    </div>
-
-                    <div class="md:col-span-4 lg:col-span-3">
-                      <button type="button" onclick="window.addAdvancedStep()" class="w-full bg-blue-600 hover:bg-blue-800 dark:bg-blue-600 dark:hover:bg-blue-500 text-white px-4 py-2.5 rounded-lg font-bold text-sm shadow-md transition transform hover:-translate-y-0.5 flex items-center justify-center gap-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path></svg>
-                        Añadir Paso
-                      </button>
+                  <div class="md:col-span-4 lg:col-span-6 relative">
+                    <label class="block text-[10px] font-bold text-blue-800 dark:text-blue-400 mb-1.5 uppercase tracking-wider">Evidencia Visual</label>
+                    <input type="file" id="stepImage" accept="image/*" capture="environment" onchange="window.updateFileText(this)" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 mt-5">
+                    <div class="bg-white dark:bg-gray-700 border border-dashed border-blue-300 dark:border-gray-500 hover:border-blue-500 dark:hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-gray-600 rounded-lg py-2.5 px-4 text-center transition-all cursor-pointer shadow-sm flex items-center justify-center gap-2">
+                      <svg class="w-4 h-4 text-blue-500 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                      <span id="fileNameDisplay" class="text-xs font-semibold text-blue-700 dark:text-blue-400 truncate">Foto Cámara o Archivo...</span>
                     </div>
                   </div>
-                </div>
 
-                <div id="advancedStepsList" class="space-y-3 max-h-[500px] overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-inner rich-text-content">
-                  <div class="flex flex-col items-center justify-center py-10 text-gray-400 dark:text-gray-500">
-                    <svg class="w-12 h-12 mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
-                    <p class="text-sm font-medium">Historial vacío. Diseñe el primer paso en el panel superior.</p>
+                  <div class="md:col-span-4 lg:col-span-3">
+                    <button type="button" onclick="window.addAdvancedStep()" class="w-full bg-blue-600 hover:bg-blue-800 dark:bg-blue-600 dark:hover:bg-blue-500 text-white px-4 py-2.5 rounded-lg font-bold text-sm shadow-md transition transform hover:-translate-y-0.5 flex items-center justify-center gap-2">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path></svg>
+                      Añadir Paso
+                    </button>
                   </div>
                 </div>
               </div>
+
+              <div id="advancedStepsList" class="space-y-3 max-h-[500px] overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-inner rich-text-content">
+                </div>
+            </div>
 
               <div class="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
                 <h4 class="font-black text-gray-800 dark:text-gray-100 border-b-2 border-gray-100 dark:border-gray-700 pb-3 mb-5 uppercase tracking-wide text-sm">4. Monitoreo, Control y Referencias</h4>
