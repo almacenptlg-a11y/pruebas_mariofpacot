@@ -7,14 +7,7 @@
 // 1. CONFIGURACIÓN Y ESTADO GLOBALES
 // ==========================================
 const GAS_ENDPOINT = "https://script.google.com/macros/s/AKfycbylXo9sXzLBYCdyB1AiDOa7-cyvPutjmy0XCun33Ic1YSFM0YdruE6WfkSt0SCz_PSO2Q/exec";
-const FALLBACK_CAT = {
-  PROD: { name: "Producción", sub: { PRD: "Producción", DES: "Desposte", MAD: "Madurados", EMP: "Empaque", SKN: "Skin" } },
-  LOG: { name: "Logística", sub: { MPR: "Mat. Prima", INS: "Insumos", PTE: "Prod. Terminado" } },
-  CAL: { name: "Calidad", sub: { CTR: "Control Procesos", LAB: "Laboratorio", AUD: "Auditorías" } },
-  SAN: { name: "Saneamiento", sub: { LXP: "Limpieza Planta", LXT: "Tóxicos" } },
-  MANT: { name: "Mantenimiento", sub: { PRV: "Preventivo", COR: "Correctivo" } }
-};
-
+const GAS_DICT_ENDPOINT = "https://script.google.com/macros/s/AKfycbxAHJeIS_Dq91olhikoJpRPZEVPf-wPOCs_NGQ796oowVOQRRX8jeOeiNeFeDw3zrxE/exec";
 let state = { 
     poes: [], 
     config: [], 
