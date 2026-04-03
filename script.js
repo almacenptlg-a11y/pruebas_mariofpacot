@@ -318,6 +318,93 @@ window.closeAreasModal = function () {
     if (m) { m.classList.add("hidden"); m.classList.remove("flex"); }
 };
 
+// --------------------------------------------------------
+// LÓGICA DE FORMULARIO DE ÁREAS (CRUD)
+// --------------------------------------------------------
+window.openAreaForm = function(id = null) {
+    const m = document.getElementById("areaFormModal");
+    const form = document.getElementById("area-config-form");
+    if (!m || !form) return;
+    
+    form.reset();
+    state.form.editingAreaId = id;
+    document.getElementById("areaFormTitle").textContent = id ? "Editar Área Operativa" : "Registrar Nueva Área";
+
+    if (id) {
+        const area = state.areas.find(a => a.id === id);
+        if (area) {
+            document.getElementById("cfgAreaMacro").value = `${area.macroAbbr}|${area.macroName}`;
+            document.getElementById("cfgAreaName").value = area.areaName;
+            document.getElementById("cfgAreaPrefix").value = area.poePrefix;
+            document.getElementById("cfgAreaDesc").value = area.desc;
+            document.getElementById("cfgAreaStatus").value = area.status || 'ACT';
+        }
+    }
+
+    m.classList.remove("hidden");
+    m.classList.add("flex");
+};
+
+window.closeAreaForm = function() {
+    const m = document.getElementById("areaFormModal");
+    if (m) { m.classList.add("hidden"); m.classList.remove("flex"); }
+};
+
+window.handleAreaSubmit = async function(e) {
+    e.preventDefault();
+    if (!state.isSessionVerified || !state.user) return alert("Acción bloqueada: Esperando autorización del HUB.");
+    if (!window.getPermisos().canEdit) return alert("Acción denegada. Rol insuficiente.");
+
+    const btn = document.getElementById('btnSaveArea');
+    const origHTML = btn.innerHTML;
+    btn.disabled = true; 
+    btn.innerHTML = `<svg class="w-4 h-4 animate-spin inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> Guardando...`;
+
+    const isEditing = !!state.form.editingAreaId;
+    const id = isEditing ? state.form.editingAreaId : `AREA-${Date.now()}`;
+    const macroVal = document.getElementById("cfgAreaMacro").value.split('|');
+
+    const payload = {
+        action: 'save_area',
+        id: id,
+        macroName: macroVal[1],
+        macroAbbr: macroVal[0],
+        areaName: document.getElementById("cfgAreaName").value,
+        areaAbbr: document.getElementById("cfgAreaPrefix").value.toUpperCase(),
+        poePrefix: document.getElementById("cfgAreaPrefix").value.toUpperCase(),
+        desc: document.getElementById("cfgAreaDesc").value,
+        status: document.getElementById("cfgAreaStatus").value
+    };
+
+    try {
+        // Enviar a la nube (Microservicio de Áreas)
+        const res = await fetch(GAS_DICT_ENDPOINT, { method: "POST", body: JSON.stringify(payload) });
+        const r = await res.json();
+        
+        if (r.status === 'success') {
+            // Eliminar si es Obsoleto, Actualizar si es Activo en la UI local
+            if (payload.status === 'OBS') {
+                state.areas = state.areas.filter(a => a.id !== id);
+                await POEDB.delete("areas", id);
+            } else {
+                const idx = state.areas.findIndex(a => a.id === id);
+                if(idx > -1) state.areas[idx] = payload; else state.areas.push(payload);
+                await POEDB.save("areas", payload);
+            }
+            
+            window.closeAreaForm();
+            window.renderMapaAreas(); // Refrescar el mapa
+            window.refreshUI();       // Refrescar los <select> del form POE
+        } else {
+            alert("Error del Servidor: " + r.message);
+        }
+    } catch (err) {
+        alert("Error de Red al guardar en la nube. Revise su conexión.");
+    } finally {
+        btn.disabled = false; btn.innerHTML = origHTML;
+    }
+};
+
 // ==========================================
 // 7. BUILDER DE PASOS E IMÁGENES
 // ==========================================
