@@ -28,11 +28,46 @@ window.addEventListener('message', (event) => {
     }
 });
 
+// 🛡️ MOTOR DE PERMISOS GRANULAR (RBAC)
 window.getPermisos = function() {
-    if (!state.user) return { canEdit: false, isOperario: true, area: '' };
+    if (!state.user) return { isOperario: true, canViewPoe: ()=>false, canEditPoe: ()=>false, canViewMapa: false, canEditArea: ()=>false, canCreateArea: ()=>false, canCreatePoe: ()=>false };
+    
     const rol = String(state.user.rol).toUpperCase();
-    const canEdit = ['GERENTE', 'JEFE', 'SUPERVISOR', 'ADMINISTRADOR', 'ADMIN', 'SISTEMAS'].includes(rol);
-    return { canEdit, isOperario: !canEdit, area: String(state.user.area).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") };
+    const userMacro = String(state.user.macro || '').toUpperCase();
+    const userArea = String(state.user.area || '').toUpperCase();
+
+    const isAdmin = ['ADMINISTRADOR', 'ADMIN', 'SISTEMAS'].includes(rol);
+    const isGerente = rol === 'GERENTE';
+    const isJefe = rol === 'JEFE';
+    const isSupervisor = rol === 'SUPERVISOR';
+
+    return {
+        rol, userMacro, userArea,
+        // 1. Operario solo ve su área, el resto ve todos los POEs
+        canViewPoe: (poeArea) => {
+            if (isAdmin || isGerente || isJefe || isSupervisor) return true;
+            return poeArea === userArea; 
+        },
+        // 2. Supervisor edita su Área, Jefe edita su Macro, Admin edita Todo. Operario y Gerente solo leen.
+        canEditPoe: (poeMacro, poeArea) => {
+            if (isAdmin) return true;
+            if (isJefe) return poeMacro === userMacro;
+            if (isSupervisor) return poeArea === userArea;
+            return false; 
+        },
+        // 3. Crear POEs: Solo los que pueden editar
+        canCreatePoe: () => isAdmin || isJefe || isSupervisor,
+        // 4. Mapa de Áreas: Gerente y Admin lo ven todo. Jefe lo necesita para gestionar su Macro.
+        canViewMapa: isAdmin || isGerente || isJefe, 
+        // 5. Editar Áreas existentes: Jefe solo en su Macro.
+        canEditArea: (areaMacro) => {
+            if (isAdmin) return true;
+            if (isJefe) return areaMacro === userMacro;
+            return false;
+        },
+        // 6. Botón de Crear Nueva Área
+        canCreateArea: () => isAdmin || isJefe
+    };
 };
 
 window.initRichEditors = function() {
@@ -114,19 +149,19 @@ window.refreshUI = async function () {
     const s = String(p.status || "").trim().toUpperCase();
     const isActive = (s === "ACT" || s === "REV" || s === "ACTIVO" || s === "EN REVISION" || s === "EN REVISIÓN");
     if (!isActive) return false;
-
-    if (permisos.isOperario) {
-        const areaDef = state.areas.find(a => a.areaAbbr === p.subCategory);
-        const catStr = areaDef ? String(areaDef.macroName + " " + areaDef.areaName).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
-        if (!catStr.includes(permisos.area)) return false; 
-    }
-    return true;
+    
+    // 🛡️ REGLA: Visibilidad del POE
+    return permisos.canViewPoe(p.subCategory);
   });
 
   const btnNuevo = document.getElementById('btn-nuevo-poe');
   const btnMapa = document.getElementById('btn-mapa-areas');
-  if (btnNuevo) btnNuevo.style.display = permisos.canEdit ? 'flex' : 'none';
-  if (btnMapa) btnMapa.style.display = permisos.canEdit ? 'flex' : 'none';
+  const btnNuevaArea = document.getElementById('btn-nueva-area'); // Del Modal de Áreas
+
+  // 🛡️ REGLA: Visibilidad de Botones Maestros
+  if (btnNuevo) btnNuevo.style.display = permisos.canCreatePoe() ? 'flex' : 'none';
+  if (btnMapa) btnMapa.style.display = permisos.canViewMapa ? 'flex' : 'none';
+  if (btnNuevaArea) btnNuevaArea.style.display = permisos.canCreateArea() ? 'flex' : 'none';
 
   window.buildDynamicDictionaries();
   window.renderPOEs();
@@ -138,19 +173,120 @@ window.refreshUI = async function () {
   safeSet("calidadCount", state.poes.filter((p) => p.category === "CAL").length);
 };
 
-// 🆕 DICCIONARIOS BASADOS EN 8 COLUMNAS
+window.renderPOEs = function () {
+  const tbody = document.getElementById("table-body");
+  if (!tbody) return;
+
+  const query = document.getElementById("searchInput")?.value.toLowerCase() || "";
+  const filtered = state.poes.filter((p) => {
+      const areaObj = state.areas.find(a => a.areaAbbr === p.subCategory);
+      const srch = p.code + p.title + (areaObj ? areaObj.areaName : p.subCategory);
+      return srch.toLowerCase().includes(query);
+  });
+  
+  const permisos = window.getPermisos(); 
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center p-6 text-gray-500 border-b border-gray-100 dark:border-gray-700">Sin procedimientos disponibles.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtered.slice().reverse().map((poe) => {
+    const isPending = poe._syncStatus === "pending";
+    const badge = isPending ? `<span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-[10px] font-bold uppercase">En Cola</span>` : `<span class="bg-green-100 text-green-800 px-2 py-1 rounded text-[10px] font-bold uppercase">En Nube</span>`;
+
+    const areaObj = state.areas.find((a) => a.areaAbbr === poe.subCategory);
+    const poeMacro = areaObj ? areaObj.macroAbbr : poe.category;
+
+    // 🛡️ REGLA: ¿Puede editar este documento en particular?
+    const canEditThis = permisos.canEditPoe(poeMacro, poe.subCategory);
+
+    const actionButtons = canEditThis ? `
+        <button type="button" onclick="window.editPOE('${poe.id}')" class="text-yellow-600 bg-yellow-50 px-3 py-1.5 rounded font-semibold transition hover:bg-yellow-100" title="Editar Documento">✏️</button>
+        <button type="button" onclick="window.deletePOE('${poe.id}')" class="text-red-600 bg-red-50 px-3 py-1.5 rounded font-semibold transition hover:bg-red-100" title="Marcar Obsoleto">✖</button>
+    ` : '';
+
+    return `
+    <tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors ${isPending ? "bg-yellow-50/30" : ""}">
+      <td class="p-4 text-xs font-bold text-blue-900 dark:text-blue-400">${poe.code}</td>
+      <td class="p-4 font-bold text-gray-800 dark:text-gray-200">${poe.title}</td>
+      <td class="p-4 text-xs font-bold text-gray-600 dark:text-gray-400">${areaObj ? areaObj.areaName : poe.subCategory}</td>
+      <td class="p-4">${badge}</td>
+      <td class="p-4 text-right flex justify-end space-x-2">
+        <button type="button" onclick="window.viewPOE('${poe.id}')" class="text-blue-600 bg-blue-50 px-3 py-1.5 rounded font-semibold transition hover:bg-blue-100" title="Ver Documento">👁️</button>
+        ${actionButtons}
+      </td>
+    </tr>`;
+  }).join("");
+};
+
+window.renderMapaAreas = function() {
+    const grid = document.getElementById('grid-areas');
+    const filterContainer = document.getElementById('area-filters');
+    if (!grid || !filterContainer) return;
+    const permisos = window.getPermisos();
+
+    const macrosMap = new Map();
+    state.areas.forEach(a => macrosMap.set(a.macroAbbr, a.macroName));
+    
+    const pillBase = "px-4 py-2 rounded-full text-xs font-semibold transition-all border outline-none";
+    const pillInact = "bg-white border-gray-200 text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700";
+    
+    let filtersHTML = `<button onclick="window.setAreaFilter('TODAS')" class="${pillBase} ${state.activeAreaFilter === 'TODAS' ? 'bg-gray-900 text-white border-transparent shadow' : pillInact}">Todas</button>`;
+    for (let [abbr, name] of macrosMap.entries()) {
+        const isAct = abbr === state.activeAreaFilter;
+        let colorCls = isAct ? 'bg-gray-900 text-white border-transparent shadow' : pillInact;
+        if(isAct && abbr === 'PROD') colorCls = 'bg-red-700 text-white border-red-800 shadow';
+        filtersHTML += `<button onclick="window.setAreaFilter('${abbr}')" class="${pillBase} ${colorCls}">${name}</button>`;
+    }
+    filterContainer.innerHTML = filtersHTML;
+
+    let areasToRender = state.activeAreaFilter === 'TODAS' ? state.areas : state.areas.filter(a => a.macroAbbr === state.activeAreaFilter);
+    const groups = {};
+    areasToRender.forEach(a => { if(!groups[a.macroName]) groups[a.macroName] = []; groups[a.macroName].push(a); });
+
+    let gridHTML = '';
+    for (let macro in groups) {
+        gridHTML += `<div class="col-span-full mt-8 mb-2 flex items-center gap-2"><div class="w-3 h-3 rounded-full bg-red-600 shadow-sm"></div><h3 class="text-xl font-bold text-gray-900 dark:text-white">${macro}</h3></div>`;
+        
+        groups[macro].forEach(area => {
+            // 🛡️ REGLA: ¿Puede configurar ESTA área en el mapa?
+            const canConfig = permisos.canEditArea(area.macroAbbr);
+            const configBtn = canConfig ? `<button onclick="event.stopPropagation(); window.openAreaForm('${area.id}')" class="flex-1 py-2.5 rounded-xl bg-gray-50 text-gray-700 text-[10px] uppercase font-bold hover:bg-blue-50 hover:text-blue-600 transition-colors border border-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600">CONFIGURAR</button>` : '';
+
+            gridHTML += `
+            <div class="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col h-full fade-in cursor-pointer hover:shadow-lg transition-shadow" onclick="window.closeAreasModal(); document.getElementById('searchInput').value = '${area.areaName}'; window.refreshUI();">
+                <div class="flex justify-between items-start mb-4">
+                    <div class="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center border border-red-100 text-red-500"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path></svg></div>
+                    <span class="text-[10px] font-black bg-gray-100 text-gray-500 px-2 py-1 rounded-lg tracking-widest border border-gray-200 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-400">${area.poePrefix}</span>
+                </div>
+                <h4 class="font-bold text-gray-900 dark:text-white text-base leading-tight mb-2">${area.areaName}</h4>
+                <p class="text-xs text-gray-600 dark:text-gray-400 leading-relaxed mb-4 flex-grow">${area.desc || 'Sin descripción detallada.'}</p>
+                <div class="flex gap-2 mt-auto">
+                    ${configBtn}
+                </div>
+            </div>`;
+        });
+    }
+    grid.innerHTML = areasToRender.length === 0 ? `<div class="col-span-full py-20 text-center border-2 border-dashed border-gray-300 rounded-2xl text-gray-400">No hay áreas operativas.</div>` : gridHTML;
+};
+
 window.buildDynamicDictionaries = function () {
   const selectCategory = document.getElementById("category");
   if (!selectCategory || state.areas.length === 0) return;
+  const permisos = window.getPermisos();
 
   const cv = selectCategory.value;
   const macrosMap = new Map();
-  state.areas.forEach(a => macrosMap.set(a.macroAbbr, a.macroName));
+  
+  state.areas.forEach(a => {
+      // 🛡️ REGLA: Jefes y Supervisores al crear POE, solo ven su Macro-Área
+      if ((permisos.rol === 'JEFE' || permisos.rol === 'SUPERVISOR') && a.macroAbbr !== permisos.userMacro) return;
+      macrosMap.set(a.macroAbbr, a.macroName);
+  });
 
   let options = '<option value="" disabled selected>Seleccione Macro-Área...</option>';
-  for (let [abbr, name] of macrosMap.entries()) {
-      options += `<option value="${abbr}">${name}</option>`;
-  }
+  for (let [abbr, name] of macrosMap.entries()) options += `<option value="${abbr}">${name}</option>`;
   selectCategory.innerHTML = options;
   if (cv) selectCategory.value = cv;
 };
@@ -159,17 +295,68 @@ window.updateSubCategories = function () {
   const catSelect = document.getElementById("category").value;
   const subSelect = document.getElementById("poeSubCategory");
   if (!subSelect) return;
-  subSelect.innerHTML = "";
-
-  const subs = state.areas.filter(a => a.macroAbbr === catSelect);
   
-  if (subs.length > 0) {
-    subSelect.innerHTML = '<option value="" disabled selected>Seleccione Sub-Área...</option>' + 
-        subs.map((s) => `<option value="${s.areaAbbr}">${s.areaName}</option>`).join("");
-  } else {
-    subSelect.innerHTML = `<option value="GEN">General</option>`;
+  const permisos = window.getPermisos();
+  // 🛡️ REGLA: El Supervisor solo puede crear/editar POEs en su Área específica
+  let subs = state.areas.filter(a => a.macroAbbr === catSelect);
+  if (permisos.rol === 'SUPERVISOR') {
+      subs = subs.filter(a => a.areaAbbr === permisos.userArea);
   }
+  
+  subSelect.innerHTML = subs.length > 0 
+    ? '<option value="" disabled selected>Seleccione Sub-Área...</option>' + subs.map((s) => `<option value="${s.areaAbbr}">${s.areaName}</option>`).join("") 
+    : `<option value="GEN">General</option>`;
+  
   window.generatePoeCode();
+};
+
+window.openAreaForm = function(id = null) {
+    const m = document.getElementById("areaFormModal");
+    const form = document.getElementById("area-config-form");
+    if (!m || !form) return;
+    const permisos = window.getPermisos();
+    
+    form.reset();
+    state.form.editingAreaId = id;
+    document.getElementById("areaFormTitle").textContent = id ? "Editar Área Operativa" : "Registrar Nueva Área";
+
+    const macroSelect = document.getElementById("cfgAreaMacro");
+    const macrosMap = new Map();
+    state.areas.forEach(a => macrosMap.set(a.macroAbbr, a.macroName));
+
+    let options = '<option value="" disabled selected>Seleccione Macro-Área...</option>';
+    for (let [abbr, name] of macrosMap.entries()) {
+        // 🛡️ REGLA: Jefe solo puede vincular áreas a su propia Macro
+        if (permisos.rol === 'JEFE' && abbr !== permisos.userMacro) continue;
+        options += `<option value="${abbr}|${name}">${name} (${abbr})</option>`;
+    }
+    // 🛡️ REGLA: Solo Admin puede crear macros nuevas de cero
+    if (permisos.rol !== 'JEFE') options += '<option value="NEW" class="font-bold text-blue-600">✨ CREAR NUEVA MACRO-ÁREA...</option>';
+    macroSelect.innerHTML = options;
+
+    window.toggleNewMacroFields(); 
+
+    if (id) {
+        const area = state.areas.find(a => a.id === id);
+        if (area) {
+            const macroVal = `${area.macroAbbr}|${area.macroName}`;
+            const optionExists = Array.from(macroSelect.options).some(opt => opt.value === macroVal);
+            if (optionExists) {
+                macroSelect.value = macroVal;
+            } else {
+                macroSelect.value = 'NEW';
+                window.toggleNewMacroFields();
+                document.getElementById("cfgNewMacroName").value = area.macroName;
+                document.getElementById("cfgNewMacroAbbr").value = area.macroAbbr;
+            }
+            document.getElementById("cfgAreaName").value = area.areaName;
+            document.getElementById("cfgAreaAbbr").value = area.areaAbbr;
+            document.getElementById("cfgAreaPrefix").value = area.poePrefix;
+            document.getElementById("cfgAreaDesc").value = area.desc;
+            document.getElementById("cfgAreaStatus").value = area.status || 'ACT';
+        }
+    }
+    m.classList.remove("hidden"); m.classList.add("flex");
 };
 
 window.generatePoeCode = function () {
@@ -206,50 +393,7 @@ window.generatePoeCode = function () {
   }
 };
 
-window.renderPOEs = function () {
-  const tbody = document.getElementById("table-body");
-  if (!tbody) return;
 
-  const query = document.getElementById("searchInput")?.value.toLowerCase() || "";
-  const filtered = state.poes.filter((p) => {
-      const areaObj = state.areas.find(a => a.areaAbbr === p.subCategory);
-      const srch = p.code + p.title + (areaObj ? areaObj.areaName : p.subCategory);
-      return srch.toLowerCase().includes(query);
-  });
-  const permisos = window.getPermisos(); 
-
-  if (filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" class="text-center p-6 text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">Sin procedimientos disponibles.</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = filtered.slice().reverse().map((poe) => {
-    const isPending = poe._syncStatus === "pending";
-    const badge = isPending
-      ? `<span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-[10px] font-bold uppercase dark:bg-yellow-900/40 dark:text-yellow-300">En Cola</span>`
-      : `<span class="bg-green-100 text-green-800 px-2 py-1 rounded text-[10px] font-bold uppercase dark:bg-green-900/40 dark:text-green-300">En Nube</span>`;
-
-    const areaObj = state.areas.find((a) => a.areaAbbr === poe.subCategory);
-    const areaName = areaObj ? areaObj.areaName : poe.subCategory;
-
-    const actionButtons = permisos.canEdit ? `
-        <button type="button" onclick="window.editPOE('${poe.id}')" class="text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 dark:text-yellow-400 px-3 py-1.5 rounded font-semibold transition hover:bg-yellow-100 dark:hover:bg-yellow-900/40" title="Editar Documento">✏️</button>
-        <button type="button" onclick="window.deletePOE('${poe.id}')" class="text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 px-3 py-1.5 rounded font-semibold transition hover:bg-red-100 dark:hover:bg-red-900/40" title="Marcar Obsoleto">✖</button>
-    ` : '';
-
-    return `
-    <tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors ${isPending ? "bg-yellow-50/30 dark:bg-yellow-900/10" : ""}">
-      <td class="p-4 text-xs font-bold text-blue-900 dark:text-blue-400">${poe.code}</td>
-      <td class="p-4 font-bold text-gray-800 dark:text-gray-200">${poe.title}</td>
-      <td class="p-4 text-xs font-bold text-gray-600 dark:text-gray-400">${areaName}</td>
-      <td class="p-4">${badge}</td>
-      <td class="p-4 text-right flex justify-end space-x-2">
-        <button type="button" onclick="window.viewPOE('${poe.id}')" class="text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 px-3 py-1.5 rounded font-semibold transition hover:bg-blue-100 dark:hover:bg-blue-900/40" title="Ver Documento">👁️</button>
-        ${actionButtons}
-      </td>
-    </tr>`;
-  }).join("");
-};
 
 // ==========================================
 // 6. MAPA DE ÁREAS MOCKUP EXACTO
@@ -259,71 +403,7 @@ window.setAreaFilter = function(macro) {
     window.renderMapaAreas();
 };
 
-window.renderMapaAreas = function() {
-    const grid = document.getElementById('grid-areas');
-    const filterContainer = document.getElementById('area-filters');
-    if (!grid || !filterContainer) return;
 
-    // RENDERIZAR PÍLDORAS DINÁMICAS
-    const macrosMap = new Map();
-    state.areas.forEach(a => macrosMap.set(a.macroAbbr, a.macroName));
-    
-    const pillBase = "px-4 py-2 rounded-full text-xs font-semibold transition-all border outline-none";
-    const pillInact = "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700";
-    
-    let filtersHTML = `<button onclick="window.setAreaFilter('TODAS')" class="${pillBase} ${state.activeAreaFilter === 'TODAS' ? 'bg-gray-900 text-white dark:bg-gray-200 dark:text-gray-900 border-transparent shadow' : pillInact}">Todas</button>`;
-    
-    for (let [abbr, name] of macrosMap.entries()) {
-        const isAct = abbr === state.activeAreaFilter;
-        let colorCls = isAct ? 'bg-gray-900 text-white dark:bg-gray-200 dark:text-gray-900 border-transparent shadow' : pillInact;
-        // Detalle Mockup: Producción se pone rojo
-        if(isAct && abbr === 'PROD') colorCls = 'bg-red-700 text-white border-red-800 shadow';
-
-        filtersHTML += `<button onclick="window.setAreaFilter('${abbr}')" class="${pillBase} ${colorCls}">${name}</button>`;
-    }
-    filterContainer.innerHTML = filtersHTML;
-
-    // RENDERIZAR TARJETAS AGRUPADAS
-    let areasToRender = state.activeAreaFilter === 'TODAS' ? state.areas : state.areas.filter(a => a.macroAbbr === state.activeAreaFilter);
-    
-    const groups = {};
-    areasToRender.forEach(a => {
-        if(!groups[a.macroName]) groups[a.macroName] = [];
-        groups[a.macroName].push(a);
-    });
-
-    let gridHTML = '';
-    for (let macro in groups) {
-        gridHTML += `
-        <div class="col-span-full mt-8 mb-2 flex items-center gap-2">
-            <div class="w-3 h-3 rounded-full bg-red-600 shadow-sm"></div>
-            <h3 class="text-xl font-bold text-gray-900 dark:text-white">${macro} <span class="text-sm font-normal text-gray-400 ml-1">(${groups[macro].length} areas)</span></h3>
-        </div>
-        `;
-        groups[macro].forEach(area => {
-            gridHTML += `
-            <div class="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-shadow flex gap-4 cursor-pointer" onclick="window.closeAreasModal(); document.getElementById('searchInput').value = '${area.areaName}'; window.refreshUI();">
-                <div class="flex-shrink-0 mt-1 text-red-500 dark:text-red-400">
-                    <div class="w-10 h-10 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center border border-red-100 dark:border-red-900/50">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                    </div>
-                </div>
-                <div>
-                    <h4 class="font-bold text-gray-900 dark:text-white text-base leading-tight">${area.areaName}</h4>
-                    <p class="text-xs text-gray-500 dark:text-gray-400 font-mono mt-1 mb-2 tracking-wide">${area.poePrefix}-XXX</p>
-                    <p class="text-xs text-gray-600 dark:text-gray-400 leading-relaxed line-clamp-2">${area.desc || 'Sin descripción detallada.'}</p>
-                </div>
-            </div>
-            `;
-        });
-    }
-    
-    if (areasToRender.length === 0) {
-        grid.innerHTML = `<div class="col-span-full py-20 text-center border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-2xl text-gray-400 dark:text-gray-500">No hay áreas operativas.</div>`;
-    } else {
-        grid.innerHTML = gridHTML;
-    }
-};
 
 window.openAreasModal = function () {
     const m = document.getElementById("areasModal");
@@ -379,57 +459,6 @@ window.autoCalcPrefix = function() {
     }
 };
 
-window.openAreaForm = function(id = null) {
-    const m = document.getElementById("areaFormModal");
-    const form = document.getElementById("area-config-form");
-    if (!m || !form) return;
-    
-    form.reset();
-    state.form.editingAreaId = id;
-    document.getElementById("areaFormTitle").textContent = id ? "Editar Área Operativa" : "Registrar Nueva Área";
-
-    // 1. Cargar Macro-Áreas dinámicas de la BD
-    const macroSelect = document.getElementById("cfgAreaMacro");
-    const macrosMap = new Map();
-    state.areas.forEach(a => macrosMap.set(a.macroAbbr, a.macroName));
-
-    let options = '<option value="" disabled selected>Seleccione Macro-Área...</option>';
-    for (let [abbr, name] of macrosMap.entries()) {
-        options += `<option value="${abbr}|${name}">${name} (${abbr})</option>`;
-    }
-    options += '<option value="NEW" class="font-bold text-blue-600 dark:text-blue-400">✨ CREAR NUEVA MACRO-ÁREA...</option>';
-    macroSelect.innerHTML = options;
-
-    window.toggleNewMacroFields(); // Ocultar campos nuevos por defecto
-
-    // 2. Cargar datos si es edición
-    if (id) {
-        const area = state.areas.find(a => a.id === id);
-        if (area) {
-            const macroVal = `${area.macroAbbr}|${area.macroName}`;
-            
-            // Si la macro existe en el select, la marcamos. Si no, forzamos creación.
-            const optionExists = Array.from(macroSelect.options).some(opt => opt.value === macroVal);
-            if (optionExists) {
-                macroSelect.value = macroVal;
-            } else {
-                macroSelect.value = 'NEW';
-                window.toggleNewMacroFields();
-                document.getElementById("cfgNewMacroName").value = area.macroName;
-                document.getElementById("cfgNewMacroAbbr").value = area.macroAbbr;
-            }
-
-            document.getElementById("cfgAreaName").value = area.areaName;
-            document.getElementById("cfgAreaAbbr").value = area.areaAbbr;
-            document.getElementById("cfgAreaPrefix").value = area.poePrefix;
-            document.getElementById("cfgAreaDesc").value = area.desc;
-            document.getElementById("cfgAreaStatus").value = area.status || 'ACT';
-        }
-    }
-
-    m.classList.remove("hidden");
-    m.classList.add("flex");
-};
 
 window.closeAreaForm = function() {
     const m = document.getElementById("areaFormModal");
