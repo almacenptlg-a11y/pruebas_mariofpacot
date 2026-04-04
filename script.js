@@ -9,7 +9,7 @@ let state = {
     poes: [], 
     areas: [],       
     config: [], 
-    form: { advancedSteps: [], editingId: null },
+    form: { advancedSteps: [], editingId: null, editingStepId: null },
     user: null,               
     isSessionVerified: false,
     activeAreaFilter: 'TODAS'
@@ -181,7 +181,6 @@ window.generatePoeCode = function () {
   const areaDef = state.areas.find(a => a.macroAbbr === cat && a.areaAbbr === sub);
   const prefix = areaDef && areaDef.poePrefix ? areaDef.poePrefix : `${cat}-${sub}`;
 
-  // 🧠 LÓGICA INTELIGENTE: Detectar si el área es de Saneamiento/Higiene
   const areaName = areaDef ? areaDef.areaName.toUpperCase() : '';
   const isPOES = areaName.includes('SANEAMIENTO') || areaName.includes('LIMPIEZA') || areaName.includes('TÓXICO') || areaName.includes('TOXICO') || sub === 'SAN';
   
@@ -189,14 +188,21 @@ window.generatePoeCode = function () {
 
   const count = state.poes.filter((p) => p.category === cat && p.subCategory === sub).length;
   const codeEl = document.getElementById("code");
-  
-  // Resultado: POES-LXP-001 (en lugar de POE)
   if (codeEl) codeEl.value = `${docType}-${prefix}-${String(count + 1).padStart(3, "0")}`;
 
-  // Detalle UI: Cambiar el título del Modal para que el usuario sepa que está redactando un POES
   const modalTitle = document.getElementById("modalTitle");
-  if (modalTitle && !state.form.editingId) {
-      modalTitle.textContent = `Registrar ${docType} (GFSI)`;
+  if (modalTitle && !state.form.editingId) modalTitle.textContent = `Registrar ${docType} (GFSI)`;
+
+  // 🧪 Mostrar/Ocultar el Botón de Plantilla POES
+  const btnTemplate = document.getElementById("btnTemplatePOES");
+  if (btnTemplate) {
+      if (isPOES) {
+          btnTemplate.classList.remove('hidden');
+          btnTemplate.classList.add('flex');
+      } else {
+          btnTemplate.classList.add('hidden');
+          btnTemplate.classList.remove('flex');
+      }
   }
 };
 
@@ -496,7 +502,7 @@ window.handleAreaSubmit = async function(e) {
 };
 
 // ==========================================
-// 7. GESTOR TÉCNICO DE PASOS (BUILDER Y PLANTILLAS)
+// 7. GESTOR TÉCNICO DE PASOS (REORDENAMIENTO Y EDICIÓN IN-PLACE)
 // ==========================================
 
 window.updateFileText = function (input) {
@@ -519,6 +525,22 @@ window.addAdvancedStep = function () {
   const fileInput = document.getElementById("stepImage");
   const type = typeInput ? typeInput.value : "INFO";
 
+  const processStep = (imageBase64) => {
+      if (state.form.editingStepId) {
+          // MODO ACTUALIZACIÓN (Mantiene la posición)
+          const idx = state.form.advancedSteps.findIndex(s => s.id === state.form.editingStepId);
+          if (idx > -1) {
+              state.form.advancedSteps[idx].desc = desc;
+              state.form.advancedSteps[idx].type = type;
+              if (imageBase64 !== undefined) state.form.advancedSteps[idx].image = imageBase64; 
+          }
+      } else {
+          // MODO NUEVO PASO (Añade al final)
+          state.form.advancedSteps.push({ id: Date.now(), desc, type, image: imageBase64 || null });
+      }
+      _resetStepUI();
+  };
+
   if (fileInput && fileInput.files.length > 0) {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -527,15 +549,13 @@ window.addAdvancedStep = function () {
         const cvs = document.createElement("canvas"); let w = img.width, h = img.height;
         if (w > 800) { h = Math.round((h * 800) / w); w = 800; }
         cvs.width = w; cvs.height = h; cvs.getContext("2d").drawImage(img, 0, 0, w, h);
-        state.form.advancedSteps.push({ id: Date.now(), desc, type, image: cvs.toDataURL("image/jpeg", 0.7) });
-        _resetStepUI();
+        processStep(cvs.toDataURL("image/jpeg", 0.7));
       };
       img.src = e.target.result;
     };
     reader.readAsDataURL(fileInput.files[0]);
   } else {
-    state.form.advancedSteps.push({ id: Date.now(), desc, type, image: null });
-    _resetStepUI();
+    processStep(undefined); // undefined = "mantener imagen actual" si estamos editando
   }
 };
 
@@ -543,6 +563,18 @@ function _resetStepUI() {
   setFieldValue("stepDesc", "");
   const fileInput = document.getElementById("stepImage");
   if (fileInput) { fileInput.value = ""; window.updateFileText(fileInput); }
+  
+  state.form.editingStepId = null; 
+  
+  // Resetear botón a estado "Añadir"
+  const btn = document.getElementById("btnAddStep");
+  const btnTxt = document.getElementById("btnAddStepText");
+  if(btnTxt) btnTxt.textContent = "Añadir Paso";
+  if(btn) {
+      btn.classList.replace("bg-green-600", "bg-blue-600");
+      btn.classList.replace("hover:bg-green-800", "hover:bg-blue-800");
+  }
+
   window.renderAdvancedSteps();
 }
 
@@ -557,29 +589,48 @@ window.editStep = function(id) {
 
     setFieldValue("stepDesc", step.desc);
     document.getElementById("stepType").value = step.type;
+    state.form.editingStepId = id; 
     
-    state.form.advancedSteps = state.form.advancedSteps.filter(s => s.id !== id);
-    window.renderAdvancedSteps();
+    // Cambiar botón a estado "Actualizar" (Verde)
+    const btn = document.getElementById("btnAddStep");
+    const btnTxt = document.getElementById("btnAddStepText");
+    if(btnTxt) btnTxt.textContent = "Actualizar Paso";
+    if(btn) {
+        btn.classList.replace("bg-blue-600", "bg-green-600");
+        btn.classList.replace("hover:bg-blue-800", "hover:bg-green-800");
+    }
     
     document.getElementById("stepDesc").scrollIntoView({ behavior: 'smooth', block: 'center' });
     document.getElementById("stepDesc").focus();
 };
 
+// ⬆️⬇️ LÓGICA DE REORDENAMIENTO
+window.moveStep = function(index, direction) {
+    if (direction === 'up' && index > 0) {
+        const temp = state.form.advancedSteps[index];
+        state.form.advancedSteps[index] = state.form.advancedSteps[index - 1];
+        state.form.advancedSteps[index - 1] = temp;
+    } else if (direction === 'down' && index < state.form.advancedSteps.length - 1) {
+        const temp = state.form.advancedSteps[index];
+        state.form.advancedSteps[index] = state.form.advancedSteps[index + 1];
+        state.form.advancedSteps[index + 1] = temp;
+    }
+    window.renderAdvancedSteps();
+};
+
 window.loadPoesTemplate = function() {
     if (state.form.advancedSteps.length > 0) {
-        if (!confirm("Se perderán los pasos actuales para cargar la plantilla de 7 pasos. ¿Continuar?")) return;
+        if (!confirm("Se perderán los pasos actuales. ¿Cargar plantilla?")) return;
     }
-
     state.form.advancedSteps = [
-        { id: 1, type: 'INFO', desc: '<b>PASO 1: Limpieza en Seco (Preparación).</b> Retirar restos gruesos orgánicos, desarmar piezas móviles y proteger componentes eléctricos con bolsas.', image: null },
-        { id: 2, type: 'INFO', desc: '<b>PASO 2: Pre-enjuague.</b> Aplicar agua a presión de arriba hacia abajo (T° tibia) para remover suciedad suelta superficial.', image: null },
-        { id: 3, type: 'PC', desc: '<b>PASO 3: Lavado (Acción Mecánica).</b> Aplicar detergente alcalino/espuma. Fregar mecánicamente todas las superficies con escobillas de nylon.', image: null },
-        { id: 4, type: 'INFO', desc: '<b>PASO 4: Enjuague Final.</b> Aplicar agua potable hasta eliminar por completo cualquier rastro de agentes químicos y suciedad suspendida.', image: null },
-        { id: 5, type: 'PC', desc: '<b>PASO 5: Inspección Pre-Operacional.</b> Realizar verificación visual minuciosa y/o hisopado de ATP para confirmar ausencia de restos orgánicos.', image: null },
-        { id: 6, type: 'PCC', desc: '<b>PASO 6: Sanitización / Desinfección.</b> Aplicar agente desinfectante respetando estrictamente la concentración (PPM) y tiempo de contacto especificado.', image: null },
-        { id: 7, type: 'INFO', desc: '<b>PASO 7: Secado y Montaje.</b> Retirar el exceso de humedad para evitar condensación y proceder al re-ensamblaje de equipos limpios.', image: null }
+        { id: Date.now()+1, type: 'INFO', desc: '<b>PASO 1: Limpieza en Seco (Preparación).</b> Retirar restos gruesos orgánicos, desarmar piezas móviles y proteger componentes eléctricos.', image: null },
+        { id: Date.now()+2, type: 'INFO', desc: '<b>PASO 2: Pre-enjuague.</b> Aplicar agua a presión (T° tibia) para remover suciedad suelta superficial.', image: null },
+        { id: Date.now()+3, type: 'PC', desc: '<b>PASO 3: Lavado (Acción Mecánica).</b> Aplicar detergente y fregar mecánicamente todas las superficies con escobillas de nylon.', image: null },
+        { id: Date.now()+4, type: 'INFO', desc: '<b>PASO 4: Enjuague Final.</b> Aplicar agua potable hasta eliminar por completo cualquier rastro químico.', image: null },
+        { id: Date.now()+5, type: 'PC', desc: '<b>PASO 5: Inspección Pre-Operacional.</b> Realizar verificación visual minuciosa para confirmar ausencia de restos orgánicos.', image: null },
+        { id: Date.now()+6, type: 'PCC', desc: '<b>PASO 6: Sanitización / Desinfección.</b> Aplicar agente desinfectante respetando estrictamente la concentración (PPM) y tiempo de contacto.', image: null },
+        { id: Date.now()+7, type: 'INFO', desc: '<b>PASO 7: Secado y Montaje.</b> Retirar exceso de humedad para evitar condensación y re-ensamblar equipos.', image: null }
     ];
-    
     window.renderAdvancedSteps();
 };
 
@@ -595,15 +646,24 @@ window.renderAdvancedSteps = function () {
   container.innerHTML = state.form.advancedSteps.map((s, i) => {
       const badgeColor = s.type === "PCC" ? "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-400" : s.type === "PC" ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-400" : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300";
       const imgHTML = s.image ? `<img src="${s.image}" class="mt-2 h-16 object-cover rounded border dark:border-gray-600">` : "";
+      
+      const btnUp = i > 0 ? `<button type="button" onclick="window.moveStep(${i}, 'up')" class="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 px-1.5 py-0.5 rounded text-[10px]" title="Subir">⬆️</button>` : `<span class="px-1.5 py-0.5 w-5"></span>`;
+      const btnDown = i < state.form.advancedSteps.length - 1 ? `<button type="button" onclick="window.moveStep(${i}, 'down')" class="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 px-1.5 py-0.5 rounded text-[10px]" title="Bajar">⬇️</button>` : `<span class="px-1.5 py-0.5 w-5"></span>`;
+
       return `
     <div class="bg-white dark:bg-gray-800 p-3 rounded border border-gray-200 dark:border-gray-600 mb-2 flex gap-3 fade-in group">
-      <div class="w-6 h-6 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-400 font-bold flex items-center justify-center shrink-0 text-xs">${i + 1}</div>
+      <div class="flex flex-col items-center gap-1 shrink-0">
+          <div class="w-6 h-6 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-400 font-bold flex items-center justify-center text-xs">${i + 1}</div>
+          <div class="flex flex-col gap-0.5 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              ${btnUp}${btnDown}
+          </div>
+      </div>
       <div class="flex-grow overflow-hidden">
           <div class="flex justify-between items-center mb-1">
             <span class="text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${badgeColor}">${s.type}</span>
             <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button type="button" onclick="window.editStep(${s.id})" class="text-blue-500 hover:text-blue-700 text-[10px] font-bold uppercase tracking-widest">✏️ Editar</button>
-                <button type="button" onclick="window.removeAdvancedStep(${s.id})" class="text-red-400 hover:text-red-600 font-bold">✖</button>
+                <button type="button" onclick="window.editStep(${s.id})" class="text-blue-600 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 dark:text-blue-400 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-widest transition">✏️ Editar</button>
+                <button type="button" onclick="window.removeAdvancedStep(${s.id})" class="text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-900/30 dark:hover:bg-red-900/50 px-2 py-1 rounded font-bold transition">✖</button>
             </div>
           </div>
           <div class="text-sm font-medium text-gray-800 dark:text-gray-200 leading-relaxed">${s.desc}</div>
