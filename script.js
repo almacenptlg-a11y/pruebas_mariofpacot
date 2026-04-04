@@ -328,14 +328,28 @@ window.renderMapaAreas = function() {
             <h3 class="text-xl font-bold text-gray-900 dark:text-white">${macro} <span class="text-sm font-normal text-gray-400 ml-1">(${groups[macro].length} areas)</span></h3>
         </div>
         `;
-       groups[macro].forEach(area => {
+        groups[macro].forEach(area => {
+            
             // 🛡️ Botón configurar oculto si no tiene permiso
             const btnConfig = window.getPermisos().canManageAreas ? 
                 `<button onclick="window.openAreaForm('${area.id}')" class="flex-1 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-[10px] uppercase font-bold hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 transition-colors border border-gray-200 dark:border-gray-600">CONFIGURAR</button>` : '';
 
             gridHTML += `
             <div class="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-shadow flex flex-col h-full fade-in">
-                <p class="text-xs text-gray-600 dark:text-gray-400 leading-relaxed line-clamp-2 flex-grow">${area.desc || 'Sin descripción detallada.'}</p>
+                
+                <div class="flex gap-4 mb-3">
+                    <div class="flex-shrink-0 mt-1 text-red-500 dark:text-red-400">
+                        <div class="w-10 h-10 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center border border-red-100 dark:border-red-900/50">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-gray-900 dark:text-white text-base leading-tight">${area.areaName}</h4>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 font-mono mt-1 tracking-wide">${area.poePrefix}-XXX</p>
+                    </div>
+                </div>
+
+                <p class="text-xs text-gray-600 dark:text-gray-400 leading-relaxed line-clamp-3 flex-grow">${area.desc || 'Sin descripción detallada.'}</p>
                 
                 <div class="flex gap-2 mt-4">
                     ${btnConfig}
