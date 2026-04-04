@@ -239,7 +239,8 @@
               <div class="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
               <div class="flex flex-col md:flex-row md:items-center justify-between border-b-2 border-gray-100 dark:border-gray-700 pb-3 mb-5 gap-3">
                 <h4 class="font-black text-gray-800 dark:text-gray-100 uppercase tracking-wide text-sm">3. Desarrollo del Procedimiento Operativo</h4>
-                <button type="button" onclick="window.loadPoesTemplate()" class="bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/30 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-400 px-3 py-1.5 rounded-lg text-[10px] font-black transition-all flex items-center gap-1 border border-amber-200 dark:border-amber-800">
+                
+                <button type="button" id="btnTemplatePOES" onclick="window.loadPoesTemplate()" class="hidden bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/30 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-400 px-3 py-1.5 rounded-lg text-[10px] font-black transition-all items-center gap-1 border border-amber-200 dark:border-amber-800">
                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
                    CARGAR 7 PASOS DE SANEAMIENTO (POES)
                 </button>
@@ -273,9 +274,9 @@
                   </div>
 
                   <div class="md:col-span-4 lg:col-span-3">
-                    <button type="button" onclick="window.addAdvancedStep()" class="w-full bg-blue-600 hover:bg-blue-800 dark:bg-blue-600 dark:hover:bg-blue-500 text-white px-4 py-2.5 rounded-lg font-bold text-sm shadow-md transition transform hover:-translate-y-0.5 flex items-center justify-center gap-2">
+                    <button type="button" id="btnAddStep" onclick="window.addAdvancedStep()" class="w-full bg-blue-600 hover:bg-blue-800 dark:bg-blue-600 dark:hover:bg-blue-500 text-white px-4 py-2.5 rounded-lg font-bold text-sm shadow-md transition transform hover:-translate-y-0.5 flex items-center justify-center gap-2">
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path></svg>
-                      Añadir Paso
+                      <span id="btnAddStepText">Añadir Paso</span>
                     </button>
                   </div>
                 </div>
