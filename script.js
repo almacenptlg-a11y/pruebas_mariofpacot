@@ -15,6 +15,28 @@ let state = {
     activeAreaFilter: 'TODAS'
 };
 
+window.switchTab = function(tabId) {
+    // 1. Actualizar Nav Buttons
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.classList.remove('bg-red-50', 'text-red-700', 'dark:bg-red-900/20', 'dark:text-red-400');
+        btn.classList.add('text-gray-600', 'dark:text-gray-400');
+    });
+    const activeBtn = document.getElementById(`nav-${tabId}`);
+    if(activeBtn) {
+        activeBtn.classList.remove('text-gray-600', 'dark:text-gray-400');
+        activeBtn.classList.add('bg-red-50', 'text-red-700', 'dark:bg-red-900/20', 'dark:text-red-400');
+    }
+
+    // 2. Mostrar/Ocultar Vistas
+    document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
+    const activeView = document.getElementById(`view-${tabId}`);
+    if(activeView) activeView.classList.add('active');
+
+    // 3. Renderizar Data específica
+    if(tabId === 'areas') window.renderMapaAreas();
+    if(tabId === 'poes') window.renderPOEs();
+};
+
 window.addEventListener('message', (event) => {
     const { type, user, theme } = event.data || {};
     if (type === 'THEME_UPDATE') document.documentElement.classList.toggle('dark', theme === 'dark');
@@ -239,6 +261,25 @@ window.refreshUI = async function () {
   safeSet("produccionCount", state.poes.filter((p) => p.category === "PROD").length);
   safeSet("logisticaCount", state.poes.filter((p) => p.category === "LOG").length);
   safeSet("calidadCount", state.poes.filter((p) => p.category === "CAL").length);
+
+  // Llenar datos de Usuario en Sidebar
+  if (state.user) {
+      document.getElementById('userName').textContent = state.user.nombre;
+      document.getElementById('userRole').textContent = permisos.rol;
+      const initials = state.user.nombre.substring(0, 2).toUpperCase();
+      document.getElementById('userAvatar').textContent = initials;
+  }
+
+  // Llenar filtro de áreas en la tabla
+  const filterAreaSelect = document.getElementById('filterArea');
+  if(filterAreaSelect && state.areas.length > 0 && filterAreaSelect.options.length === 1) {
+      state.areas.forEach(a => {
+          filterAreaSelect.innerHTML += `<option value="${a.areaAbbr}">${a.areaName}</option>`;
+      });
+  }
+
+  const btnNuevaArea = document.getElementById('btn-nueva-area');
+  if (btnNuevaArea) btnNuevaArea.style.display = permisos.canManageAreas ? 'flex' : 'none';  
 };
 
 window.renderPOEs = function () {
@@ -246,46 +287,58 @@ window.renderPOEs = function () {
   if (!tbody) return;
 
   const query = document.getElementById("searchInput")?.value.toLowerCase() || "";
+  const filterStat = document.getElementById("filterStatus")?.value || "ALL";
+  const filterAr = document.getElementById("filterArea")?.value || "ALL";
   const permisos = window.getPermisos(); 
 
   const filtered = state.poes.filter((p) => {
       const areaObj = state.areas.find(a => a.areaAbbr === p.subCategory);
       const srch = p.code + p.title + (areaObj ? areaObj.areaName : p.subCategory);
-      return srch.toLowerCase().includes(query);
+      
+      const matchQuery = srch.toLowerCase().includes(query);
+      const matchStatus = filterStat === "ALL" || p.status === filterStat || (filterStat === 'ACT' && p.status === 'Activo');
+      const matchArea = filterAr === "ALL" || p.subCategory === filterAr;
+
+      return matchQuery && matchStatus && matchArea;
   });
 
+  document.getElementById("lblPoeCount").textContent = filtered.length;
+
   if (filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" class="text-center p-6 text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">Sin procedimientos disponibles.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="text-center p-8 text-gray-500">Sin resultados.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = filtered.slice().reverse().map((poe) => {
-    const isPending = poe._syncStatus === "pending";
-    const badge = isPending ? `<span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-[10px] font-bold uppercase dark:bg-yellow-900/40 dark:text-yellow-300">En Cola</span>` : `<span class="bg-green-100 text-green-800 px-2 py-1 rounded text-[10px] font-bold uppercase dark:bg-green-900/40 dark:text-green-300">En Nube</span>`;
-
     const areaObj = state.areas.find((a) => a.areaAbbr === poe.subCategory);
     const areaName = areaObj ? areaObj.areaName : poe.subCategory;
 
-    // 🛡️ LÓGICA DE EDICIÓN MULTI-ÁREA (Supervisor vs Jefe)
+    // Badges según Mockup
+    let badge = `<span class="bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full text-[10px] font-bold flex items-center gap-1 w-max"><div class="w-1.5 h-1.5 rounded-full bg-gray-400"></div> Borrador</span>`;
+    if (poe.status === 'ACT' || poe.status === 'Activo') badge = `<span class="bg-green-50 text-green-700 px-2.5 py-1 rounded-full text-[10px] font-bold flex items-center gap-1 w-max border border-green-200"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg> Aprobado</span>`;
+    if (poe.status === 'REV' || poe.status === 'En Revisión') badge = `<span class="bg-yellow-50 text-yellow-700 px-2.5 py-1 rounded-full text-[10px] font-bold flex items-center gap-1 w-max border border-yellow-200"><div class="w-1.5 h-1.5 rounded-full bg-yellow-500"></div> En Revisión</span>`;
+
     const catStr = areaObj ? String(areaObj.macroName + " " + areaObj.areaName + " " + areaObj.macroAbbr + " " + areaObj.areaAbbr + " " + areaObj.id).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
-    
-    // Verificamos intersección de arrays
     const isMyArea = permisos.areas.some(userArea => catStr.includes(userArea));
     const canEditThisPOE = permisos.canEditAll || (permisos.canEditOwn && isMyArea);
 
     const actionButtons = canEditThisPOE ? `
-        <button type="button" onclick="window.editPOE('${poe.id}')" class="text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 dark:text-yellow-400 px-3 py-1.5 rounded font-semibold transition hover:bg-yellow-100 dark:hover:bg-yellow-900/40" title="Editar Documento">✏️</button>
-        <button type="button" onclick="window.deletePOE('${poe.id}')" class="text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 px-3 py-1.5 rounded font-semibold transition hover:bg-red-100 dark:hover:bg-red-900/40" title="Marcar Obsoleto">✖</button>
+        <button onclick="window.editPOE('${poe.id}')" class="text-gray-400 hover:text-blue-600 transition" title="Editar"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg></button>
+        <button onclick="window.deletePOE('${poe.id}')" class="text-gray-400 hover:text-red-600 transition" title="Eliminar"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
     ` : '';
 
+    const dateStr = new Date(poe.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+
     return `
-    <tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors ${isPending ? "bg-yellow-50/30 dark:bg-yellow-900/10" : ""}">
-      <td class="p-4 text-xs font-bold text-blue-900 dark:text-blue-400">${poe.code}</td>
-      <td class="p-4 font-bold text-gray-800 dark:text-gray-200">${poe.title}</td>
-      <td class="p-4 text-xs font-bold text-gray-600 dark:text-gray-400">${areaName}</td>
-      <td class="p-4">${badge}</td>
-      <td class="p-4 text-right flex justify-end space-x-2">
-        <button type="button" onclick="window.viewPOE('${poe.id}')" class="text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 px-3 py-1.5 rounded font-semibold transition hover:bg-blue-100 dark:hover:bg-blue-900/40" title="Ver Documento">👁️</button>
+    <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+      <td class="px-6 py-4 text-xs font-bold text-red-700">${poe.code}</td>
+      <td class="px-6 py-4 text-xs font-semibold text-gray-800">${poe.title}</td>
+      <td class="px-6 py-4 text-xs text-gray-600">${areaName}</td>
+      <td class="px-6 py-4 text-xs text-gray-500">v${poe.version}</td>
+      <td class="px-6 py-4">${badge}</td>
+      <td class="px-6 py-4 text-xs text-gray-500">${dateStr}</td>
+      <td class="px-6 py-4 text-right flex justify-end gap-3">
+        <button onclick="window.viewPOE('${poe.id}')" class="text-gray-400 hover:text-gray-800 transition" title="Ver"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg></button>
         ${actionButtons}
       </td>
     </tr>`;
@@ -302,79 +355,66 @@ window.renderMapaAreas = function() {
     const filterContainer = document.getElementById('area-filters');
     if (!grid || !filterContainer) return;
 
-    // RENDERIZAR PÍLDORAS DINÁMICAS
     const macrosMap = new Map();
     state.areas.forEach(a => macrosMap.set(a.macroAbbr, a.macroName));
     
-    const pillBase = "px-4 py-2 rounded-full text-xs font-semibold transition-all border outline-none";
-    const pillInact = "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700";
+    const pillBase = "px-4 py-1.5 rounded-full text-sm transition-all outline-none font-medium";
+    const pillInact = "text-gray-500 hover:bg-white hover:shadow-sm";
+    const pillAct = "bg-red-700 text-white shadow-md font-bold";
     
-    let filtersHTML = `<button onclick="window.setAreaFilter('TODAS')" class="${pillBase} ${state.activeAreaFilter === 'TODAS' ? 'bg-gray-900 text-white dark:bg-gray-200 dark:text-gray-900 border-transparent shadow' : pillInact}">Todas</button>`;
+    let filtersHTML = `<button onclick="window.setAreaFilter('TODAS')" class="${pillBase} ${state.activeAreaFilter === 'TODAS' ? pillAct : pillInact}">Todas</button>`;
     
     for (let [abbr, name] of macrosMap.entries()) {
         const isAct = abbr === state.activeAreaFilter;
-        let colorCls = isAct ? 'bg-gray-900 text-white dark:bg-gray-200 dark:text-gray-900 border-transparent shadow' : pillInact;
-        // Detalle Mockup: Producción se pone rojo
-        if(isAct && abbr === 'PROD') colorCls = 'bg-red-700 text-white border-red-800 shadow';
-
-        filtersHTML += `<button onclick="window.setAreaFilter('${abbr}')" class="${pillBase} ${colorCls}">${name}</button>`;
+        filtersHTML += `<button onclick="window.setAreaFilter('${abbr}')" class="${pillBase} ${isAct ? pillAct : pillInact}">${name}</button>`;
     }
     filterContainer.innerHTML = filtersHTML;
 
-    // RENDERIZAR TARJETAS AGRUPADAS
     let areasToRender = state.activeAreaFilter === 'TODAS' ? state.areas : state.areas.filter(a => a.macroAbbr === state.activeAreaFilter);
-    
     const groups = {};
-    areasToRender.forEach(a => {
-        if(!groups[a.macroName]) groups[a.macroName] = [];
-        groups[a.macroName].push(a);
-    });
+    areasToRender.forEach(a => { if(!groups[a.macroName]) groups[a.macroName] = []; groups[a.macroName].push(a); });
+
+    // Colores semánticos según Macro-Área (Mockup)
+    const getMacroColor = (macroName) => {
+        const m = macroName.toUpperCase();
+        if(m.includes('PROD')) return 'bg-red-700';
+        if(m.includes('LOG')) return 'bg-blue-600';
+        if(m.includes('CAL')) return 'bg-orange-500';
+        return 'bg-gray-700';
+    };
 
     let gridHTML = '';
     for (let macro in groups) {
+        const colorClass = getMacroColor(macro);
         gridHTML += `
-        <div class="col-span-full mt-8 mb-2 flex items-center gap-2">
-            <div class="w-3 h-3 rounded-full bg-red-600 shadow-sm"></div>
-            <h3 class="text-xl font-bold text-gray-900 dark:text-white">${macro} <span class="text-sm font-normal text-gray-400 ml-1">(${groups[macro].length} areas)</span></h3>
+        <div class="col-span-full mt-6 mb-2 flex items-center gap-2">
+            <div class="w-3 h-3 rounded-full ${colorClass}"></div>
+            <h3 class="text-lg font-black text-gray-900">${macro} <span class="text-sm font-normal text-gray-400 ml-1">(${groups[macro].length} areas)</span></h3>
         </div>
         `;
         groups[macro].forEach(area => {
-            
-            // 🛡️ Botón configurar oculto si no tiene permiso
-            const btnConfig = window.getPermisos().canManageAreas ? 
-                `<button onclick="window.openAreaForm('${area.id}')" class="flex-1 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-[10px] uppercase font-bold hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 transition-colors border border-gray-200 dark:border-gray-600">CONFIGURAR</button>` : '';
-
+            const btnConfig = window.getPermisos().canManageAreas ? `<button onclick="window.openAreaForm('${area.id}')" class="mt-4 text-xs font-bold text-gray-500 hover:text-gray-800 transition">Configurar</button>` : '';
             gridHTML += `
-            <div class="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-shadow flex flex-col h-full fade-in">
-                
-                <div class="flex gap-4 mb-3">
-                    <div class="flex-shrink-0 mt-1 text-red-500 dark:text-red-400">
-                        <div class="w-10 h-10 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center border border-red-100 dark:border-red-900/50">
+            <div class="bg-white rounded-xl p-5 border border-gray-200 shadow-sm hover:shadow-md transition-shadow relative cursor-pointer hover:border-red-200 group" onclick="window.switchTab('poes'); document.getElementById('searchInput').value = '${area.areaName}'; window.renderPOEs();">
+                <div class="flex gap-4">
+                    <div class="flex-shrink-0">
+                        <div class="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center text-red-600 group-hover:bg-red-100 transition">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                         </div>
                     </div>
                     <div>
-                        <h4 class="font-bold text-gray-900 dark:text-white text-base leading-tight">${area.areaName}</h4>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 font-mono mt-1 tracking-wide">${area.poePrefix}-XXX</p>
+                        <h4 class="font-bold text-gray-900 text-sm">${area.areaName}</h4>
+                        <p class="text-[10px] text-gray-500 font-mono tracking-widest mt-0.5 mb-2 uppercase">${area.poePrefix}-XXX</p>
+                        <p class="text-xs text-gray-600 leading-relaxed line-clamp-2">${area.desc || 'Área estructural.'}</p>
+                        ${btnConfig}
                     </div>
-                </div>
-
-                <p class="text-xs text-gray-600 dark:text-gray-400 leading-relaxed line-clamp-3 flex-grow">${area.desc || 'Sin descripción detallada.'}</p>
-                
-                <div class="flex gap-2 mt-4">
-                    ${btnConfig}
-                    <button onclick="window.closeAreasModal(); document.getElementById('searchInput').value = '${area.areaName}'; window.refreshUI();" class="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-[10px] uppercase font-bold hover:bg-blue-700 shadow-md transition-all">VER POEs</button>
                 </div>
             </div>
             `;
         });
     }
     
-    if (areasToRender.length === 0) {
-        grid.innerHTML = `<div class="col-span-full py-20 text-center border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-2xl text-gray-400 dark:text-gray-500">No hay áreas operativas.</div>`;
-    } else {
-        grid.innerHTML = gridHTML;
-    }
+    grid.innerHTML = areasToRender.length === 0 ? `<div class="col-span-full py-10 text-center text-gray-400">No hay áreas.</div>` : gridHTML;
 };
 
 window.openAreasModal = function () {
