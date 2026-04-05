@@ -29,10 +29,17 @@ window.addEventListener('message', (event) => {
 });
 
 window.getPermisos = function() {
-    if (!state.user) return { rol: 'GUEST', area: '', canViewAll: false, canEditAll: false, canEditOwn: false, canManageAreas: false };
+    if (!state.user) return { rol: 'GUEST', areas: [], canViewAll: false, canEditAll: false, canEditOwn: false, canManageAreas: false };
     
     const rol = String(state.user.rol).toUpperCase();
-    const areaUser = String(state.user.area).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+    // 🧠 LÓGICA ROBUSTA PARA MÚLTIPLES ÁREAS (Soporta Arrays o Strings con comas)
+    let assignedAreas = [];
+    if (Array.isArray(state.user.area)) {
+        assignedAreas = state.user.area.map(a => String(a).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
+    } else if (typeof state.user.area === 'string') {
+        assignedAreas = state.user.area.split(',').map(a => a.trim().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
+    }
 
     const isOperario = rol === 'OPERARIO';
     const isSupervisor = rol === 'SUPERVISOR';
@@ -42,13 +49,10 @@ window.getPermisos = function() {
 
     return { 
         rol: rol, 
-        area: areaUser,
-        // Visibilidad en Tablas:
+        areas: assignedAreas, // 👈 Ahora es un Array plural
         canViewAll: isSupervisor || isJefe || isGerente || isAdmin,
-        // Creación/Edición de POEs:
         canEditAll: isJefe || isAdmin,
         canEditOwn: isSupervisor,
-        // Configuración de la BD de Áreas:
         canManageAreas: isJefe || isAdmin
     };
 };
@@ -198,17 +202,21 @@ window.refreshUI = async function () {
   const allPoes = await POEDB.getAll("poes");
   const permisos = window.getPermisos();
 
-  // 1. FILTRO DE VISIBILIDAD DE POES
+// 1. FILTRO DE VISIBILIDAD DE POES
   state.poes = allPoes.filter((p) => {
     const s = String(p.status || "").trim().toUpperCase();
     const isActive = (s === "ACT" || s === "REV" || s === "ACTIVO" || s === "EN REVISION" || s === "EN REVISIÓN");
     if (!isActive) return false;
 
-    // Si no puede ver todos (Ej: Operario), filtramos estrictamente por su área
+    // Si no puede ver todos (Ej: Operario), filtramos por su ARREGLO de áreas
     if (!permisos.canViewAll) {
         const areaDef = state.areas.find(a => a.areaAbbr === p.subCategory);
-        const catStr = areaDef ? String(areaDef.macroName + " " + areaDef.areaName).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
-        if (!catStr.includes(permisos.area)) return false; 
+        // Construimos un "Mega-String" con todos los datos del área para asegurar el match
+        const catStr = areaDef ? String(areaDef.macroName + " " + areaDef.areaName + " " + areaDef.macroAbbr + " " + areaDef.areaAbbr + " " + areaDef.id).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
+        
+        // ¿Alguna de las áreas del usuario está incluida en los datos de esta área?
+        const isMyArea = permisos.areas.some(userArea => catStr.includes(userArea));
+        if (!isMyArea) return false; 
     }
     return true;
   });
@@ -258,9 +266,11 @@ window.renderPOEs = function () {
     const areaObj = state.areas.find((a) => a.areaAbbr === poe.subCategory);
     const areaName = areaObj ? areaObj.areaName : poe.subCategory;
 
-    // 🛡️ LÓGICA DE EDICIÓN (Supervisor vs Jefe)
-    const catStr = areaObj ? String(areaObj.macroName + " " + areaObj.areaName).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
-    const isMyArea = catStr.includes(permisos.area);
+    // 🛡️ LÓGICA DE EDICIÓN MULTI-ÁREA (Supervisor vs Jefe)
+    const catStr = areaObj ? String(areaObj.macroName + " " + areaObj.areaName + " " + areaObj.macroAbbr + " " + areaObj.areaAbbr + " " + areaObj.id).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
+    
+    // Verificamos intersección de arrays
+    const isMyArea = permisos.areas.some(userArea => catStr.includes(userArea));
     const canEditThisPOE = permisos.canEditAll || (permisos.canEditOwn && isMyArea);
 
     const actionButtons = canEditThisPOE ? `
