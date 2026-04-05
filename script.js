@@ -15,8 +15,69 @@ let state = {
     activeAreaFilter: 'TODAS'
 };
 
+// ==========================================
+// 🛠️ MOTOR DE POPUPS DEL SISTEMA (Custom Alerts)
+// ==========================================
+window.sysAlert = function(message, type = 'info') {
+    return new Promise(resolve => {
+        const colors = {
+            error: 'bg-red-100 text-red-800 border-red-200',
+            warning: 'bg-amber-100 text-amber-800 border-amber-200',
+            success: 'bg-green-100 text-green-800 border-green-200',
+            info: 'bg-blue-100 text-blue-800 border-blue-200'
+        };
+        const icons = { error: '❌', warning: '⚠️', success: '✅', info: 'ℹ️' };
+        
+        const modal = document.createElement('div');
+        modal.className = 'fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4 transition-opacity';
+        modal.innerHTML = `
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 max-w-sm w-full overflow-hidden transform scale-100 transition-transform">
+                <div class="p-6 text-center">
+                    <div class="w-16 h-16 mx-auto rounded-full flex items-center justify-center text-3xl mb-4 ${colors[type]} border-2">
+                        ${icons[type]}
+                    </div>
+                    <h3 class="text-lg font-black text-gray-900 dark:text-white mb-2 tracking-tight">Mensaje del Sistema</h3>
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400 whitespace-pre-line leading-relaxed">${message}</p>
+                </div>
+                <div class="px-6 py-4 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-700 flex justify-center">
+                    <button class="bg-gray-900 hover:bg-black text-white dark:bg-gray-700 dark:hover:bg-gray-600 px-8 py-2.5 rounded-xl text-sm font-bold shadow-md transition-all" id="btnAlertOk">Entendido</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        document.getElementById('btnAlertOk').onclick = () => { modal.remove(); resolve(); };
+    });
+};
+
+window.sysConfirm = function(message) {
+    return new Promise(resolve => {
+        const modal = document.createElement('div');
+        modal.className = 'fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4 transition-opacity';
+        modal.innerHTML = `
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 max-w-sm w-full overflow-hidden transform scale-100 transition-transform">
+                <div class="p-6 text-center">
+                    <div class="w-16 h-16 mx-auto rounded-full flex items-center justify-center text-3xl mb-4 bg-amber-100 text-amber-800 border-2 border-amber-200">
+                        ⚠️
+                    </div>
+                    <h3 class="text-lg font-black text-gray-900 dark:text-white mb-2 tracking-tight">Confirmación Requerida</h3>
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400 whitespace-pre-line leading-relaxed">${message}</p>
+                </div>
+                <div class="px-6 py-4 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-700 flex gap-3 justify-center">
+                    <button class="flex-1 bg-white border-2 border-gray-200 text-gray-600 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 hover:bg-gray-50 px-4 py-2.5 rounded-xl text-sm font-bold transition-all" id="btnConfirmCancel">Cancelar</button>
+                    <button class="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold shadow-md transition-all" id="btnConfirmOk">Confirmar</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        document.getElementById('btnConfirmOk').onclick = () => { modal.remove(); resolve(true); };
+        document.getElementById('btnConfirmCancel').onclick = () => { modal.remove(); resolve(false); };
+    });
+};
+
+// ==========================================
+// TABS Y NAVEGACIÓN SPA
+// ==========================================
 window.switchTab = function(tabId) {
-    // 1. Actualizar Nav Buttons
     document.querySelectorAll('.nav-btn').forEach(btn => {
         btn.classList.remove('bg-red-50', 'text-red-700', 'dark:bg-red-900/20', 'dark:text-red-400');
         btn.classList.add('text-gray-600', 'dark:text-gray-400');
@@ -27,12 +88,10 @@ window.switchTab = function(tabId) {
         activeBtn.classList.add('bg-red-50', 'text-red-700', 'dark:bg-red-900/20', 'dark:text-red-400');
     }
 
-    // 2. Mostrar/Ocultar Vistas
     document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
     const activeView = document.getElementById(`view-${tabId}`);
     if(activeView) activeView.classList.add('active');
 
-    // 3. Renderizar Data específica
     if(tabId === 'areas') window.renderMapaAreas();
     if(tabId === 'poes') window.renderPOEs();
 };
@@ -54,8 +113,6 @@ window.getPermisos = function() {
     if (!state.user) return { rol: 'GUEST', areas: [], canViewAll: false, canEditAll: false, canEditOwn: false, canManageAreas: false };
     
     const rol = String(state.user.rol).toUpperCase();
-
-    // 🧠 LÓGICA ROBUSTA PARA MÚLTIPLES ÁREAS (Soporta Arrays o Strings con comas)
     let assignedAreas = [];
     if (Array.isArray(state.user.area)) {
         assignedAreas = state.user.area.map(a => String(a).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
@@ -71,7 +128,7 @@ window.getPermisos = function() {
 
     return { 
         rol: rol, 
-        areas: assignedAreas, // 👈 Ahora es un Array plural
+        areas: assignedAreas, 
         canViewAll: isSupervisor || isJefe || isGerente || isAdmin,
         canEditAll: isJefe || isAdmin,
         canEditOwn: isSupervisor,
@@ -148,9 +205,6 @@ const POEDB = {
   }
 };
 
-
-
-// 🆕 DICCIONARIOS BASADOS EN 8 COLUMNAS
 window.buildDynamicDictionaries = function () {
   const selectCategory = document.getElementById("category");
   if (!selectCategory || state.areas.length === 0) return;
@@ -205,7 +259,6 @@ window.generatePoeCode = function () {
   const modalTitle = document.getElementById("modalTitle");
   if (modalTitle && !state.form.editingId) modalTitle.textContent = `Registrar ${docType} (GFSI)`;
 
-  // 🧪 Mostrar/Ocultar el Botón de Plantilla POES
   const btnTemplate = document.getElementById("btnTemplatePOES");
   if (btnTemplate) {
       if (isPOES) {
@@ -224,33 +277,25 @@ window.refreshUI = async function () {
   const allPoes = await POEDB.getAll("poes");
   const permisos = window.getPermisos();
 
-// 1. FILTRO DE VISIBILIDAD DE POES
   state.poes = allPoes.filter((p) => {
     const s = String(p.status || "").trim().toUpperCase();
     const isActive = (s === "ACT" || s === "REV" || s === "ACTIVO" || s === "EN REVISION" || s === "EN REVISIÓN");
     if (!isActive) return false;
 
-    // Si no puede ver todos (Ej: Operario), filtramos por su ARREGLO de áreas
     if (!permisos.canViewAll) {
         const areaDef = state.areas.find(a => a.areaAbbr === p.subCategory);
-        // Construimos un "Mega-String" con todos los datos del área para asegurar el match
         const catStr = areaDef ? String(areaDef.macroName + " " + areaDef.areaName + " " + areaDef.macroAbbr + " " + areaDef.areaAbbr + " " + areaDef.id).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
         
-        // ¿Alguna de las áreas del usuario está incluida en los datos de esta área?
         const isMyArea = permisos.areas.some(userArea => catStr.includes(userArea));
         if (!isMyArea) return false; 
     }
     return true;
   });
 
-  // 2. VISIBILIDAD DE BOTONES PRINCIPALES
   const btnNuevo = document.getElementById('btn-nuevo-poe');
   const btnMapa = document.getElementById('btn-mapa-areas');
   
-  // Nuevo POE: Solo si puede editar todo o editar lo suyo
   if (btnNuevo) btnNuevo.style.display = (permisos.canEditAll || permisos.canEditOwn) ? 'flex' : 'none';
-  
-  // Mapa Áreas: Ahora TODOS pueden ver el mapa (según el requerimiento)
   if (btnMapa) btnMapa.style.display = 'flex'; 
 
   window.buildDynamicDictionaries();
@@ -262,15 +307,22 @@ window.refreshUI = async function () {
   safeSet("logisticaCount", state.poes.filter((p) => p.category === "LOG").length);
   safeSet("calidadCount", state.poes.filter((p) => p.category === "CAL").length);
 
-  // Llenar datos de Usuario en Sidebar
   if (state.user) {
       document.getElementById('userName').textContent = state.user.nombre;
-      document.getElementById('userRole').textContent = permisos.rol;
+      
+      // 🛠️ RENDER DE ROL + ÁREAS EN SIDEBAR
+      const rolFormat = `<span class="font-black text-gray-700 dark:text-gray-300">${permisos.rol}</span>`;
+      const areasFormat = permisos.areas.length > 0 
+          ? `<span class="text-gray-400 dark:text-gray-500 font-medium"> | ${permisos.areas.join(', ')}</span>` 
+          : '';
+      const userRoleEl = document.getElementById('userRole');
+      if(userRoleEl) userRoleEl.innerHTML = rolFormat + areasFormat;
+
       const initials = state.user.nombre.substring(0, 2).toUpperCase();
-      document.getElementById('userAvatar').textContent = initials;
+      const avatarEl = document.getElementById('userAvatar');
+      if(avatarEl) avatarEl.textContent = initials;
   }
 
-  // Llenar filtro de áreas en la tabla
   const filterAreaSelect = document.getElementById('filterArea');
   if(filterAreaSelect && state.areas.length > 0 && filterAreaSelect.options.length === 1) {
       state.areas.forEach(a => {
@@ -302,7 +354,8 @@ window.renderPOEs = function () {
       return matchQuery && matchStatus && matchArea;
   });
 
-  document.getElementById("lblPoeCount").textContent = filtered.length;
+  const countLabel = document.getElementById("lblPoeCount");
+  if(countLabel) countLabel.textContent = filtered.length;
 
   if (filtered.length === 0) {
     tbody.innerHTML = `<tr><td colspan="7" class="text-center p-8 text-gray-500">Sin resultados.</td></tr>`;
@@ -313,7 +366,6 @@ window.renderPOEs = function () {
     const areaObj = state.areas.find((a) => a.areaAbbr === poe.subCategory);
     const areaName = areaObj ? areaObj.areaName : poe.subCategory;
 
-    // Badges según Mockup
     let badge = `<span class="bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full text-[10px] font-bold flex items-center gap-1 w-max"><div class="w-1.5 h-1.5 rounded-full bg-gray-400"></div> Borrador</span>`;
     if (poe.status === 'ACT' || poe.status === 'Activo') badge = `<span class="bg-green-50 text-green-700 px-2.5 py-1 rounded-full text-[10px] font-bold flex items-center gap-1 w-max border border-green-200"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg> Aprobado</span>`;
     if (poe.status === 'REV' || poe.status === 'En Revisión') badge = `<span class="bg-yellow-50 text-yellow-700 px-2.5 py-1 rounded-full text-[10px] font-bold flex items-center gap-1 w-max border border-yellow-200"><div class="w-1.5 h-1.5 rounded-full bg-yellow-500"></div> En Revisión</span>`;
@@ -330,15 +382,15 @@ window.renderPOEs = function () {
     const dateStr = new Date(poe.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
 
     return `
-    <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-      <td class="px-6 py-4 text-xs font-bold text-red-700">${poe.code}</td>
-      <td class="px-6 py-4 text-xs font-semibold text-gray-800">${poe.title}</td>
-      <td class="px-6 py-4 text-xs text-gray-600">${areaName}</td>
+    <tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors">
+      <td class="px-6 py-4 text-xs font-bold text-red-700 dark:text-red-400">${poe.code}</td>
+      <td class="px-6 py-4 text-xs font-semibold text-gray-800 dark:text-gray-200">${poe.title}</td>
+      <td class="px-6 py-4 text-xs text-gray-600 dark:text-gray-400">${areaName}</td>
       <td class="px-6 py-4 text-xs text-gray-500">v${poe.version}</td>
       <td class="px-6 py-4">${badge}</td>
       <td class="px-6 py-4 text-xs text-gray-500">${dateStr}</td>
       <td class="px-6 py-4 text-right flex justify-end gap-3">
-        <button onclick="window.viewPOE('${poe.id}')" class="text-gray-400 hover:text-gray-800 transition" title="Ver"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg></button>
+        <button onclick="window.viewPOE('${poe.id}')" class="text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition" title="Ver"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg></button>
         ${actionButtons}
       </td>
     </tr>`;
@@ -359,7 +411,7 @@ window.renderMapaAreas = function() {
     state.areas.forEach(a => macrosMap.set(a.macroAbbr, a.macroName));
     
     const pillBase = "px-4 py-1.5 rounded-full text-sm transition-all outline-none font-medium";
-    const pillInact = "text-gray-500 hover:bg-white hover:shadow-sm";
+    const pillInact = "text-gray-500 hover:bg-white hover:shadow-sm dark:text-gray-400 dark:hover:bg-gray-700";
     const pillAct = "bg-red-700 text-white shadow-md font-bold";
     
     let filtersHTML = `<button onclick="window.setAreaFilter('TODAS')" class="${pillBase} ${state.activeAreaFilter === 'TODAS' ? pillAct : pillInact}">Todas</button>`;
@@ -374,7 +426,6 @@ window.renderMapaAreas = function() {
     const groups = {};
     areasToRender.forEach(a => { if(!groups[a.macroName]) groups[a.macroName] = []; groups[a.macroName].push(a); });
 
-    // Colores semánticos según Macro-Área (Mockup)
     const getMacroColor = (macroName) => {
         const m = macroName.toUpperCase();
         if(m.includes('PROD')) return 'bg-red-700';
@@ -389,23 +440,23 @@ window.renderMapaAreas = function() {
         gridHTML += `
         <div class="col-span-full mt-6 mb-2 flex items-center gap-2">
             <div class="w-3 h-3 rounded-full ${colorClass}"></div>
-            <h3 class="text-lg font-black text-gray-900">${macro} <span class="text-sm font-normal text-gray-400 ml-1">(${groups[macro].length} areas)</span></h3>
+            <h3 class="text-lg font-black text-gray-900 dark:text-white">${macro} <span class="text-sm font-normal text-gray-400 ml-1">(${groups[macro].length} areas)</span></h3>
         </div>
         `;
         groups[macro].forEach(area => {
-            const btnConfig = window.getPermisos().canManageAreas ? `<button onclick="window.openAreaForm('${area.id}')" class="mt-4 text-xs font-bold text-gray-500 hover:text-gray-800 transition">Configurar</button>` : '';
+            const btnConfig = window.getPermisos().canManageAreas ? `<button onclick="window.openAreaForm('${area.id}'); event.stopPropagation();" class="mt-4 text-xs font-bold text-gray-500 hover:text-gray-800 dark:hover:text-white transition z-10 relative">Configurar</button>` : '';
             gridHTML += `
-            <div class="bg-white rounded-xl p-5 border border-gray-200 shadow-sm hover:shadow-md transition-shadow relative cursor-pointer hover:border-red-200 group" onclick="window.switchTab('poes'); document.getElementById('searchInput').value = '${area.areaName}'; window.renderPOEs();">
+            <div class="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-shadow relative cursor-pointer hover:border-red-200 dark:hover:border-red-800 group" onclick="window.switchTab('poes'); document.getElementById('searchInput').value = '${area.areaName}'; window.renderPOEs();">
                 <div class="flex gap-4">
                     <div class="flex-shrink-0">
-                        <div class="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center text-red-600 group-hover:bg-red-100 transition">
+                        <div class="w-10 h-10 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center text-red-600 dark:text-red-400 group-hover:bg-red-100 dark:group-hover:bg-red-900/40 transition">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                         </div>
                     </div>
                     <div>
-                        <h4 class="font-bold text-gray-900 text-sm">${area.areaName}</h4>
-                        <p class="text-[10px] text-gray-500 font-mono tracking-widest mt-0.5 mb-2 uppercase">${area.poePrefix}-XXX</p>
-                        <p class="text-xs text-gray-600 leading-relaxed line-clamp-2">${area.desc || 'Área estructural.'}</p>
+                        <h4 class="font-bold text-gray-900 dark:text-white text-sm">${area.areaName}</h4>
+                        <p class="text-[10px] text-gray-500 dark:text-gray-400 font-mono tracking-widest mt-0.5 mb-2 uppercase">${area.poePrefix}-XXX</p>
+                        <p class="text-xs text-gray-600 dark:text-gray-400 leading-relaxed line-clamp-2">${area.desc || 'Área estructural.'}</p>
                         ${btnConfig}
                     </div>
                 </div>
@@ -424,7 +475,6 @@ window.openAreasModal = function () {
         m.classList.add("flex");
         window.setAreaFilter('TODAS'); 
         
-        // 🛡️ Ocultar el botón "Nueva Área" en la cabecera si no es Jefe/Admin
         const btnNewArea = document.querySelector('button[onclick="window.openAreaForm()"]');
         if (btnNewArea) {
             btnNewArea.style.display = window.getPermisos().canManageAreas ? 'flex' : 'none';
@@ -436,10 +486,6 @@ window.closeAreasModal = function () {
     const m = document.getElementById("areasModal");
     if (m) { m.classList.add("hidden"); m.classList.remove("flex"); }
 };
-
-// --------------------------------------------------------
-// LÓGICA DE FORMULARIO DE ÁREAS (CRUD DINÁMICO)
-// --------------------------------------------------------
 
 window.toggleNewMacroFields = function() {
     const val = document.getElementById("cfgAreaMacro").value;
@@ -463,7 +509,6 @@ window.autoCalcPrefix = function() {
     const macroSel = document.getElementById("cfgAreaMacro").value;
     let macroAbbr = "";
     
-    // Extraer la abreviatura de la Macro elegida o la nueva escrita
     if (macroSel === 'NEW') {
         macroAbbr = document.getElementById("cfgNewMacroAbbr").value.trim().toUpperCase();
     } else if (macroSel) {
@@ -472,7 +517,6 @@ window.autoCalcPrefix = function() {
     
     const areaAbbr = document.getElementById("cfgAreaAbbr").value.trim().toUpperCase();
     
-    // Si tenemos ambas, calculamos el prefijo final dinámicamente
     if (macroAbbr && areaAbbr) {
         document.getElementById("cfgAreaPrefix").value = `${macroAbbr}-${areaAbbr}`;
     }
@@ -487,7 +531,6 @@ window.openAreaForm = function(id = null) {
     state.form.editingAreaId = id;
     document.getElementById("areaFormTitle").textContent = id ? "Editar Área Operativa" : "Registrar Nueva Área";
 
-    // 1. Cargar Macro-Áreas dinámicas de la BD
     const macroSelect = document.getElementById("cfgAreaMacro");
     const macrosMap = new Map();
     state.areas.forEach(a => macrosMap.set(a.macroAbbr, a.macroName));
@@ -499,15 +542,13 @@ window.openAreaForm = function(id = null) {
     options += '<option value="NEW" class="font-bold text-blue-600 dark:text-blue-400">✨ CREAR NUEVA MACRO-ÁREA...</option>';
     macroSelect.innerHTML = options;
 
-    window.toggleNewMacroFields(); // Ocultar campos nuevos por defecto
+    window.toggleNewMacroFields(); 
 
-    // 2. Cargar datos si es edición
     if (id) {
         const area = state.areas.find(a => a.id === id);
         if (area) {
             const macroVal = `${area.macroAbbr}|${area.macroName}`;
             
-            // Si la macro existe en el select, la marcamos. Si no, forzamos creación.
             const optionExists = Array.from(macroSelect.options).some(opt => opt.value === macroVal);
             if (optionExists) {
                 macroSelect.value = macroVal;
@@ -537,8 +578,8 @@ window.closeAreaForm = function() {
 
 window.handleAreaSubmit = async function(e) {
     e.preventDefault();
-    if (!state.isSessionVerified || !state.user) return alert("Acción bloqueada: Esperando autorización del HUB.");
-    if (!window.getPermisos().canEdit) return alert("Acción denegada. Rol insuficiente.");
+    if (!state.isSessionVerified || !state.user) return await window.sysAlert("Acción bloqueada: Esperando autorización del HUB.", "error");
+    if (!window.getPermisos().canManageAreas) return await window.sysAlert("Acción denegada. Permisos de administrador requeridos.", "error");
 
     const btn = document.getElementById('btnSaveArea');
     const origHTML = btn.innerHTML;
@@ -551,7 +592,6 @@ window.handleAreaSubmit = async function(e) {
     let macroName, macroAbbr;
     const macroSel = document.getElementById("cfgAreaMacro").value;
     
-    // Validar de dónde sacamos la Macro (Del Select o de los inputs nuevos)
     if (macroSel === 'NEW') {
         macroName = document.getElementById("cfgNewMacroName").value.trim();
         macroAbbr = document.getElementById("cfgNewMacroAbbr").value.trim().toUpperCase();
@@ -588,18 +628,18 @@ window.handleAreaSubmit = async function(e) {
             }
             
             window.closeAreaForm();
-            window.renderMapaAreas(); // 🔄 Refrescar tarjetas de áreas y filtros
-            window.refreshUI();       // 🔄 Refrescar los selectores del POE principal
+            window.renderMapaAreas(); 
+            window.refreshUI();       
+            await window.sysAlert("Área guardada exitosamente.", "success");
         } else {
-            alert("Error del Servidor: " + r.message);
+            await window.sysAlert("Error del Servidor: " + r.message, "error");
         }
     } catch (err) {
-        alert("Error de Red al guardar en la nube. Revise su conexión.");
+        await window.sysAlert("Error de Red al guardar en la nube. Revise su conexión.", "error");
     } finally {
         btn.disabled = false; btn.innerHTML = origHTML;
     }
 };
-
 
 window.updateFileText = function (input) {
   const d = document.getElementById("fileNameDisplay");
@@ -613,9 +653,12 @@ window.updateFileText = function (input) {
   }
 };
 
-window.addAdvancedStep = function () {
+window.addAdvancedStep = async function () {
   const desc = getFieldValue("stepDesc");
-  if (!desc || desc === "<br>") return alert("Describa el paso operativo.");
+  if (!desc || desc === "<br>") {
+      await window.sysAlert("Por favor, describa la instrucción operativa para este paso.", "warning");
+      return;
+  }
 
   const typeInput = document.getElementById("stepType");
   const fileInput = document.getElementById("stepImage");
@@ -623,7 +666,6 @@ window.addAdvancedStep = function () {
 
   const processStep = (imageBase64) => {
       if (state.form.editingStepId) {
-          // MODO ACTUALIZACIÓN (Mantiene la posición)
           const idx = state.form.advancedSteps.findIndex(s => s.id === state.form.editingStepId);
           if (idx > -1) {
               state.form.advancedSteps[idx].desc = desc;
@@ -631,7 +673,6 @@ window.addAdvancedStep = function () {
               if (imageBase64 !== undefined) state.form.advancedSteps[idx].image = imageBase64; 
           }
       } else {
-          // MODO NUEVO PASO (Añade al final)
           state.form.advancedSteps.push({ id: Date.now(), desc, type, image: imageBase64 || null });
       }
       _resetStepUI();
@@ -651,7 +692,7 @@ window.addAdvancedStep = function () {
     };
     reader.readAsDataURL(fileInput.files[0]);
   } else {
-    processStep(undefined); // undefined = "mantener imagen actual" si estamos editando
+    processStep(undefined); 
   }
 };
 
@@ -662,7 +703,6 @@ function _resetStepUI() {
   
   state.form.editingStepId = null; 
   
-  // Resetear botón a estado "Añadir"
   const btn = document.getElementById("btnAddStep");
   const btnTxt = document.getElementById("btnAddStepText");
   if(btnTxt) btnTxt.textContent = "Añadir Paso";
@@ -687,7 +727,6 @@ window.editStep = function(id) {
     document.getElementById("stepType").value = step.type;
     state.form.editingStepId = id; 
     
-    // Cambiar botón a estado "Actualizar" (Verde)
     const btn = document.getElementById("btnAddStep");
     const btnTxt = document.getElementById("btnAddStepText");
     if(btnTxt) btnTxt.textContent = "Actualizar Paso";
@@ -700,7 +739,6 @@ window.editStep = function(id) {
     document.getElementById("stepDesc").focus();
 };
 
-// ⬆️⬇️ LÓGICA DE REORDENAMIENTO
 window.moveStep = function(index, direction) {
     if (direction === 'up' && index > 0) {
         const temp = state.form.advancedSteps[index];
@@ -714,9 +752,10 @@ window.moveStep = function(index, direction) {
     window.renderAdvancedSteps();
 };
 
-window.loadPoesTemplate = function() {
+window.loadPoesTemplate = async function() {
     if (state.form.advancedSteps.length > 0) {
-        if (!confirm("Se perderán los pasos actuales. ¿Cargar plantilla?")) return;
+        const confirmed = await window.sysConfirm("Se reemplazarán los pasos actuales.\n¿Desea cargar la plantilla de limpieza?");
+        if (!confirmed) return;
     }
     state.form.advancedSteps = [
         { id: Date.now()+1, type: 'INFO', desc: '<b>PASO 1: Limpieza en Seco (Preparación).</b> Retirar restos gruesos orgánicos, desarmar piezas móviles y proteger componentes eléctricos.', image: null },
@@ -773,11 +812,19 @@ window.handleFormSubmit = async function (e) {
   e.preventDefault();
   const permisos = window.getPermisos();
   
-  if (!state.isSessionVerified || !state.user) return alert("Acción bloqueada: Esperando sincronización con el HUB.");
-  if (!permisos.canEditAll && !permisos.canEditOwn) return alert("Acción denegada. Nivel de acceso insuficiente.");
-  if (state.form.advancedSteps.length === 0) return alert("Debe incluir al menos 1 paso en el procedimiento.");
+  if (!state.isSessionVerified || !state.user) {
+      await window.sysAlert("Acción bloqueada: Esperando sincronización con el HUB central.", "error");
+      return;
+  }
+  if (!permisos.canEditAll && !permisos.canEditOwn) {
+      await window.sysAlert("Acción denegada. Nivel de acceso insuficiente.", "error");
+      return;
+  }
+  if (state.form.advancedSteps.length === 0) {
+      await window.sysAlert("El procedimiento debe incluir al menos 1 paso operativo.", "warning");
+      return;
+  }
 
-// 🛡️ Validación estricta MULTI-ÁREA para Supervisores (canEditOwn)
   if (permisos.canEditOwn && !permisos.canEditAll) {
       const cat = getFieldValue("category");
       const sub = getFieldValue("poeSubCategory");
@@ -787,7 +834,8 @@ window.handleFormSubmit = async function (e) {
       const isMyArea = permisos.areas.some(userArea => catStr.includes(userArea));
 
       if (!isMyArea) {
-          return alert(`BLOQUEO DE SEGURIDAD: Usted no tiene permisos para crear o modificar procedimientos en el área seleccionada.\n\nSus áreas autorizadas son: ${permisos.areas.join(', ')}`);
+          await window.sysAlert(`BLOQUEO DE SEGURIDAD:\nNo tiene permisos para crear o modificar procedimientos en el área seleccionada.\n\nÁreas autorizadas: ${permisos.areas.join(', ')}`, "error");
+          return;
       }
   }
 
@@ -823,11 +871,18 @@ window.handleFormSubmit = async function (e) {
   window.closeModal();
   await window.refreshUI();
   window.pushSync();
+  await window.sysAlert("Procedimiento guardado y encolado para sincronización.", "success");
 };
 
 window.deletePOE = async function (id) {
-  if (!window.getPermisos().canEdit) return alert("Acción denegada por seguridad.");
-  if (!confirm("¿Está seguro de marcar como obsoleto este procedimiento?")) return;
+  if (!window.getPermisos().canEditAll && !window.getPermisos().canEditOwn) {
+      await window.sysAlert("Acción denegada por políticas de seguridad.", "error");
+      return;
+  }
+  
+  const confirmed = await window.sysConfirm("¿Está seguro de marcar como obsoleto este procedimiento?\n\nEsta acción lo ocultará del personal operativo y no podrá deshacerse fácilmente.");
+  if (!confirmed) return;
+  
   const poe = state.poes.find((p) => p.id === id);
   if (poe) {
     poe.status = "OBS"; poe._syncStatus = "pending";
@@ -882,9 +937,6 @@ window.editPOE = function (id) {
   if (m) { m.classList.remove("hidden"); m.classList.add("flex"); }
 };
 
-// ==========================================
-// 9. VISOR DE DOCUMENTO Y EXPORTACIÓN
-// ==========================================
 window.viewPOE = function (id) {
   const poe = state.poes.find((p) => p.id === id);
   if (!poe) return;
@@ -981,7 +1033,6 @@ window.exportPOEToWord = function (id) {
   const catObj = state.areas.find((c) => c.areaAbbr === poe.subCategory);
   const catName = catObj ? catObj.areaName : poe.subCategory;
 
-  // 🧠 DETECCIÓN PARA EL TÍTULO DEL DOCUMENTO OFICIAL (POE vs POES)
   const isPOES = poe.code.startsWith('POES');
   const docTitle = isPOES ? 'Procedimiento Operativo Estandarizado de Saneamiento' : 'Procedimiento Operativo Estandarizado';
 
@@ -1002,15 +1053,12 @@ window.exportPOEToWord = function (id) {
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
 };
 
-// ==========================================
-// 10. MODALES AUXILIARES Y GESTORES
-// ==========================================
 window.openModal = function () {
   const form = document.getElementById("poe-form");
   if (form) form.reset();
 
   state.form.editingId = null;
-  document.getElementById("modalTitle").textContent = "Registrar Procedimiento";
+  document.getElementById("modalTitle").textContent = "Registrar Procedimiento (GFSI)";
 
   document.querySelectorAll('.rich-editor').forEach(el => el.innerHTML = "");
 
@@ -1034,7 +1082,7 @@ window.closeModal = function () { const m = document.getElementById("modal"); if
 window.closeViewModal = function () { const m = document.getElementById("viewModal"); if (m) { m.classList.add("hidden"); m.classList.remove("flex"); } };
 
 // ==========================================
-// 11. RED Y SINCRONIZACIÓN
+// RED Y SINCRONIZACIÓN
 // ==========================================
 window.updateNet = function (status) {
   const ind = document.getElementById("network-indicator"); const txt = document.getElementById("network-text");
@@ -1079,10 +1127,10 @@ window.pullSync = async function () {
 };
 
 window.forceSync = async function () {
-  if (!navigator.onLine) return alert("⚠️ Sistema en modo offline.");
+  if (!navigator.onLine) return await window.sysAlert("El sistema detecta pérdida de conexión. Las funciones de sincronización están pausadas.", "warning");
   const btn = document.getElementById("btnForceSync"); if (!btn) return;
   const originalHTML = btn.innerHTML;
-  btn.innerHTML = `<svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> <span>Sincronizando...</span>`;
+  btn.innerHTML = `<svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> <span>Syncing...</span>`;
   btn.disabled = true; btn.classList.add("opacity-75", "cursor-wait");
   try { window.updateNet("sync"); await window.pushSync(); await window.pullSync(); } 
   catch (error) {} 
@@ -1096,9 +1144,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   window.updateNet(navigator.onLine ? "online" : "offline"); 
   await POEDB.init(); 
   
-  // 🔑 LLAVE DE DESARROLLO - BORRAR EN PRODUCCIÓN
   if (!state.user) {
-      state.user = { nombre: 'Ingeniero', rol: 'ADMINISTRADOR', area: 'PROD', usuario: 'dev@genovesa.com' };
+      state.user = { nombre: 'Ingeniero Pruebas', rol: 'ADMINISTRADOR', area: ['DSP', 'EMP'], usuario: 'dev@genovesa.com' };
       state.isSessionVerified = true;
   }
 
