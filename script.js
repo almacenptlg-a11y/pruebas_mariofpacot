@@ -737,15 +737,17 @@ window.handleFormSubmit = async function (e) {
   if (!permisos.canEditAll && !permisos.canEditOwn) return alert("Acción denegada. Nivel de acceso insuficiente.");
   if (state.form.advancedSteps.length === 0) return alert("Debe incluir al menos 1 paso en el procedimiento.");
 
-  // 🛡️ Validación estricta para Supervisores (canEditOwn)
+// 🛡️ Validación estricta MULTI-ÁREA para Supervisores (canEditOwn)
   if (permisos.canEditOwn && !permisos.canEditAll) {
       const cat = getFieldValue("category");
       const sub = getFieldValue("poeSubCategory");
       const areaDef = state.areas.find(a => a.macroAbbr === cat && a.areaAbbr === sub);
-      const catStr = areaDef ? String(areaDef.macroName + " " + areaDef.areaName).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
+      const catStr = areaDef ? String(areaDef.macroName + " " + areaDef.areaName + " " + areaDef.macroAbbr + " " + areaDef.areaAbbr + " " + areaDef.id).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
       
-      if (!catStr.includes(permisos.area)) {
-          return alert(`BLOQUEO DE SEGURIDAD: Usted es Supervisor del área [${permisos.area}]. No tiene permisos para crear o modificar procedimientos del área seleccionada.`);
+      const isMyArea = permisos.areas.some(userArea => catStr.includes(userArea));
+
+      if (!isMyArea) {
+          return alert(`BLOQUEO DE SEGURIDAD: Usted no tiene permisos para crear o modificar procedimientos en el área seleccionada.\n\nSus áreas autorizadas son: ${permisos.areas.join(', ')}`);
       }
   }
 
