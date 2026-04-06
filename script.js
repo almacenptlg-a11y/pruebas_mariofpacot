@@ -108,7 +108,17 @@ const POEDB = {
   init() { return new Promise((resolve) => { try { const req = indexedDB.open("POE_DB_V8", 2); req.onupgradeneeded = (e) => { const db = e.target.result; if (!db.objectStoreNames.contains("poes")) db.createObjectStore("poes", { keyPath: "id" }); if (!db.objectStoreNames.contains("sync_queue")) db.createObjectStore("sync_queue", { keyPath: "id" }); if (!db.objectStoreNames.contains("sys_config")) db.createObjectStore("sys_config", { keyPath: "key" }); if (!db.objectStoreNames.contains("areas")) db.createObjectStore("areas", { keyPath: "id" }); }; req.onsuccess = (e) => { this.db = e.target.result; resolve(); }; req.onerror = () => { this.useRAM = true; resolve(); }; } catch (e) { this.useRAM = true; resolve(); } }); },
   save(store, data) { return new Promise((r) => { if (this.useRAM) { const idx = this.ramDB[store].findIndex((i) => i.id === data.id || i.key === data.key); if (idx > -1) this.ramDB[store][idx] = data; else this.ramDB[store].push(data); return r(); } const tx = this.db.transaction(store, "readwrite"); tx.objectStore(store).put(data); tx.oncomplete = r; }); },
   getAll(store) { return new Promise((r) => { if (this.useRAM) return r(this.ramDB[store]); const tx = this.db.transaction(store, "readonly"); const req = tx.objectStore(store).getAll(); req.onsuccess = () => r(req.result); }); },
-  delete(store, id) { return new Promise((r) => { if (this.useRAM) { this.ramDB[store] = this.ramDB[store].filter((i) => i.id !== id && i.key !== id); return r(); } const tx = this.db.transaction(store, "readwrite"); tx.objectStore(store).delete(id); tx.oncomplete = r; }); }
+  delete(store, id) { return new Promise((r) => { if (this.useRAM) { this.ramDB[store] = this.ramDB[store].filter((i) => i.id !== id && i.key !== id); return r(); } const tx = this.db.transaction(store, "readwrite"); tx.objectStore(store).delete(id); tx.oncomplete = r; }); },
+  
+  // 🆕 NUEVO: Método para purgar tablas completas rápidamente
+  clearStore(store) { 
+      return new Promise((r) => { 
+          if (this.useRAM) { this.ramDB[store] = []; return r(); } 
+          const tx = this.db.transaction(store, "readwrite"); 
+          tx.objectStore(store).clear(); 
+          tx.oncomplete = r; 
+      }); 
+  }
 };
 
 window.refreshUI = async function () {
@@ -536,16 +546,60 @@ window.pushSync = async function () {
 window.pullSync = async function () {
   if (!navigator.onLine) return;
   try {
-    const rA = await fetch(GAS_DICT_ENDPOINT + "?action=get_areas"); const jA = await rA.json(); if (jA.status === "success") { const oldAreas = await POEDB.getAll("areas"); for (let oa of oldAreas) await POEDB.delete("areas", oa.id); for (let a of jA.data) await POEDB.save("areas", a); }
-    const rC = await fetch(GAS_ENDPOINT + "?action=get_config"); const jC = await rC.json(); if (jC.status === "success") { const oldConfig = await POEDB.getAll("sys_config"); for (let oc of oldConfig) await POEDB.delete("sys_config", oc.key); for (let i of jC.data) await POEDB.save("sys_config", i); }
-    const rP = await fetch(GAS_ENDPOINT + "?action=get_poes"); const jP = await rP.json(); if (jP.status === "success") { const q = await POEDB.getAll("sync_queue"); const localPoes = await POEDB.getAll("poes"); for (let local of localPoes) if (!q.find((x) => x.id === local.id)) await POEDB.delete("poes", local.id); for (let p of jP.data) if (!q.find((x) => x.id === p.id)) await POEDB.save("poes", p); }
-    window.refreshUI();
-  } catch (e) { console.error(e); }
+    // 🧠 CACHE-BUSTER: Forzar descargas frescas ignorando el caché del navegador
+    const ts = Date.now(); 
+    const fetchOpts = { cache: "no-store" };
+
+    const rA = await fetch(GAS_DICT_ENDPOINT + "?action=get_areas&t=" + ts, fetchOpts); 
+    const jA = await rA.json(); 
+    if (jA.status === "success") { 
+        await POEDB.clearStore("areas"); // Destruye caché local
+        for (let a of jA.data) await POEDB.save("areas", a); 
+    }
+
+    const rC = await fetch(GAS_ENDPOINT + "?action=get_config&t=" + ts, fetchOpts); 
+    const jC = await rC.json(); 
+    if (jC.status === "success") { 
+        await POEDB.clearStore("sys_config"); // Destruye caché local
+        for (let i of jC.data) await POEDB.save("sys_config", i); 
+    }
+
+    const rP = await fetch(GAS_ENDPOINT + "?action=get_poes&t=" + ts, fetchOpts); 
+    const jP = await rP.json(); 
+    if (jP.status === "success") { 
+        const q = await POEDB.getAll("sync_queue"); 
+        const localPoes = await POEDB.getAll("poes"); 
+        
+        // Limpiamos locales que no estén pendientes de subir
+        for (let local of localPoes) {
+            if (!q.find((x) => x.id === local.id)) await POEDB.delete("poes", local.id);
+        }
+        // Guardamos las versiones frescas de la nube
+        for (let p of jP.data) {
+            if (!q.find((x) => x.id === p.id)) await POEDB.save("poes", p);
+        }
+    }
+    
+    await window.refreshUI();
+  } catch (e) { console.error("Error de Sincronización:", e); }
 };
 
 window.forceSync = async function () {
-  if (!navigator.onLine) return await window.sysAlert("Sistema en modo offline.", "warning");
-  try { window.updateNet("sync"); await window.pushSync(); await window.pullSync(); } catch (error) {} finally { window.updateNet(navigator.onLine ? "online" : "offline"); }
+  if (!navigator.onLine) {
+      return await window.sysAlert("El sistema detecta pérdida de conexión. Las funciones de sincronización están pausadas.", "warning");
+  }
+  
+  try { 
+      window.updateNet("sync"); 
+      await window.pushSync(); // Sube pendientes
+      await window.pullSync(); // Descarga frescos rompiendo caché
+      
+      await window.sysAlert("Base de datos sincronizada y caché actualizado correctamente.", "success");
+  } catch (error) {
+      await window.sysAlert("Ocurrió un error al intentar sincronizar con los servidores de Google.", "error");
+  } finally { 
+      window.updateNet(navigator.onLine ? "online" : "offline"); 
+  }
 };
 
 window.addEventListener("online", () => window.pushSync());
