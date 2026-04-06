@@ -239,7 +239,8 @@ window.renderPOEs = function () {
 
     const catStr = areaObj ? `${areaObj.macroName} ${areaObj.areaName} ${areaObj.macroAbbr} ${areaObj.areaAbbr} ${areaObj.id}`.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
     const isMyArea = permisos.areas.some(userArea => catStr.includes(userArea));
-    const actionButtons = (permisos.canEditAll || (permisos.canEditOwn && isMyArea)) ? `
+   const actionButtons = (permisos.canEditAll || (permisos.canEditOwn && isMyArea)) ? `
+        <button onclick="window.clonePOE('${poe.id}')" class="text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition p-1" title="Clonar (Crear Copia)"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg></button>
         <button onclick="window.editPOE('${poe.id}')" class="text-gray-400 hover:text-blue-600 transition p-1" title="Editar"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg></button>
         <button onclick="window.deletePOE('${poe.id}')" class="text-gray-400 hover:text-red-600 transition p-1" title="Eliminar"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
     ` : '';
@@ -365,6 +366,61 @@ window.editPOE = function (id) {
   setFieldValue("title", poe.title); setFieldValue("poeStatus", poe.status || "ACT"); setFieldValue("objective", poe.objective); setFieldValue("scope", poe.scope); setFieldValue("responsibles", poe.responsibles); setFieldValue("definitions", poe.definitions); setFieldValue("materials", poe.materials); setFieldValue("monitoring", poe.monitoring || poe.frequency); setFieldValue("correctiveActions", poe.corrective_actions); setFieldValue("records", poe.records); setFieldValue("references", poe.references);
   try { state.form.advancedSteps = JSON.parse(poe.procedure); } catch (e) { state.form.advancedSteps = []; } window.renderAdvancedSteps();
   const m = document.getElementById("modal"); if (m) { m.classList.remove("hidden"); m.classList.add("flex"); }
+};
+
+window.clonePOE = function (id) {
+  const poe = state.poes.find((p) => p.id === id); 
+  if (!poe) return;
+  
+  // 1. Desvinculamos el ID para que el sistema lo guarde como un NUEVO registro
+  state.form.editingId = null; 
+  document.getElementById("modalTitle").textContent = `Clonar Procedimiento (Copia de ${poe.code})`;
+  
+  // 2. Vaciamos la Sección 1 (Control Documental) para reasignar
+  const catSelect = document.getElementById("category"); 
+  const subCatSelect = document.getElementById("poeSubCategory");
+  
+  catSelect.value = ""; 
+  catSelect.disabled = false; 
+  catSelect.classList.remove("bg-gray-100", "dark:bg-gray-600", "cursor-not-allowed"); 
+  
+  subCatSelect.innerHTML = '<option value="" disabled selected>Seleccione área...</option>';
+  subCatSelect.disabled = false; 
+  subCatSelect.classList.remove("bg-gray-100", "dark:bg-gray-600", "cursor-not-allowed"); 
+  
+  document.getElementById("code").value = "";
+  
+  const vInput = document.getElementById("poeVersion"); 
+  vInput.value = "1.0"; // Reiniciamos a v1.0
+  vInput.classList.remove("bg-blue-50", "text-blue-800", "font-bold");
+
+  setFieldValue("title", ""); 
+  setFieldValue("poeStatus", "ACT"); 
+  
+  // 3. Clonamos el "Cerebro" (Secciones 2 y 4)
+  setFieldValue("objective", poe.objective); 
+  setFieldValue("scope", poe.scope); 
+  setFieldValue("responsibles", poe.responsibles); 
+  setFieldValue("definitions", poe.definitions); 
+  setFieldValue("materials", poe.materials); 
+  setFieldValue("monitoring", poe.monitoring || poe.frequency); 
+  setFieldValue("correctiveActions", poe.corrective_actions); 
+  setFieldValue("records", poe.records); 
+  setFieldValue("references", poe.references);
+  
+  // 4. Clonamos los Pasos Operativos asegurando nuevos IDs internos
+  try { 
+      const pasosCopiados = JSON.parse(poe.procedure); 
+      state.form.advancedSteps = pasosCopiados.map((s, idx) => ({ ...s, id: Date.now() + idx }));
+  } catch (e) { 
+      state.form.advancedSteps = []; 
+  } 
+  
+  window.renderAdvancedSteps();
+  
+  // Abrimos el Formulario
+  const m = document.getElementById("modal"); 
+  if (m) { m.classList.remove("hidden"); m.classList.add("flex"); }
 };
 
 // ==========================================
