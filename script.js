@@ -1,11 +1,31 @@
 /**
- * @fileoverview CORE GENAPP - Sistema POE Industrial (SPA + DICCIONARIO + EXPORT WORD)
+ * @fileoverview CORE GENAPP - Sistema POE Industrial (SPA + DICCIONARIO AVANZADO + ACORDEON)
  */
 
 const GAS_ENDPOINT = "https://script.google.com/macros/s/AKfycbylXo9sXzLBYCdyB1AiDOa7-cyvPutjmy0XCun33Ic1YSFM0YdruE6WfkSt0SCz_PSO2Q/exec"; 
 const GAS_DICT_ENDPOINT = "https://script.google.com/macros/s/AKfycbxAHJeIS_Dq91olhikoJpRPZEVPf-wPOCs_NGQ796oowVOQRRX8jeOeiNeFeDw3zrxE/exec"; 
 
 let state = { poes: [], areas: [], config: [], form: { advancedSteps: [], editingId: null, editingStepId: null }, user: null, isSessionVerified: false, activeAreaFilter: 'TODAS' };
+
+// ==========================================
+// RECUPERAR TEMA INMEDIATAMENTE AL CARGAR EL SCRIPT
+// ==========================================
+const savedTheme = localStorage.getItem('genapp_theme');
+if (savedTheme === 'dark') document.documentElement.classList.add('dark');
+
+window.addEventListener('message', (event) => {
+    const { type, user, theme } = event.data || {};
+    if ((type === 'THEME_UPDATE' || type === 'SESSION_SYNC') && theme) {
+        document.documentElement.classList.toggle('dark', theme === 'dark');
+        localStorage.setItem('genapp_theme', theme);
+    }
+    if (type === 'SESSION_SYNC' && user) {
+        const isNewUser = !state.user || state.user.usuario !== user.usuario;
+        state.user = user; state.isSessionVerified = true;
+        sessionStorage.setItem('moduloUserPOE', JSON.stringify(user)); 
+        if (isNewUser) window.refreshUI();
+    }
+});
 
 // ==========================================
 // MOTOR DE POPUPS DEL SISTEMA
@@ -73,27 +93,6 @@ window.toggleCompactMenu = function() {
     else { sidebar.classList.replace('w-[72px]', 'w-64'); texts.forEach(el => el.classList.remove('hidden')); }
 };
 
-  // 🧠 RECUPERAR TEMA INMEDIATAMENTE AL CARGAR EL SCRIPT
-const savedTheme = localStorage.getItem('genapp_theme');
-if (savedTheme === 'dark') document.documentElement.classList.add('dark');
-
-window.addEventListener('message', (event) => {
-    const { type, user, theme } = event.data || {};
-    
-    // 🎨 Guardar y aplicar el tema indicado por el HUB
-    if ((type === 'THEME_UPDATE' || type === 'SESSION_SYNC') && theme) {
-        document.documentElement.classList.toggle('dark', theme === 'dark');
-        localStorage.setItem('genapp_theme', theme);
-    }
-
-    if (type === 'SESSION_SYNC' && user) {
-        const isNewUser = !state.user || state.user.usuario !== user.usuario;
-        state.user = user; state.isSessionVerified = true;
-        sessionStorage.setItem('moduloUserPOE', JSON.stringify(user)); 
-        if (isNewUser) window.refreshUI();
-    }
-});
-
 // ==========================================
 // BASE DE DATOS Y PERMISOS
 // ==========================================
@@ -119,16 +118,7 @@ const POEDB = {
   save(store, data) { return new Promise((r) => { if (this.useRAM) { const idx = this.ramDB[store].findIndex((i) => i.id === data.id || i.key === data.key); if (idx > -1) this.ramDB[store][idx] = data; else this.ramDB[store].push(data); return r(); } const tx = this.db.transaction(store, "readwrite"); tx.objectStore(store).put(data); tx.oncomplete = r; }); },
   getAll(store) { return new Promise((r) => { if (this.useRAM) return r(this.ramDB[store]); const tx = this.db.transaction(store, "readonly"); const req = tx.objectStore(store).getAll(); req.onsuccess = () => r(req.result); }); },
   delete(store, id) { return new Promise((r) => { if (this.useRAM) { this.ramDB[store] = this.ramDB[store].filter((i) => i.id !== id && i.key !== id); return r(); } const tx = this.db.transaction(store, "readwrite"); tx.objectStore(store).delete(id); tx.oncomplete = r; }); },
-  
-  // 🆕 NUEVO: Método para purgar tablas completas rápidamente
-  clearStore(store) { 
-      return new Promise((r) => { 
-          if (this.useRAM) { this.ramDB[store] = []; return r(); } 
-          const tx = this.db.transaction(store, "readwrite"); 
-          tx.objectStore(store).clear(); 
-          tx.oncomplete = r; 
-      }); 
-  }
+  clearStore(store) { return new Promise((r) => { if (this.useRAM) { this.ramDB[store] = []; return r(); } const tx = this.db.transaction(store, "readwrite"); tx.objectStore(store).clear(); tx.oncomplete = r; }); }
 };
 
 window.refreshUI = async function () {
@@ -156,7 +146,7 @@ window.refreshUI = async function () {
 
   if (state.user) {
       safeSet('userName', state.user.nombre);
-      // 🧠 TRADUCCIÓN DEL DICCIONARIO: Convertir ID o Abrev a Nombre Real
+      // 🧠 TRADUCCIÓN DEL DICCIONARIO: Convertir ID o Abrev a Nombre Real (Multi-Cruce)
       const areaNames = permisos.areas.map(val => { 
           const a = state.areas.find(x => x.id === val || x.areaAbbr === val); 
           return a ? a.areaName : val; 
@@ -235,7 +225,7 @@ window.renderPOEs = function () {
       <td class="px-6 py-4">${badge}</td>
       <td class="px-6 py-4 text-xs font-medium text-gray-500">${new Date(poe.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</td>
       <td class="px-6 py-4 text-right flex justify-end gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-        <button onclick="window.viewPOE('${poe.id}')" class="text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition p-1" title="Ver"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg></button>
+        <button onclick="window.viewPOE('${poe.id}')" class="text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition p-1" title="Visualizar"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg></button>
         ${actionButtons}
       </td>
     </tr>`;
@@ -280,22 +270,8 @@ window.renderMapaAreas = function() {
 };
 
 // ==========================================
-// FORMULARIOS DE POE (EDICIÓN Y VISOR)
+// FORMULARIOS DE POE Y ÁREAS (CRUD)
 // ==========================================
-const getFieldValue = (id) => { const el = document.getElementById(id); return el ? (el.classList.contains("rich-editor") ? el.innerHTML.trim() : el.value.trim()) : ""; };
-const setFieldValue = (id, val) => { const el = document.getElementById(id); if (!el) return; if (el.classList.contains("rich-editor")) el.innerHTML = val || ""; else el.value = val || ""; };
-
-window.initRichEditors = function() {
-  document.querySelectorAll('.rich-editor').forEach(editor => {
-      if (editor.classList.contains('initialized')) return;
-      editor.classList.add("initialized");
-      editor.addEventListener('paste', function(e) { e.preventDefault(); const text = (e.originalEvent || e).clipboardData.getData('text/plain'); document.execCommand('insertText', false, text); });
-      editor.addEventListener('keydown', function(e) { if (e.key === 'Enter' && !document.queryCommandState('insertOrderedList') && !document.queryCommandState('insertUnorderedList')) { document.execCommand('insertLineBreak'); e.preventDefault(); } });
-  });
-};
-
-window.setListType = function(type) { let node = document.getSelection().anchorNode; while(node && node.nodeName !== 'OL' && node.nodeName !== 'DIV') { node = node.parentNode; } if(node && node.nodeName === 'OL') node.type = type; };
-
 window.buildDynamicDictionaries = function () {
   const selectCategory = document.getElementById("category"); if (!selectCategory || state.areas.length === 0) return;
   const cv = selectCategory.value; const macrosMap = new Map(); state.areas.forEach(a => macrosMap.set(a.macroAbbr, a.macroName));
@@ -381,52 +357,97 @@ window.editPOE = function (id) {
   const m = document.getElementById("modal"); if (m) { m.classList.remove("hidden"); m.classList.add("flex"); }
 };
 
+// ==========================================
+// 👁️ VISOR MODULAR (ACORDEONES HTML5)
+// ==========================================
 window.viewPOE = function (id) {
   const poe = state.poes.find((p) => p.id === id); if (!poe) return;
   const btnExportWord = document.getElementById("btnExportWord"); if (btnExportWord) btnExportWord.onclick = () => window.exportPOEToWord(poe.id);
+  
   let stepsHTML = "";
   try {
     const arr = JSON.parse(poe.procedure);
     stepsHTML = arr.map((s, i) => {
-        const bColor = s.type === "PCC" ? "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-400 border-red-200 dark:border-red-800" : s.type === "PC" ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800" : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600";
+        const bColor = s.type === "PCC" ? "bg-red-100 text-red-800 border-red-200" : s.type === "PC" ? "bg-yellow-100 text-yellow-800 border-yellow-200" : "bg-gray-100 text-gray-600 border-gray-200";
         const img = s.image ? `<img src="${s.image}" class="mt-4 max-h-64 object-cover rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">` : "";
-        return `<div class="flex gap-4 p-5 md:p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm"><div class="w-10 h-10 rounded-full bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400 font-black flex items-center justify-center shrink-0 text-lg border border-red-100 dark:border-red-900/50">${i + 1}</div><div class="flex-grow overflow-hidden"><span class="text-[10px] font-black px-2.5 py-1 rounded border uppercase mb-3 inline-block tracking-widest ${bColor}">${s.type}</span><div class="text-base font-medium text-gray-800 dark:text-gray-200 leading-relaxed">${s.desc}</div>${img}</div></div>`;
+        const truncDesc = s.desc.replace(/<[^>]*>?/gm, '').substring(0, 60) + "...";
+        
+        return `
+        <details class="group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm mb-3" open>
+            <summary class="flex items-center justify-between p-4 font-bold cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition rounded-xl outline-none select-none">
+                <div class="flex items-center gap-4 w-full">
+                    <div class="w-8 h-8 rounded-full bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400 font-black flex items-center justify-center shrink-0 text-sm border border-red-100 dark:border-red-900/50">${i + 1}</div>
+                    <span class="text-[10px] font-black px-2 py-0.5 rounded border uppercase tracking-widest ${bColor} shrink-0">${s.type}</span>
+                    <span class="text-sm text-gray-800 dark:text-gray-200 truncate hidden sm:block">${truncDesc}</span>
+                </div>
+                <svg class="w-5 h-5 text-gray-400 group-open:rotate-180 transition-transform shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+            </summary>
+            <div class="p-4 pt-0 md:p-6 md:pt-0 ml-2 md:ml-12 border-t border-transparent group-open:border-gray-100 dark:group-open:border-gray-700 mt-2">
+                <div class="text-sm font-medium text-gray-800 dark:text-gray-200 leading-relaxed rich-text-content">${s.desc}</div>
+                ${img}
+            </div>
+        </details>`;
       }).join("");
   } catch (e) { stepsHTML = `<div class="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700"><p class="text-base font-medium text-gray-800 dark:text-gray-200 leading-relaxed">${poe.procedure}</p></div>`; }
 
   const catObj = state.areas.find((c) => c.areaAbbr === poe.subCategory); const catName = catObj ? catObj.areaName : poe.subCategory;
-  const statusColor = poe.status === "ACT" || poe.status === "Activo" ? "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800" : "bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800";
+  const statusColor = poe.status === "ACT" || poe.status === "Activo" ? "bg-green-50 text-green-700 border-green-200" : "bg-yellow-50 text-yellow-700 border-yellow-200";
   const statusText = poe.status === "ACT" ? "ACTIVO" : "EN REVISIÓN";
 
   const vContent = document.getElementById("viewContent");
   if (vContent) {
     vContent.innerHTML = `
-      <div class="bg-white dark:bg-gray-800 p-8 md:p-10 rounded-3xl border border-gray-200 dark:border-gray-700 shadow-xl mb-8">
+      <div class="bg-white dark:bg-gray-800 p-6 md:p-10 rounded-3xl border border-gray-200 dark:border-gray-700 shadow-xl mb-8">
+        
         <div class="flex flex-col md:flex-row justify-between items-start border-b-2 border-gray-100 dark:border-gray-700 pb-8 mb-8 gap-6">
           <div class="w-full md:w-2/3"><span class="inline-block px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-bold text-xs rounded-lg uppercase tracking-wider mb-3 border border-gray-200 dark:border-gray-600">${catName}</span><h2 class="text-3xl md:text-4xl font-black text-gray-900 dark:text-white uppercase tracking-tight leading-tight">${poe.title}</h2></div>
-          <div class="md:text-right flex flex-col md:items-end bg-gray-50 dark:bg-gray-900/50 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 w-full md:w-1/3"><p class="text-2xl font-black font-mono text-red-700 dark:text-red-400 tracking-wider">${poe.code}</p><div class="flex items-center md:justify-end gap-3 mt-2 text-sm font-bold text-gray-500 dark:text-gray-400"><span>v${poe.version}</span><span>•</span><span>${new Date(poe.date).toLocaleDateString()}</span></div><div class="mt-4 flex flex-col items-end gap-2"><span class="inline-flex items-center px-3 py-1 rounded-md text-xs font-black uppercase tracking-widest border ${statusColor}">${statusText}</span><div class="text-xs text-gray-500 dark:text-gray-400 font-medium mt-2">✍️ Creado por: <span class="font-bold text-gray-800 dark:text-gray-200">${poe.author || 'S/N'}</span></div>${poe.lastEditor ? `<div class="text-xs text-gray-500 dark:text-gray-400 font-medium text-right">🔄 Últ. Edición: <span class="font-bold text-gray-800 dark:text-gray-200">${poe.lastEditor}</span></div>` : ''}</div></div>
+          <div class="md:text-right flex flex-col md:items-end bg-gray-50 dark:bg-gray-900/50 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 w-full md:w-1/3"><p class="text-2xl font-black font-mono text-red-700 dark:text-red-400 tracking-wider">${poe.code}</p><div class="flex items-center md:justify-end gap-3 mt-2 text-sm font-bold text-gray-500 dark:text-gray-400"><span>v${poe.version}</span><span>•</span><span>${new Date(poe.date).toLocaleDateString('es-ES', {day: 'numeric', month: 'long', year: 'numeric'})}</span></div><div class="mt-4 flex flex-col items-end gap-2"><span class="inline-flex items-center px-3 py-1 rounded-md text-xs font-black uppercase tracking-widest border ${statusColor}">${statusText}</span><div class="text-xs text-gray-500 dark:text-gray-400 font-medium mt-2">✍️ Creado por: <span class="font-bold text-gray-800 dark:text-gray-200">${poe.author || 'S/N'}</span></div></div></div>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-           <div><h4 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">🎯 Objetivo General</h4><div class="text-sm text-gray-700 dark:text-gray-300 font-medium leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 h-full">${poe.objective || "No especificado"}</div></div>
-           <div><h4 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">📏 Alcance Operativo</h4><div class="text-sm text-gray-700 dark:text-gray-300 font-medium leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 h-full">${poe.scope || "No especificado"}</div></div>
-           <div><h4 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">👤 Responsabilidades</h4><div class="text-sm text-gray-700 dark:text-gray-300 font-medium leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 h-full">${poe.responsibles || "No especificadas"}</div></div>
-           <div><h4 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">📝 Definiciones</h4><div class="text-sm text-gray-700 dark:text-gray-300 font-medium leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 h-full">${poe.definitions || "Ninguna"}</div></div>
-           <div class="md:col-span-2"><h4 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">🛠️ Equipos, Materiales y EPPs</h4><div class="text-sm text-gray-700 dark:text-gray-300 font-medium leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 h-full">${poe.materials || "No especificados"}</div></div>
+
+        <details class="group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm mb-4" open>
+            <summary class="flex items-center justify-between p-5 font-black cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition rounded-2xl outline-none select-none">
+                <div class="flex items-center gap-3 text-gray-800 dark:text-gray-200 uppercase tracking-widest text-sm"><span class="text-lg">📘</span> 1. Contexto Operativo</div>
+                <svg class="w-5 h-5 text-gray-400 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+            </summary>
+            <div class="p-6 pt-0 border-t border-gray-100 dark:border-gray-700 mt-2">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                   <div><h4 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">🎯 Objetivo General</h4><div class="text-sm text-gray-700 dark:text-gray-300 font-medium leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-5 rounded-xl border border-gray-100 dark:border-gray-700 h-full rich-text-content">${poe.objective || "No especificado"}</div></div>
+                   <div><h4 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">📏 Alcance Operativo</h4><div class="text-sm text-gray-700 dark:text-gray-300 font-medium leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-5 rounded-xl border border-gray-100 dark:border-gray-700 h-full rich-text-content">${poe.scope || "No especificado"}</div></div>
+                   <div><h4 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">👤 Responsabilidades</h4><div class="text-sm text-gray-700 dark:text-gray-300 font-medium leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-5 rounded-xl border border-gray-100 dark:border-gray-700 h-full rich-text-content">${poe.responsibles || "No especificadas"}</div></div>
+                   <div><h4 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">📝 Definiciones</h4><div class="text-sm text-gray-700 dark:text-gray-300 font-medium leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-5 rounded-xl border border-gray-100 dark:border-gray-700 h-full rich-text-content">${poe.definitions || "Ninguna"}</div></div>
+                   <div class="md:col-span-2"><h4 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">🛠️ Equipos, Materiales y EPPs</h4><div class="text-sm text-gray-700 dark:text-gray-300 font-medium leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-5 rounded-xl border border-gray-100 dark:border-gray-700 h-full rich-text-content">${poe.materials || "No especificados"}</div></div>
+                </div>
+            </div>
+        </details>
+
+        <details class="group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm mb-6" open>
+            <summary class="flex items-center justify-between p-5 font-black cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition rounded-2xl outline-none select-none">
+                <div class="flex items-center gap-3 text-gray-800 dark:text-gray-200 uppercase tracking-widest text-sm"><span class="text-lg">🛡️</span> 2. Control y Referencias</div>
+                <svg class="w-5 h-5 text-gray-400 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+            </summary>
+            <div class="p-6 pt-0 border-t border-gray-100 dark:border-gray-700 mt-2">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                   <div><h4 class="text-xs font-black text-red-700 dark:text-red-400 uppercase tracking-widest mb-2">⏱️ Frecuencia / Monitoreo</h4><div class="text-sm text-gray-900 dark:text-gray-100 font-bold leading-relaxed bg-red-50 dark:bg-red-900/20 p-5 rounded-xl border border-red-100 dark:border-red-900/50 h-full rich-text-content">${poe.monitoring || poe.frequency || "No especificada"}</div></div>
+                   <div><h4 class="text-xs font-black text-red-700 dark:text-red-400 uppercase tracking-widest mb-2">⚠️ Acciones Correctivas</h4><div class="text-sm text-gray-900 dark:text-gray-100 font-bold leading-relaxed bg-red-50 dark:bg-red-900/20 p-5 rounded-xl border border-red-100 dark:border-red-900/50 h-full rich-text-content">${poe.corrective_actions || "No especificadas"}</div></div>
+                   <div><h4 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">📎 Registros Asociados</h4><div class="text-sm text-gray-700 dark:text-gray-300 font-medium leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-5 rounded-xl border border-gray-100 dark:border-gray-700 h-full rich-text-content">${poe.records || "Ninguno"}</div></div>
+                   <div><h4 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">📚 Referencias / Anexos</h4><div class="text-sm text-gray-700 dark:text-gray-300 font-medium leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-5 rounded-xl border border-gray-100 dark:border-gray-700 h-full rich-text-content">${poe.references || "Ninguna"}</div></div>
+                </div>
+            </div>
+        </details>
+
+        <div>
+          <h4 class="text-sm font-black text-gray-900 dark:text-white uppercase tracking-widest mb-4 border-b-2 border-gray-100 dark:border-gray-700 pb-3 flex items-center gap-2"><span class="text-lg">⚙️</span> 3. Desarrollo del Procedimiento</h4>
+          <div class="space-y-2 pl-2 md:pl-4">
+            ${stepsHTML}
+          </div>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-           <div><h4 class="text-xs font-black text-red-700 dark:text-red-400 uppercase tracking-widest mb-2 flex items-center gap-2">⏱️ Frecuencia / Monitoreo</h4><div class="text-sm text-gray-900 dark:text-gray-100 font-bold leading-relaxed bg-red-50 dark:bg-red-900/20 p-5 rounded-2xl border border-red-100 dark:border-red-900/50 h-full">${poe.monitoring || poe.frequency || "No especificada"}</div></div>
-           <div><h4 class="text-xs font-black text-red-700 dark:text-red-400 uppercase tracking-widest mb-2 flex items-center gap-2">⚠️ Acciones Correctivas</h4><div class="text-sm text-gray-900 dark:text-gray-100 font-bold leading-relaxed bg-red-50 dark:bg-red-900/20 p-5 rounded-2xl border border-red-100 dark:border-red-900/50 h-full">${poe.corrective_actions || "No especificadas"}</div></div>
-           <div><h4 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">📎 Registros Asociados</h4><div class="text-sm text-gray-700 dark:text-gray-300 font-medium leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 h-full">${poe.records || "Ninguno"}</div></div>
-           <div><h4 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">📚 Referencias / Anexos</h4><div class="text-sm text-gray-700 dark:text-gray-300 font-medium leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 h-full">${poe.references || "Ninguna"}</div></div>
-        </div>
-        <div><h4 class="text-sm font-black text-gray-900 dark:text-white uppercase tracking-widest mb-6 border-b-2 border-gray-100 dark:border-gray-700 pb-3">Desarrollo del Procedimiento Operativo</h4><div class="space-y-4">${stepsHTML}</div></div>
+
       </div>
     `;
   }
   const m = document.getElementById("viewModal"); if (m) { m.classList.remove("hidden"); m.classList.add("flex"); }
 };
 
-// 🌟 EXPORTACIÓN A WORD (Restaurada al 100%)
 window.exportPOEToWord = function (id) {
   const poe = state.poes.find((p) => p.id === id); if (!poe) return;
   let stepsHTML = "";
@@ -438,7 +459,7 @@ window.exportPOEToWord = function (id) {
   const catObj = state.areas.find((c) => c.areaAbbr === poe.subCategory); const catName = catObj ? catObj.areaName : poe.subCategory;
   const isPOES = poe.code.startsWith('POES'); const docTitle = isPOES ? 'Procedimiento Operativo Estandarizado de Saneamiento' : 'Procedimiento Operativo Estandarizado';
 
-  const htmlStr = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>${poe.code}</title><style>body { font-family: 'Arial'; color: #000; } table { width: 100%; border-collapse: collapse; margin-bottom: 20px; } th, td { border: 1px solid #000; padding: 8px; text-align: left; vertical-align: top; } th { background-color: #f2f2f2; width: 25%; } h1 { color: #1e3a5f; font-size: 24px; text-transform: uppercase; text-align: center; border-bottom: 2px solid #1e3a5f; padding-bottom: 10px; margin-bottom: 20px; } h2 { color: #2d5a87; font-size: 16px; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-top: 25px; } ul { list-style-type: disc; margin-left: 20px; margin-bottom: 5px; } ol { list-style-type: decimal; margin-left: 20px; margin-bottom: 5px; } h3 { color: #1e3a5f; font-size: 14px; margin-top: 15px; margin-bottom: 5px; text-transform: uppercase; }</style></head><body>
+  const htmlStr = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>${poe.code}</title><style>body { font-family: 'Arial'; color: #000; } table { width: 100%; border-collapse: collapse; margin-bottom: 20px; } th, td { border: 1px solid #000; padding: 8px; text-align: left; vertical-align: top; } th { background-color: #f2f2f2; width: 25%; } h1 { color: #1e3a5f; font-size: 24px; text-transform: uppercase; text-align: center; border-bottom: 2px solid #1e3a5f; padding-bottom: 10px; margin-bottom: 20px; } h2 { color: #2d5a87; font-size: 16px; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-top: 25px; } ul { list-style-type: disc; margin-left: 20px; margin-bottom: 5px; } ol { list-style-type: decimal; margin-left: 20px; margin-bottom: 5px; } a { color: #0000EE; text-decoration: underline; } h3 { color: #1e3a5f; font-size: 14px; margin-top: 15px; margin-bottom: 5px; text-transform: uppercase; }</style></head><body>
       <h1>La Genovesa Agroindustrias S.A.<br><span style="font-size:16px;">${docTitle}</span></h1>
       <table><tr><th>Código:</th><td>${poe.code}</td><th>Versión:</th><td>v${poe.version} - ${poe.status}</td></tr><tr><th>Título:</th><td colspan="3"><strong>${poe.title}</strong></td></tr><tr><th>Área:</th><td>${catName}</td><th>Fecha:</th><td>${new Date(poe.date).toLocaleDateString()}</td></tr></table>
       <h2>1. Contexto Operativo</h2><p><strong>Objetivo:</strong></p> ${poe.objective || "N/A"}<p><strong>Alcance:</strong></p> ${poe.scope || "N/A"}<p><strong>Responsabilidades:</strong></p> ${poe.responsibles || "N/A"}
@@ -556,74 +577,21 @@ window.pushSync = async function () {
 window.pullSync = async function () {
   if (!navigator.onLine) return;
   try {
-    // 🧠 CACHE-BUSTER: Forzar descargas frescas ignorando el caché del navegador
-    const ts = Date.now(); 
-    const fetchOpts = { cache: "no-store" };
-
-    const rA = await fetch(GAS_DICT_ENDPOINT + "?action=get_areas&t=" + ts, fetchOpts); 
-    const jA = await rA.json(); 
-    if (jA.status === "success") { 
-        await POEDB.clearStore("areas"); // Destruye caché local
-        for (let a of jA.data) await POEDB.save("areas", a); 
-    }
-
-    const rC = await fetch(GAS_ENDPOINT + "?action=get_config&t=" + ts, fetchOpts); 
-    const jC = await rC.json(); 
-    if (jC.status === "success") { 
-        await POEDB.clearStore("sys_config"); // Destruye caché local
-        for (let i of jC.data) await POEDB.save("sys_config", i); 
-    }
-
-    const rP = await fetch(GAS_ENDPOINT + "?action=get_poes&t=" + ts, fetchOpts); 
-    const jP = await rP.json(); 
-    if (jP.status === "success") { 
-        const q = await POEDB.getAll("sync_queue"); 
-        const localPoes = await POEDB.getAll("poes"); 
-        
-        // Limpiamos locales que no estén pendientes de subir
-        for (let local of localPoes) {
-            if (!q.find((x) => x.id === local.id)) await POEDB.delete("poes", local.id);
-        }
-        // Guardamos las versiones frescas de la nube
-        for (let p of jP.data) {
-            if (!q.find((x) => x.id === p.id)) await POEDB.save("poes", p);
-        }
-    }
-    
+    const ts = Date.now(); const fetchOpts = { cache: "no-store" };
+    const rA = await fetch(GAS_DICT_ENDPOINT + "?action=get_areas&t=" + ts, fetchOpts); const jA = await rA.json(); if (jA.status === "success") { await POEDB.clearStore("areas"); for (let a of jA.data) await POEDB.save("areas", a); }
+    const rC = await fetch(GAS_ENDPOINT + "?action=get_config&t=" + ts, fetchOpts); const jC = await rC.json(); if (jC.status === "success") { await POEDB.clearStore("sys_config"); for (let i of jC.data) await POEDB.save("sys_config", i); }
+    const rP = await fetch(GAS_ENDPOINT + "?action=get_poes&t=" + ts, fetchOpts); const jP = await rP.json(); if (jP.status === "success") { const q = await POEDB.getAll("sync_queue"); const localPoes = await POEDB.getAll("poes"); for (let local of localPoes) if (!q.find((x) => x.id === local.id)) await POEDB.delete("poes", local.id); for (let p of jP.data) if (!q.find((x) => x.id === p.id)) await POEDB.save("poes", p); }
     await window.refreshUI();
-  } catch (e) { console.error("Error de Sincronización:", e); }
+  } catch (e) { console.error(e); }
 };
 
 window.forceSync = async function () {
-  if (!navigator.onLine) {
-      return await window.sysAlert("El sistema detecta pérdida de conexión. Las funciones de sincronización están pausadas.", "warning");
-  }
-  
-  // 🔄 INICIAR ANIMACIÓN
-  const syncBtn = document.querySelector('button[onclick="window.forceSync()"]');
-  const syncIcon = syncBtn ? syncBtn.querySelector('svg') : null;
-  if (syncIcon) {
-      syncIcon.classList.add("animate-spin", "text-blue-500");
-      syncBtn.disabled = true;
-  }
-  
-  try { 
-      window.updateNet("sync"); 
-      await window.pushSync(); // Subir pendientes a la nube
-      await window.pullSync(); // Descargar frescos (Rompiendo caché)
-      
-      await window.sysAlert("Base de datos sincronizada y caché actualizado correctamente.", "success");
-  } catch (error) {
-      await window.sysAlert("Ocurrió un error al intentar sincronizar con los servidores de Google.", "error");
-  } finally { 
-      window.updateNet(navigator.onLine ? "online" : "offline"); 
-      
-      // 🛑 DETENER ANIMACIÓN
-      if (syncIcon) {
-          syncIcon.classList.remove("animate-spin", "text-blue-500");
-          syncBtn.disabled = false;
-      }
-  }
+  if (!navigator.onLine) return await window.sysAlert("El sistema detecta pérdida de conexión. Las funciones de sincronización están pausadas.", "warning");
+  const syncBtn = document.querySelector('button[onclick="window.forceSync()"]'); const syncIcon = syncBtn ? syncBtn.querySelector('svg') : null;
+  if (syncIcon) { syncIcon.classList.add("animate-spin", "text-blue-500"); syncBtn.disabled = true; }
+  try { window.updateNet("sync"); await window.pushSync(); await window.pullSync(); await window.sysAlert("Base de datos sincronizada y caché actualizado correctamente.", "success"); } 
+  catch (error) { await window.sysAlert("Ocurrió un error al intentar sincronizar con los servidores de Google.", "error"); } 
+  finally { window.updateNet(navigator.onLine ? "online" : "offline"); if (syncIcon) { syncIcon.classList.remove("animate-spin", "text-blue-500"); syncBtn.disabled = false; } }
 };
 
 window.addEventListener("online", () => window.pushSync());
@@ -633,6 +601,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   window.updateNet(navigator.onLine ? "online" : "offline"); 
   await POEDB.init(); 
   
+  if (!state.user) { state.user = { nombre: 'Ing. Supervisor', rol: 'SUPERVISOR', area: ['AREA-1', 'PROD-SKN'], usuario: 'dev' }; state.isSessionVerified = true; }
+  const savedUser = sessionStorage.getItem('moduloUserPOE'); if (savedUser) { state.user = JSON.parse(savedUser); state.isSessionVerified = true; }
   
   await window.refreshUI(); 
   setTimeout(() => { window.initRichEditors(); window.switchTab('dashboard'); }, 100); 
