@@ -162,26 +162,29 @@ window.insertLink = function() {
 // NAVEGACIÓN Y MENÚ
 // ==========================================
 window.switchTab = function(tabId) {
+    // 1. Actualizar Nav Buttons
     document.querySelectorAll('.nav-btn').forEach(btn => {
         btn.classList.remove('bg-red-50', 'text-red-700', 'dark:bg-red-900/30', 'dark:text-red-400');
         btn.classList.add('text-gray-600', 'dark:text-gray-400');
     });
-    
     const activeBtn = document.getElementById(`nav-${tabId}`);
     if (activeBtn) {
         activeBtn.classList.remove('text-gray-600', 'dark:text-gray-400');
         activeBtn.classList.add('bg-red-50', 'text-red-700', 'dark:bg-red-900/30', 'dark:text-red-400');
     }
     
+    // 2. Ocultar todas las secciones
     document.querySelectorAll('.view-section').forEach(sec => {
         sec.classList.remove('active');
     });
     
+    // 3. Mostrar sección activa
     const activeView = document.getElementById(`view-${tabId}`);
     if (activeView) {
         activeView.classList.add('active');
     }
 
+    // 4. Lógica de Títulos y Botones en Topbar
     const topTitle = document.getElementById('topbar-title');
     const topSub = document.getElementById('topbar-subtitle');
     const btnNuevo = document.getElementById('btn-nuevo-poe');
@@ -361,6 +364,7 @@ window.refreshUI = async function () {
     const allPoes = await POEDB.getAll("poes");
     const permisos = window.getPermisos();
 
+    // Filtro general de visibilidad
     state.poes = allPoes.filter((p) => {
         const s = String(p.status || "").trim().toUpperCase();
         if (!["ACT", "REV", "ACTIVO", "EN REVISION", "EN REVISIÓN"].includes(s)) return false;
@@ -953,6 +957,7 @@ window.drawFlowchartArrows = function(steps) {
 
     const canvasRect = canvas.getBoundingClientRect();
     
+    // Definimos las cabezas de flecha (Markers)
     let svgContent = `
         <defs>
             <marker id="arrowhead-red" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
@@ -977,23 +982,28 @@ window.drawFlowchartArrows = function(steps) {
             const targetNode = document.getElementById(targetNodeId);
 
             if (devBox && targetNode) {
+                // Seleccionamos la caja visual interna de la alerta de desviación
                 const devBoxContent = devBox.lastElementChild;
                 
                 if (devBoxContent) {
                     const devRect = devBoxContent.getBoundingClientRect();
                     const targetRect = targetNode.getBoundingClientRect();
 
+                    // Coordenada Inicial: Borde derecho de la desviación
                     const startX = devRect.right - canvasRect.left;
                     const startY = devRect.top + (devRect.height / 2) - canvasRect.top;
 
+                    // Coordenada Final: Borde derecho del nodo de destino
                     const endX = targetRect.right - canvasRect.left;
                     const endY = targetRect.top + (targetRect.height / 2) - canvasRect.top;
 
                     const color = step.type === 'PCC' ? '#dc2626' : '#d97706';
                     const marker = step.type === 'PCC' ? 'url(#arrowhead-red)' : 'url(#arrowhead-amber)';
 
+                    // Calculamos el "codo" de la flecha (40px a la derecha del punto más lejano)
                     const elbowX = Math.max(startX, endX) + 40; 
                     
+                    // Trazamos la línea: -> Derecha, -> Arriba/Abajo, -> Izquierda
                     const path = `M ${startX},${startY} L ${elbowX},${startY} L ${elbowX},${endY} L ${endX + 5},${endY}`;
 
                     svgContent += `<path d="${path}" fill="none" stroke="${color}" stroke-width="2.5" stroke-dasharray="5,5" marker-end="${marker}" class="animate-[fadeIn_1s_ease-in-out]" />`;
@@ -1023,6 +1033,7 @@ window.viewPOE = function (id, scrollToFlowchart = false) {
     
     let stepsHTML = "";
     
+    // Contenedor principal del Canvas del Flujograma
     let flowchartHTML = `
         <div id="flowchart-canvas" class="relative flex flex-col items-center py-6 font-sans w-full min-w-max">
             <div class="bg-blue-900 text-white px-8 py-3 rounded-[50px] font-black text-xs shadow-md border-4 border-blue-200 z-10 w-48 text-center uppercase tracking-widest shrink-0">
@@ -1033,7 +1044,11 @@ window.viewPOE = function (id, scrollToFlowchart = false) {
     try {
         const arr = JSON.parse(poe.procedure);
         
+        // ----------------------------------------------------
+        // 1. CONSTRUIR AUTO-FLUJOGRAMA WEB
+        // ----------------------------------------------------
         arr.forEach((step, i) => {
+            // Parser del DOM para extraer texto limpio
             const tempDiv = document.createElement('div'); 
             tempDiv.innerHTML = step.desc;
             
@@ -1067,6 +1082,7 @@ window.viewPOE = function (id, scrollToFlowchart = false) {
                 bodyHtml = `<p class="text-[10px] font-medium text-gray-700 dark:text-gray-300 leading-tight line-clamp-3 mt-1.5">${remainingText}</p>`;
             }
 
+            // Flecha vertical de conexión entre pasos
             flowchartHTML += `
                 <div class="flex flex-col items-center my-1">
                     <div class="w-1 h-8 bg-gray-400"></div>
@@ -1079,6 +1095,7 @@ window.viewPOE = function (id, scrollToFlowchart = false) {
                 const label = step.type === 'PCC' ? 'PCC' : 'PC';
                 const devActionText = step.devAction || "Acción Correctiva";
                 
+                // Traductor de ID de Ruta a Nombre de Paso
                 let routeName = step.devRoute;
                 if (step.devRoute === "FIN") {
                     routeName = "Fin / Desecho";
@@ -1137,6 +1154,7 @@ window.viewPOE = function (id, scrollToFlowchart = false) {
             }
         });
         
+        // Cierre del Flujograma y Capa SVG
         flowchartHTML += `
                 <div class="flex flex-col items-center my-1">
                     <div class="w-1 h-8 bg-gray-400"></div>
@@ -1150,6 +1168,9 @@ window.viewPOE = function (id, scrollToFlowchart = false) {
             </div>
         `;
 
+        // ----------------------------------------------------
+        // 2. CONSTRUIR DETALLE DE PASOS (ACORDEÓN WEB)
+        // ----------------------------------------------------
         stepsHTML = arr.map((step, i) => {
             const bColor = step.type === "PCC" ? "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800" : step.type === "PC" ? "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800" : "bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700";
             const img = step.image ? `<img src="${step.image}" class="mt-4 max-h-64 object-cover rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">` : "";
