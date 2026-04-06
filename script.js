@@ -1143,11 +1143,6 @@ window.addEventListener("offline", () => window.updateNet("offline"));
 document.addEventListener("DOMContentLoaded", async () => {
   window.updateNet(navigator.onLine ? "online" : "offline"); 
   await POEDB.init(); 
-  
-  if (!state.user) {
-      state.user = { nombre: 'Ingeniero Pruebas', rol: 'ADMINISTRADOR', area: ['DSP', 'EMP'], usuario: 'dev@genovesa.com' };
-      state.isSessionVerified = true;
-  }
 
   const savedUser = sessionStorage.getItem('moduloUserPOE');
   if (savedUser) { state.user = JSON.parse(savedUser); state.isSessionVerified = true; }
