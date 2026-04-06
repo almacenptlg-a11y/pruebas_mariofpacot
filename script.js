@@ -1109,11 +1109,18 @@ window.viewPOE = function (id, scrollToFlowchart = false) {
         </div>`;
     }
   
-    const m = document.getElementById("viewModal"); 
-    if (m) { 
-        m.classList.remove("hidden"); 
-        m.classList.add("flex"); 
-        if (scrollToFlowchart) {
+   // Inyectar título dinámico en el Topbar del Visor
+  const viewTitleEl = document.getElementById("viewTitle");
+  if (viewTitleEl) {
+      viewTitleEl.textContent = `${poe.code} - ${poe.title}`;
+      viewTitleEl.title = `${poe.code} - ${poe.title}`; // Tooltip nativo por si se trunca
+  }
+
+  const m = document.getElementById("viewModal"); 
+  if (m) { 
+      m.classList.remove("hidden"); 
+      m.classList.add("flex"); 
+      if (scrollToFlowchart) {
             setTimeout(() => {
                 const el = document.getElementById("acc-flowchart");
                 if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
