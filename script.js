@@ -1254,108 +1254,247 @@ window.exportPOEToWord = function (id) {
 // ==========================================
 // BUILDER DE PASOS WYSIWYG
 // ==========================================
-window.updateFileText = function (input) { const d = document.getElementById("fileNameDisplay"); if (!d) return; if (input.files.length > 0) { d.textContent = "📸 " + input.files[0].name; d.classList.add("text-blue-600", "font-bold"); } else { d.textContent = "Cámara o Archivo"; d.classList.remove("text-blue-600", "font-bold"); } };
+window.updateFileText = function (input) { 
+    const d = document.getElementById("fileNameDisplay"); 
+    if (!d) return; 
+    if (input.files.length > 0) { 
+        d.textContent = "📸 " + input.files[0].name; 
+        d.classList.add("text-blue-600", "font-bold"); 
+    } else { 
+        d.textContent = "Cámara o Archivo"; 
+        d.classList.remove("text-blue-600", "font-bold"); 
+    } 
+};
+
+// 🧠 NUEVA FUNCIÓN: Actualiza el <select> de rutas con los pasos existentes
+window.updateRouteSelect = function(selectedId = "") {
+    const routeSelect = document.getElementById("stepDeviationRoute");
+    if (!routeSelect) return;
+    
+    let options = '<option value="">Seleccione destino...</option>';
+    state.form.advancedSteps.forEach((step, index) => {
+        options += `<option value="${step.id}">Volver al Paso ${index + 1} - [${step.type}]</option>`;
+    });
+    options += '<option value="FIN" class="font-bold text-red-600">Fin del Proceso / Desecho</option>';
+    
+    routeSelect.innerHTML = options;
+    if (selectedId) routeSelect.value = selectedId;
+};
 
 window.toggleDeviationFields = function() {
     const type = document.getElementById("stepType").value;
     const container = document.getElementById("deviationContainer");
+    
     if (type === "PC" || type === "PCC") {
         container.classList.remove("hidden");
         container.classList.add("grid");
+        window.updateRouteSelect(); // Cargamos los pasos en el select
     } else {
         container.classList.add("hidden");
         container.classList.remove("grid");
+        document.getElementById("stepDeviationLimit").value = "";
         document.getElementById("stepDeviationAction").value = "";
         document.getElementById("stepDeviationRoute").value = "";
     }
 };
 
 window.addAdvancedStep = async function () {
-  const desc = getFieldValue("stepDesc"); 
-  if (!desc || desc === "<br>") return await window.sysAlert("Describa el paso operativo.", "warning");
-  
-  const type = document.getElementById("stepType") ? document.getElementById("stepType").value : "INFO";
-  const devAction = document.getElementById("stepDeviationAction")?.value.trim() || "";
-  const devRoute = document.getElementById("stepDeviationRoute")?.value.trim() || "";
+    const desc = getFieldValue("stepDesc"); 
+    if (!desc || desc === "<br>") {
+        return await window.sysAlert("Describa el paso operativo.", "warning");
+    }
+    
+    const type = document.getElementById("stepType") ? document.getElementById("stepType").value : "INFO";
+    const devLimit = document.getElementById("stepDeviationLimit")?.value.trim() || "";
+    const devAction = document.getElementById("stepDeviationAction")?.value.trim() || "";
+    const devRoute = document.getElementById("stepDeviationRoute")?.value.trim() || "";
 
-  if ((type === "PC" || type === "PCC") && (!devAction || !devRoute)) {
-      return await window.sysAlert("Los Puntos Críticos o de Control requieren definir una Acción Correctiva y un Direccionamiento obligatorio.", "warning");
-  }
+    // 🛡️ Validación Estricta Normativa GFSI
+    if ((type === "PC" || type === "PCC") && (!devLimit || !devAction || !devRoute)) {
+        return await window.sysAlert("Los Puntos Críticos (PCC) o de Control (PC) requieren definir:\n1. Límite Crítico\n2. Acción Correctiva\n3. Direccionamiento", "warning");
+    }
 
-  const processStep = (imgB64) => { 
-      if (state.form.editingStepId) { 
-          const idx = state.form.advancedSteps.findIndex(s => s.id === state.form.editingStepId); 
-          if (idx > -1) { 
-              state.form.advancedSteps[idx].desc = desc; 
-              state.form.advancedSteps[idx].type = type; 
-              state.form.advancedSteps[idx].devAction = devAction; 
-              state.form.advancedSteps[idx].devRoute = devRoute; 
-              if (imgB64 !== undefined) state.form.advancedSteps[idx].image = imgB64; 
-          } 
-      } else { 
-          state.form.advancedSteps.push({ id: Date.now(), desc, type, devAction, devRoute, image: imgB64 || null }); 
-      } 
-      _resetStepUI(); 
-  };
+    const processStep = (imgB64) => { 
+        if (state.form.editingStepId) { 
+            const idx = state.form.advancedSteps.findIndex(s => s.id === state.form.editingStepId); 
+            if (idx > -1) { 
+                state.form.advancedSteps[idx].desc = desc; 
+                state.form.advancedSteps[idx].type = type; 
+                state.form.advancedSteps[idx].devLimit = devLimit; 
+                state.form.advancedSteps[idx].devAction = devAction; 
+                state.form.advancedSteps[idx].devRoute = devRoute; 
+                if (imgB64 !== undefined) {
+                    state.form.advancedSteps[idx].image = imgB64; 
+                }
+            } 
+        } else { 
+            state.form.advancedSteps.push({ 
+                id: Date.now(), 
+                desc, type, devLimit, devAction, devRoute, 
+                image: imgB64 || null 
+            }); 
+        } 
+        _resetStepUI(); 
+    };
 
-  const fileInput = document.getElementById("stepImage");
-  if (fileInput && fileInput.files.length > 0) { const reader = new FileReader(); reader.onload = (e) => { const img = new Image(); img.onload = () => { const cvs = document.createElement("canvas"); let w = img.width, h = img.height; if (w > 800) { h = Math.round((h * 800) / w); w = 800; } cvs.width = w; cvs.height = h; cvs.getContext("2d").drawImage(img, 0, 0, w, h); processStep(cvs.toDataURL("image/jpeg", 0.7)); }; img.src = e.target.result; }; reader.readAsDataURL(fileInput.files[0]); } 
-  else { processStep(undefined); }
+    const fileInput = document.getElementById("stepImage");
+    if (fileInput && fileInput.files.length > 0) { 
+        const reader = new FileReader(); 
+        reader.onload = (e) => { 
+            const img = new Image(); 
+            img.onload = () => { 
+                const cvs = document.createElement("canvas"); 
+                let w = img.width, h = img.height; 
+                if (w > 800) { 
+                    h = Math.round((h * 800) / w); w = 800; 
+                } 
+                cvs.width = w; 
+                cvs.height = h; 
+                cvs.getContext("2d").drawImage(img, 0, 0, w, h); 
+                processStep(cvs.toDataURL("image/jpeg", 0.7)); 
+            }; 
+            img.src = e.target.result; 
+        }; 
+        reader.readAsDataURL(fileInput.files[0]); 
+    } else { 
+        processStep(undefined); 
+    }
 };
 
 function _resetStepUI() { 
     setFieldValue("stepDesc", ""); 
-    const f = document.getElementById("stepImage"); if (f) { f.value = ""; window.updateFileText(f); } 
+    const f = document.getElementById("stepImage"); 
+    if (f) { f.value = ""; window.updateFileText(f); } 
+    
     document.getElementById("stepType").value = "INFO";
+    document.getElementById("stepDeviationLimit").value = "";
     document.getElementById("stepDeviationAction").value = "";
     document.getElementById("stepDeviationRoute").value = "";
     window.toggleDeviationFields();
 
     state.form.editingStepId = null; 
     const btn = document.getElementById("btnAddStep"); 
-    if(btn) { btn.innerHTML = `Añadir Paso`; btn.classList.replace("bg-green-600", "bg-blue-600"); btn.classList.replace("hover:bg-green-800", "hover:bg-blue-800"); } 
+    if(btn) { 
+        btn.innerHTML = `Añadir Paso`; 
+        btn.classList.replace("bg-green-600", "bg-blue-600"); 
+        btn.classList.replace("hover:bg-green-800", "hover:bg-blue-800"); 
+    } 
     window.renderAdvancedSteps(); 
 }
 
-window.removeAdvancedStep = function (id) { state.form.advancedSteps = state.form.advancedSteps.filter((s) => s.id !== id); window.renderAdvancedSteps(); };
+window.removeAdvancedStep = function (id) { 
+    state.form.advancedSteps = state.form.advancedSteps.filter((s) => s.id !== id); 
+    window.renderAdvancedSteps(); 
+};
 
 window.editStep = function(id) { 
-    const s = state.form.advancedSteps.find(s => s.id === id); if (!s) return; 
+    const s = state.form.advancedSteps.find(s => s.id === id); 
+    if (!s) return; 
+    
     setFieldValue("stepDesc", s.desc); 
     document.getElementById("stepType").value = s.type; 
+    
+    document.getElementById("stepDeviationLimit").value = s.devLimit || "";
     document.getElementById("stepDeviationAction").value = s.devAction || "";
-    document.getElementById("stepDeviationRoute").value = s.devRoute || "";
-    window.toggleDeviationFields();
+    window.toggleDeviationFields(); 
+    window.updateRouteSelect(s.devRoute);
 
     state.form.editingStepId = id; 
     const btn = document.getElementById("btnAddStep"); 
-    if(btn) { btn.innerHTML = `Actualizar Paso`; btn.classList.replace("bg-blue-600", "bg-green-600"); btn.classList.replace("hover:bg-blue-800", "hover:bg-green-800"); } 
+    if(btn) { 
+        btn.innerHTML = `Actualizar Paso`; 
+        btn.classList.replace("bg-blue-600", "bg-green-600"); 
+        btn.classList.replace("hover:bg-blue-800", "hover:bg-green-800"); 
+    } 
     document.getElementById("stepDesc").focus(); 
 };
 
-window.moveStep = function(index, dir) { if (dir === 'up' && index > 0) { const temp = state.form.advancedSteps[index]; state.form.advancedSteps[index] = state.form.advancedSteps[index - 1]; state.form.advancedSteps[index - 1] = temp; } else if (dir === 'down' && index < state.form.advancedSteps.length - 1) { const temp = state.form.advancedSteps[index]; state.form.advancedSteps[index] = state.form.advancedSteps[index + 1]; state.form.advancedSteps[index + 1] = temp; } window.renderAdvancedSteps(); };
+window.moveStep = function(index, dir) { 
+    if (dir === 'up' && index > 0) { 
+        const temp = state.form.advancedSteps[index]; 
+        state.form.advancedSteps[index] = state.form.advancedSteps[index - 1]; 
+        state.form.advancedSteps[index - 1] = temp; 
+    } else if (dir === 'down' && index < state.form.advancedSteps.length - 1) { 
+        const temp = state.form.advancedSteps[index]; 
+        state.form.advancedSteps[index] = state.form.advancedSteps[index + 1]; 
+        state.form.advancedSteps[index + 1] = temp; 
+    } 
+    window.renderAdvancedSteps(); 
+};
+
 window.loadPoesTemplate = async function() {
-    if (state.form.advancedSteps.length > 0) { const ok = await window.sysConfirm("Se reemplazarán los pasos actuales. ¿Cargar plantilla?"); if (!ok) return; }
-    state.form.advancedSteps = [ { id: Date.now()+1, type: 'INFO', desc: '<b>PASO 1: Limpieza en Seco.</b> Retirar restos gruesos, desarmar y proteger componentes eléctricos.', image: null }, { id: Date.now()+2, type: 'INFO', desc: '<b>PASO 2: Pre-enjuague.</b> Aplicar agua a presión para remover suciedad suelta.', image: null }, { id: Date.now()+3, type: 'PC', desc: '<b>PASO 3: Lavado (Acción Mecánica).</b> Aplicar detergente y fregar con escobillas.', devAction: 'Volver a lavar', devRoute: 'Paso 3', image: null }, { id: Date.now()+4, type: 'INFO', desc: '<b>PASO 4: Enjuague Final.</b> Aplicar agua potable hasta eliminar químicos.', image: null }, { id: Date.now()+5, type: 'PC', desc: '<b>PASO 5: Inspección.</b> Verificación visual minuciosa.', devAction: 'Re-lavado localizado', devRoute: 'Paso 3', image: null }, { id: Date.now()+6, type: 'PCC', desc: '<b>PASO 6: Sanitización.</b> Aplicar desinfectante respetando PPM y tiempo.', devAction: 'Ajustar dosis PPM', devRoute: 'Paso 6', image: null }, { id: Date.now()+7, type: 'INFO', desc: '<b>PASO 7: Secado y Montaje.</b> Retirar humedad y re-ensamblar.', image: null } ];
+    if (state.form.advancedSteps.length > 0) { 
+        const ok = await window.sysConfirm("Se reemplazarán los pasos actuales. ¿Cargar plantilla?"); 
+        if (!ok) return; 
+    }
+    const t = Date.now();
+    // Vinculamos las rutas con los IDs reales
+    const id1 = t+1, id2 = t+2, id3 = t+3, id4 = t+4, id5 = t+5, id6 = t+6, id7 = t+7;
+    
+    state.form.advancedSteps = [ 
+        { id: id1, type: 'INFO', desc: '<b>PASO 1: Limpieza en Seco.</b> Retirar restos gruesos, desarmar y proteger componentes eléctricos.', image: null }, 
+        { id: id2, type: 'INFO', desc: '<b>PASO 2: Pre-enjuague.</b> Aplicar agua a presión para remover suciedad suelta.', image: null }, 
+        { id: id3, type: 'PC', desc: '<b>PASO 3: Lavado (Acción Mecánica).</b> Aplicar detergente y fregar con escobillas.', devLimit: 'Superficie sin grasa visible', devAction: 'Volver a lavar', devRoute: String(id3), image: null }, 
+        { id: id4, type: 'INFO', desc: '<b>PASO 4: Enjuague Final.</b> Aplicar agua potable hasta eliminar químicos.', image: null }, 
+        { id: id5, type: 'PC', desc: '<b>PASO 5: Inspección.</b> Verificación visual minuciosa.', devLimit: 'Ausencia total de residuos', devAction: 'Re-lavado localizado', devRoute: String(id3), image: null }, 
+        { id: id6, type: 'PCC', desc: '<b>PASO 6: Sanitización.</b> Aplicar desinfectante respetando PPM y tiempo.', devLimit: '150-200 ppm, 10 min', devAction: 'Ajustar dosis PPM', devRoute: String(id6), image: null }, 
+        { id: id7, type: 'INFO', desc: '<b>PASO 7: Secado y Montaje.</b> Retirar humedad y re-ensamblar.', image: null } 
+    ];
     window.renderAdvancedSteps();
 };
 
 window.renderAdvancedSteps = function () {
-  const container = document.getElementById("advancedStepsList"); if (!container) return;
-  if (state.form.advancedSteps.length === 0) { container.innerHTML = `<div class="py-6 text-center text-gray-400 text-sm">Historial vacío.</div>`; return; }
-  
-  container.innerHTML = state.form.advancedSteps.map((s, i) => {
-      const bColor = s.type === "PCC" ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" : s.type === "PC" ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400" : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300";
-      const imgHTML = s.image ? `<img src="${s.image}" class="mt-2 h-16 object-cover rounded border dark:border-gray-600">` : "";
-      
-      const devHtml = (s.type === 'PC' || s.type === 'PCC') && (s.devAction || s.devRoute) ? 
-          `<div class="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/50 rounded-lg text-[10px] text-red-800 dark:text-red-300 flex flex-col gap-0.5">
-              ${s.devAction ? `<span><strong>⚡ Acción:</strong> ${s.devAction}</span>` : ''}
-              ${s.devRoute ? `<span><strong>🔄 Ruta:</strong> ${s.devRoute}</span>` : ''}
-          </div>` : '';
+    const container = document.getElementById("advancedStepsList"); 
+    if (!container) return;
+    
+    if (state.form.advancedSteps.length === 0) { 
+        container.innerHTML = `<div class="py-6 text-center text-gray-400 text-sm">Historial vacío.</div>`; 
+        return; 
+    }
+    
+    container.innerHTML = state.form.advancedSteps.map((s, i) => {
+        const bColor = s.type === "PCC" ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" : s.type === "PC" ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400" : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300";
+        const imgHTML = s.image ? `<img src="${s.image}" class="mt-2 h-16 object-cover rounded border dark:border-gray-600">` : "";
+        
+        // 🧠 Traductor de ID a Nombre de Paso para la vista previa
+        let routeName = s.devRoute;
+        if (s.devRoute === "FIN") {
+            routeName = "Fin / Desecho";
+        } else if (s.devRoute) {
+            const targetIdx = state.form.advancedSteps.findIndex(x => String(x.id) === String(s.devRoute));
+            if (targetIdx > -1) routeName = `Paso ${targetIdx + 1}`;
+        }
+        
+        const devHtml = (s.type === 'PC' || s.type === 'PCC') ? 
+            `<div class="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/50 rounded-lg text-[10px] text-red-800 dark:text-red-300 flex flex-col gap-0.5">
+                ${s.devLimit ? `<span><strong>🎯 Límite:</strong> ${s.devLimit}</span>` : ''}
+                ${s.devAction ? `<span><strong>⚡ Acción:</strong> ${s.devAction}</span>` : ''}
+                ${routeName ? `<span><strong>🔄 Ruta:</strong> ${routeName}</span>` : ''}
+            </div>` : '';
 
-      return `<div class="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-xl border border-gray-200 dark:border-gray-700 mb-2 flex gap-3 group"><div class="flex flex-col items-center gap-1 shrink-0"><div class="w-6 h-6 rounded-full bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 font-bold flex items-center justify-center text-xs border dark:border-gray-600">${i + 1}</div><div class="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100">${i > 0 ? `<button type="button" onclick="window.moveStep(${i}, 'up')" class="bg-white dark:bg-gray-700 border dark:border-gray-600 rounded px-1 text-[10px]">⬆️</button>` : ''}${i < state.form.advancedSteps.length - 1 ? `<button type="button" onclick="window.moveStep(${i}, 'down')" class="bg-white dark:bg-gray-700 border dark:border-gray-600 rounded px-1 text-[10px]">⬇️</button>` : ''}</div></div><div class="flex-grow"><div class="flex justify-between items-center mb-1"><span class="text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${bColor}">${s.type}</span><div class="flex gap-2 opacity-0 group-hover:opacity-100"><button type="button" onclick="window.editStep(${s.id})" class="text-blue-600 dark:text-blue-400 font-bold text-[10px] uppercase">Editar</button><button type="button" onclick="window.removeAdvancedStep(${s.id})" class="text-red-500 dark:text-red-400 font-bold">✖</button></div></div><div class="text-sm font-medium leading-relaxed">${s.desc}</div>${devHtml}${imgHTML}</div></div>`;
-  }).join("");
+        return `
+        <div class="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-xl border border-gray-200 dark:border-gray-700 mb-2 flex gap-3 group">
+            <div class="flex flex-col items-center gap-1 shrink-0">
+                <div class="w-6 h-6 rounded-full bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 font-bold flex items-center justify-center text-xs border dark:border-gray-600">${i + 1}</div>
+                <div class="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100">
+                    ${i > 0 ? `<button type="button" onclick="window.moveStep(${i}, 'up')" class="bg-white dark:bg-gray-700 border dark:border-gray-600 rounded px-1 text-[10px]">⬆️</button>` : ''}
+                    ${i < state.form.advancedSteps.length - 1 ? `<button type="button" onclick="window.moveStep(${i}, 'down')" class="bg-white dark:bg-gray-700 border dark:border-gray-600 rounded px-1 text-[10px]">⬇️</button>` : ''}
+                </div>
+            </div>
+            <div class="flex-grow">
+                <div class="flex justify-between items-center mb-1">
+                    <span class="text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${bColor}">${s.type}</span>
+                    <div class="flex gap-2 opacity-0 group-hover:opacity-100">
+                        <button type="button" onclick="window.editStep(${s.id})" class="text-blue-600 dark:text-blue-400 font-bold text-[10px] uppercase">Editar</button>
+                        <button type="button" onclick="window.removeAdvancedStep(${s.id})" class="text-red-500 dark:text-red-400 font-bold">✖</button>
+                    </div>
+                </div>
+                <div class="text-sm font-medium leading-relaxed rich-text-content">${s.desc}</div>
+                ${devHtml}
+                ${imgHTML}
+            </div>
+        </div>`;
+    }).join("");
 };
 
 // ==========================================
