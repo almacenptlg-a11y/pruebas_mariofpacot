@@ -11,14 +11,23 @@
     body { font-family: 'Inter', sans-serif; }
     .rich-editor { min-height: 120px; max-height: 500px; overflow-y: auto; resize: vertical; outline: none; }
     .rich-editor:empty:before { content: attr(data-placeholder); color: #9ca3af; pointer-events: none; display: block; font-style: italic; white-space: pre-wrap; line-height: 1.5; }
-    .rich-text-content ul, .rich-editor ul { list-style-type: disc; margin-left: 1.5rem; margin-bottom: 0.5rem; }
-    .rich-text-content ol, .rich-editor ol { list-style-type: decimal; margin-left: 1.5rem; margin-bottom: 0.5rem; }
-    .rich-text-content li, .rich-editor li { margin-bottom: 0.25rem; }
-    .rich-text-content h3, .rich-editor h3 { color: #1e3a5f; font-size: 1.1rem; font-weight: 900; text-transform: uppercase; margin-top: 0.5rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.25rem;}
     
+    /* 🛠️ CORRECCIÓN DE LISTAS Y ENLACES (Forzando estilos sobre Tailwind) */
+    .rich-text-content ul, .rich-editor ul { list-style-type: disc !important; padding-left: 2rem !important; margin-bottom: 0.5rem; }
+    .rich-text-content ol, .rich-editor ol { list-style-type: decimal !important; padding-left: 2rem !important; margin-bottom: 0.5rem; }
+    .rich-text-content li, .rich-editor li { margin-bottom: 0.25rem; display: list-item !important; }
+    .rich-text-content a, .rich-editor a { color: #2563eb; text-decoration: underline; cursor: pointer; font-weight: 600; }
+    .dark .rich-text-content a, .dark .rich-editor a { color: #60a5fa; }
+    
+    .rich-text-content h3, .rich-editor h3 { color: #1e3a5f; font-size: 1.1rem; font-weight: 900; text-transform: uppercase; margin-top: 0.5rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.25rem;}
+    .dark .rich-text-content h3, .dark .rich-editor h3 { color: #60a5fa; border-bottom-color: #374151; }
+    
+    /* Estilos SPA y Ocultar flecha nativa de details (usamos SVG propio) */
     .view-section { display: none; animation: fadeIn 0.3s ease-in-out; }
     .view-section.active { display: block; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    details > summary { list-style: none; }
+    details > summary::-webkit-details-marker { display: none; }
     
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
@@ -31,11 +40,9 @@
   <div id="mobileOverlay" class="fixed inset-0 bg-gray-900/60 z-40 hidden transition-opacity md:hidden" onclick="window.toggleMobileMenu()"></div>
 
   <aside id="sidebar" class="absolute md:relative inset-y-0 left-0 z-50 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col justify-between h-full transition-all duration-300 w-64 transform -translate-x-full md:translate-x-0 shrink-0">
-    
     <button onclick="window.toggleCompactMenu()" class="hidden md:flex absolute -right-3.5 top-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-400 hover:text-red-600 rounded-full p-1 shadow-md z-50 transition-colors" title="Compactar Menú">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"></path></svg>
     </button>
-
     <div>
       <div class="h-20 flex items-center px-4 border-b border-gray-100 dark:border-gray-800 overflow-hidden">
         <span class="sidebar-text font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest text-[10px] ml-2">Menú Principal</span>
@@ -79,13 +86,11 @@
   </aside>
 
   <main class="flex-1 flex flex-col h-full w-full overflow-hidden relative bg-[#f8fafc] dark:bg-gray-950">
-    
     <header class="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 shrink-0 h-16 md:h-20 px-4 md:px-8 flex items-center justify-between shadow-sm z-10 relative">
        <div class="flex items-center gap-3 md:gap-5">
           <button onclick="window.toggleMobileMenu()" class="md:hidden p-2 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 text-gray-600 transition">
              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
           </button>
-
           <div class="hidden sm:flex items-center">
             <svg class="h-10 md:h-12 w-auto shrink-0 drop-shadow-sm" viewBox="0 0 284 164" xmlns="http://www.w3.org/2000/svg">
               <path d="m142 7 135 47v56l-135 47-135-47V54z" fill="#C50D23" stroke="#C50D23" stroke-width="10" stroke-linejoin="round"></path>
@@ -98,13 +103,11 @@
             </svg>
             <div class="border-l-2 border-gray-200 dark:border-gray-700 h-8 mx-4"></div>
           </div>
-          
           <div>
               <h2 id="topbar-title" class="text-base md:text-xl font-black text-gray-900 dark:text-white tracking-tight">Dashboard Operativo</h2>
               <p id="topbar-subtitle" class="text-[10px] md:text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest hidden md:block">Resumen del Sistema</p>
           </div>
        </div>
-
        <div id="topbar-actions" class="flex gap-2">
             <button type="button" id="btn-nuevo-poe" onclick="window.openModal()" class="bg-red-700 hover:bg-red-800 text-white px-4 md:px-5 py-2 md:py-2.5 rounded-xl text-sm font-bold shadow-md transition flex items-center justify-center gap-2 hidden">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path></svg> <span class="hidden md:inline">Nuevo POE</span>
@@ -125,30 +128,27 @@
             <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 md:p-6 transition hover:shadow-md"><p class="text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-2"><span class="w-2 h-2 bg-blue-600 rounded-full"></span>Logística</p><p class="text-3xl md:text-4xl font-black text-blue-600" id="logisticaCount">0</p></div>
             <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 md:p-6 transition hover:shadow-md"><p class="text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-2"><span class="w-2 h-2 bg-orange-500 rounded-full"></span>Calidad</p><p class="text-3xl md:text-4xl font-black text-orange-500" id="calidadCount">0</p></div>
           </div>
-          
           <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 h-max">
                <h3 class="text-lg font-black text-gray-900 dark:text-white mb-4">Acciones Rápidas</h3>
                <div class="space-y-3">
-                  <button onclick="window.openModal()" id="dash-btn-nuevo" class="w-full flex items-center p-3 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-red-200 dark:hover:border-red-900 hover:shadow-sm transition bg-white dark:bg-gray-800 group text-left">
-                     <div class="w-10 h-10 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-600 flex items-center justify-center mr-4 group-hover:scale-110 transition"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path></svg></div>
-                     <div><p class="text-sm font-bold text-gray-900 dark:text-white leading-tight">Crear nuevo POE</p><p class="text-[10px] text-gray-500 dark:text-gray-400">Redactar un procedimiento operativo</p></div>
+                  <button onclick="window.openModal()" id="dash-btn-nuevo" class="w-full flex items-center p-3 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-red-200 hover:shadow-sm transition bg-white dark:bg-gray-800 group text-left">
+                     <div class="w-10 h-10 rounded-lg bg-red-50 text-red-600 flex items-center justify-center mr-4 group-hover:scale-110 transition"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path></svg></div>
+                     <div><p class="text-sm font-bold text-gray-900 dark:text-white leading-tight">Crear nuevo POE</p><p class="text-[10px] text-gray-500">Redactar procedimiento</p></div>
                   </button>
-                  <button onclick="window.switchTab('poes'); document.getElementById('filterStatus').value='ALL'; window.renderPOEs();" class="w-full flex items-center p-3 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-blue-200 dark:hover:border-blue-900 hover:shadow-sm transition bg-white dark:bg-gray-800 group text-left">
-                     <div class="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 flex items-center justify-center mr-4 group-hover:scale-110 transition"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg></div>
-                     <div><p class="text-sm font-bold text-gray-900 dark:text-white leading-tight">Ver todos los POEs</p><p class="text-[10px] text-gray-500 dark:text-gray-400">Listado completo de procedimientos</p></div>
+                  <button onclick="window.switchTab('poes'); document.getElementById('filterStatus').value='ALL'; window.renderPOEs();" class="w-full flex items-center p-3 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-blue-200 hover:shadow-sm transition bg-white dark:bg-gray-800 group text-left">
+                     <div class="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center mr-4 group-hover:scale-110 transition"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg></div>
+                     <div><p class="text-sm font-bold text-gray-900 dark:text-white leading-tight">Ver todos los POEs</p><p class="text-[10px] text-gray-500">Listado completo</p></div>
                   </button>
-                  <button onclick="window.switchTab('poes'); document.getElementById('filterStatus').value='REV'; window.renderPOEs();" class="w-full flex items-center p-3 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-yellow-200 dark:hover:border-yellow-900 hover:shadow-sm transition bg-white dark:bg-gray-800 group text-left">
-                     <div class="w-10 h-10 rounded-lg bg-yellow-50 dark:bg-yellow-900/30 text-yellow-600 flex items-center justify-center mr-4 group-hover:scale-110 transition"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg></div>
-                     <div><p class="text-sm font-bold text-gray-900 dark:text-white leading-tight">POEs en revisión</p><p class="text-[10px] text-gray-500 dark:text-gray-400" id="dashRevCount">0 pendientes de revisión</p></div>
+                  <button onclick="window.switchTab('poes'); document.getElementById('filterStatus').value='REV'; window.renderPOEs();" class="w-full flex items-center p-3 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-yellow-200 hover:shadow-sm transition bg-white dark:bg-gray-800 group text-left">
+                     <div class="w-10 h-10 rounded-lg bg-yellow-50 text-yellow-600 flex items-center justify-center mr-4 group-hover:scale-110 transition"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg></div>
+                     <div><p class="text-sm font-bold text-gray-900 dark:text-white leading-tight">POEs en revisión</p><p class="text-[10px] text-gray-500" id="dashRevCount">0 pendientes</p></div>
                   </button>
                </div>
             </div>
-
             <div class="lg:col-span-2 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
                <h3 class="text-lg font-black text-gray-900 dark:text-white mb-4">Documentos por Área</h3>
-               <div id="dashboard-areas-list" class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[350px] overflow-y-auto pr-2 pb-2">
-                   </div>
+               <div id="dashboard-areas-list" class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[350px] overflow-y-auto pr-2 pb-2"></div>
             </div>
           </div>
         </section>
@@ -172,11 +172,7 @@
                 </select>
             </div>
           </div>
-
-          <div class="mb-4">
-            <p class="text-sm font-medium text-gray-500 dark:text-gray-400"><span id="lblPoeCount" class="font-bold text-gray-700 dark:text-gray-200">0</span> documentos encontrados.</p>
-          </div>
-
+          <div class="mb-4"><p class="text-sm font-medium text-gray-500 dark:text-gray-400"><span id="lblPoeCount" class="font-bold text-gray-700 dark:text-gray-200">0</span> documentos encontrados.</p></div>
           <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
             <div class="overflow-x-auto">
               <table class="w-full text-left border-collapse whitespace-nowrap min-w-[800px]">
@@ -187,6 +183,7 @@
                     <th class="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Área</th>
                     <th class="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Versión</th>
                     <th class="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Estado</th>
+                    <th class="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Fecha</th>
                     <th class="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Acciones</th>
                   </tr>
                 </thead>
@@ -197,18 +194,15 @@
         </section>
 
         <section id="view-areas" class="view-section">
-          <div id="area-filters" class="flex flex-wrap gap-2 mb-8 p-1.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm inline-flex">
-              </div>
-
-          <div id="grid-areas" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-              </div>
+          <div id="area-filters" class="flex flex-wrap gap-2 mb-8 p-1.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm inline-flex"></div>
+          <div id="grid-areas" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"></div>
         </section>
 
       </div>
     </div>
   </main>
 
-  <div id="modal" role="dialog" class="fixed inset-0 bg-gray-50 dark:bg-gray-900 hidden z-[70] slide-in">
+  <div id="modal" role="dialog" class="fixed inset-0 bg-gray-50 dark:bg-gray-900 hidden z-[80] slide-in">
     <div class="h-screen w-full flex flex-col relative">
       <div class="flex-shrink-0 shadow-sm flex flex-col bg-white dark:bg-gray-800">
         <div class="px-4 md:px-10 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
@@ -216,9 +210,6 @@
             <button onclick="window.closeModal()" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg></button>
             <h3 id="modalTitle" class="text-xl font-black text-gray-900 dark:text-white">Registrar Procedimiento</h3>
           </div>
-          <button type="button" onclick="window.closeModal()" class="text-gray-400 dark:text-gray-500 hover:text-red-500 transition p-2.5 rounded-full border border-gray-100 dark:border-gray-600">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-          </button>
         </div>
         
         <div class="flex flex-wrap items-center px-4 md:px-10 py-1.5 gap-1 md:gap-3 text-gray-700 dark:text-gray-300 overflow-x-auto border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
@@ -228,11 +219,22 @@
               <button type="button" class="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-800 rounded underline" onmousedown="event.preventDefault(); document.execCommand('underline', false, null)" title="Subrayado">U</button>
           </div>
           <div class="flex items-center space-x-1 border-r border-gray-300 dark:border-gray-700 pr-2 md:pr-3">
+              <label class="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-800 rounded cursor-pointer flex items-center relative" title="Color de Texto">
+                 <span class="font-bold underline decoration-red-500">A</span><input type="color" class="absolute opacity-0 w-full h-full cursor-pointer" onchange="document.execCommand('foreColor', false, this.value)">
+              </label>
+              <label class="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-800 rounded cursor-pointer flex items-center relative" title="Resaltado">
+                 <span class="font-bold bg-yellow-300 text-black px-0.5">ab</span><input type="color" class="absolute opacity-0 w-full h-full cursor-pointer" onchange="document.execCommand('hiliteColor', false, this.value)">
+              </label>
+          </div>
+          <div class="flex items-center space-x-1 border-r border-gray-300 dark:border-gray-700 pr-2 md:pr-3">
               <button type="button" class="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-800 rounded flex items-center gap-1" onmousedown="event.preventDefault(); document.execCommand('insertUnorderedList', false, null)" title="Viñetas"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M4 10.5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zm0-6c-.83 0-1.5.67-1.5 1.5S3.17 7.5 4 7.5 5.5 6.83 5.5 6 4.83 4.5 4 4.5zm0 12c-.83 0-1.5.68-1.5 1.5s.68 1.5 1.5 1.5 1.5-.68 1.5-1.5-.67-1.5-1.5-1.5zM7 19h14v-2H7v2zm0-6h14v-2H7v2zm0-8v2h14V5H7z"></path></svg></button>
               <button type="button" class="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-800 rounded font-bold text-[10px]" onmousedown="event.preventDefault(); document.execCommand('insertOrderedList', false, null); window.setListType('1')" title="Lista Numerada">1.</button>
+              <button type="button" class="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-800 rounded" onmousedown="event.preventDefault(); document.execCommand('outdent', false, null)" title="Reducir Sangría"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M11 17h10v-2H11v2zm-8-5l4 4V8l-4 4zm0 9h18v-2H3v2zM3 3v2h18V3H3zm8 6h10V7H11v2zm0 4h10v-2H11v2z"></path></svg></button>
+              <button type="button" class="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-800 rounded" onmousedown="event.preventDefault(); document.execCommand('indent', false, null)" title="Aumentar Sangría"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M3 21h18v-2H3v2zM3 8v8l4-4-4-4zm8 9h10v-2H11v2zM3 3v2h18V3H3zm8 6h10V7H11v2zm0 4h10v-2H11v2z"></path></svg></button>
           </div>
           <div class="flex items-center space-x-1">
               <button type="button" class="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-800 rounded font-bold text-[10px] uppercase" onmousedown="event.preventDefault(); document.execCommand('formatBlock', false, 'H3')" title="Título">T</button>
+              <button type="button" class="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-800 rounded text-[10px] font-bold" onclick="const url = prompt('Ingrese URL del enlace:'); if(url) document.execCommand('createLink', false, url);" title="Insertar Enlace">🔗 LINK</button>
               <button type="button" class="p-1.5 hover:bg-red-100 text-red-500 rounded" onmousedown="event.preventDefault(); document.execCommand('removeFormat', false, null)" title="Borrar Formato"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4c-1.48 0-2.85.43-4.01 1.17l1.46 1.46C10.21 6.23 11.08 6 12 6c3.04 0 5.5 2.46 5.5 5.5v.5H19c1.66 0 3 1.34 3 3 0 1.13-.64 2.11-1.56 2.62l1.45 1.45C23.16 18.16 24 16.68 24 15c0-2.64-2.05-4.78-4.65-4.96zM3 5.27l2.75 2.74C3.56 8.79 2 10.82 2 13c0 3.31 2.69 6 6 6h11.73l2 2L23 19.73 4.27 1 3 5.27zM7.73 10l8 8H8c-2.21 0-4-1.79-4-4s1.79-4 3.73-4z"></path></svg></button>
           </div>
         </div>
@@ -241,68 +243,28 @@
       <div class="flex-1 overflow-y-auto w-full pb-20">
         <div class="max-w-6xl mx-auto mt-6">
           <form id="poe-form" onsubmit="window.handleFormSubmit(event)" class="px-4 md:px-10 space-y-8">
-            
             <div class="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
               <h4 class="font-black text-gray-800 dark:text-gray-100 border-b-2 border-gray-100 dark:border-gray-700 pb-3 mb-5 uppercase tracking-wide text-sm">1. Datos de Control Documental</h4>
               <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                <div>
-                  <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Macro-Área *</label>
-                  <select id="category" required onchange="window.updateSubCategories()" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition">
-                    <option value="" disabled selected>Seleccione...</option>
-                  </select>
-                </div>
-                <div>
-                  <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Sub-Área *</label>
-                  <select id="poeSubCategory" required onchange="window.generatePoeCode()" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition">
-                    <option value="" disabled selected>Seleccione área...</option>
-                  </select>
-                </div>
-                <div>
-                  <label class="block text-xs font-bold text-blue-600 dark:text-blue-400 mb-2 uppercase">Código Generado 🔒</label>
-                  <input type="text" id="code" required readonly class="w-full px-4 py-3 border border-blue-200 dark:border-gray-600 rounded-lg shadow-inner bg-blue-50 dark:bg-gray-800 text-blue-800 dark:text-blue-400 font-mono font-bold outline-none cursor-not-allowed">
-                </div>
+                <div><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Macro-Área *</label><select id="category" required onchange="window.updateSubCategories()" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white outline-none transition"><option value="" disabled selected>Seleccione...</option></select></div>
+                <div><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Sub-Área *</label><select id="poeSubCategory" required onchange="window.generatePoeCode()" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white outline-none transition"><option value="" disabled selected>Seleccione área...</option></select></div>
+                <div><label class="block text-xs font-bold text-blue-600 dark:text-blue-400 mb-2 uppercase">Código Generado 🔒</label><input type="text" id="code" required readonly class="w-full px-4 py-3 border border-blue-200 dark:border-gray-600 rounded-lg shadow-inner bg-blue-50 dark:bg-gray-800 text-blue-800 dark:text-blue-400 font-mono font-bold outline-none cursor-not-allowed"></div>
               </div>
               <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div class="md:col-span-2">
-                  <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Título del Procedimiento *</label>
-                  <input type="text" id="title" required class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white outline-none transition" placeholder="[Acción] + [Proceso/Equipo] + [Condición]">
-                </div>
-                <div>
-                  <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Versión</label>
-                  <input type="text" id="poeVersion" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white outline-none font-mono text-center font-bold" value="1.0">
-                </div>
-                <div>
-                  <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Estado</label>
-                  <select id="poeStatus" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none">
-                    <option value="ACT">Activo</option>
-                    <option value="REV">En Revisión</option>
-                  </select>
-                </div>
+                <div class="md:col-span-2"><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Título del Procedimiento *</label><input type="text" id="title" required class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:border-red-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white outline-none transition" placeholder="[Acción] + [Proceso/Equipo] + [Condición]"></div>
+                <div><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Versión</label><input type="text" id="poeVersion" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white outline-none font-mono text-center font-bold" value="1.0"></div>
+                <div><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Estado</label><select id="poeStatus" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:border-red-600 outline-none"><option value="ACT">Activo</option><option value="REV">En Revisión</option></select></div>
               </div>
             </div>
 
             <div class="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
               <h4 class="font-black text-gray-800 dark:text-gray-100 border-b-2 border-gray-100 dark:border-gray-700 pb-3 mb-5 uppercase tracking-wide text-sm">2. Contexto y Alcance</h4>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Objetivo General *</label>
-                <div id="objective" class="rich-editor w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white dark:bg-gray-700 dark:text-white rich-text-content" contenteditable="true" 
-                data-placeholder="► Instrucción: Defina el propósito fundamental.&#10;► Ejemplo: Establecer los pasos estandarizados para evitar proliferación bacteriana."></div></div>
-                
-                <div><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Alcance Operativo *</label>
-                <div id="scope" class="rich-editor w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white dark:bg-gray-700 dark:text-white rich-text-content" contenteditable="true" 
-                data-placeholder="► Instrucción: Delimite las fronteras operativas.&#10;► Ejemplo: Inicia en recepción y finaliza en almacenamiento."></div></div>
-                
-                <div><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Responsabilidades *</label>
-                <div id="responsibles" class="rich-editor w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white dark:bg-gray-700 dark:text-white rich-text-content" contenteditable="true" 
-                data-placeholder="► Ejemplo: Operario: Ejecuta el corte. / Supervisor: Verifica parámetros."></div></div>
-                
-                <div><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Definiciones (Glosario)</label>
-                <div id="definitions" class="rich-editor w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white dark:bg-gray-700 dark:text-white rich-text-content" contenteditable="true" 
-                data-placeholder="► Ejemplo: PCC: Punto Crítico de Control. / Merma: Pérdida de peso."></div></div>
-                
-                <div class="md:col-span-2"><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Equipos, Materiales y EPPs</label>
-                <div id="materials" class="rich-editor w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white dark:bg-gray-700 dark:text-white rich-text-content" contenteditable="true" 
-                data-placeholder="► Ejemplo: • Termómetro de punzón. • Guantes anticorte."></div></div>
+                <div><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Objetivo General *</label><div id="objective" class="rich-editor w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-sm outline-none shadow-sm bg-white dark:bg-gray-700 dark:text-white rich-text-content" contenteditable="true" data-placeholder="► Ejemplo: Establecer los pasos para evitar proliferación bacteriana."></div></div>
+                <div><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Alcance Operativo *</label><div id="scope" class="rich-editor w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-sm outline-none shadow-sm bg-white dark:bg-gray-700 dark:text-white rich-text-content" contenteditable="true" data-placeholder="► Ejemplo: Inicia en recepción y finaliza en almacenamiento."></div></div>
+                <div><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Responsabilidades *</label><div id="responsibles" class="rich-editor w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-sm outline-none shadow-sm bg-white dark:bg-gray-700 dark:text-white rich-text-content" contenteditable="true" data-placeholder="► Ejemplo: Operario: Ejecuta el corte. / Supervisor: Verifica parámetros."></div></div>
+                <div><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Definiciones (Glosario)</label><div id="definitions" class="rich-editor w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-sm outline-none shadow-sm bg-white dark:bg-gray-700 dark:text-white rich-text-content" contenteditable="true" data-placeholder="► Ejemplo: PCC: Punto Crítico de Control. / Merma: Pérdida de peso."></div></div>
+                <div class="md:col-span-2"><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Equipos, Materiales y EPPs</label><div id="materials" class="rich-editor w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-sm outline-none shadow-sm bg-white dark:bg-gray-700 dark:text-white rich-text-content" contenteditable="true" data-placeholder="► Ejemplo: • Termómetro de punzón. • Guantes anticorte."></div></div>
               </div>
             </div>
 
@@ -313,63 +275,41 @@
                    CARGAR 7 PASOS DE SANEAMIENTO (POES)
                 </button>
               </div>
-              
               <div class="bg-blue-50/40 dark:bg-gray-900/40 p-5 rounded-xl border border-blue-100 dark:border-gray-700 mb-6 transition-all hover:shadow-md">
                 <div class="mb-5">
                     <label class="block text-[10px] font-bold text-blue-800 dark:text-blue-400 mb-2 uppercase tracking-wider">Instrucción del Paso Operativo</label>
-                    <div id="stepDesc" class="rich-editor w-full border border-blue-200 dark:border-gray-600 rounded-lg p-3.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-inner bg-white dark:bg-gray-700 dark:text-white rich-text-content transition-all" contenteditable="true" 
-                    data-placeholder="► Ejemplo: Insertar la sonda del termómetro asegurando T° < 4°C."></div>
+                    <div id="stepDesc" class="rich-editor w-full border border-blue-200 dark:border-gray-600 rounded-lg p-3.5 text-sm outline-none shadow-inner bg-white dark:bg-gray-700 dark:text-white rich-text-content transition-all" contenteditable="true" data-placeholder="► Ejemplo: Insertar la sonda asegurando T° < 4°C."></div>
                 </div>
-                
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
                   <div class="md:col-span-4 lg:col-span-3">
                     <label class="block text-[10px] font-bold text-blue-800 dark:text-blue-400 mb-1.5 uppercase tracking-wider">Tipo de Control</label>
-                    <select id="stepType" class="w-full px-3 py-2.5 border border-blue-200 dark:border-gray-600 rounded-lg text-sm font-bold shadow-sm outline-none bg-white dark:bg-gray-700 dark:text-white cursor-pointer hover:border-blue-400 transition-colors">
-                      <option value="INFO">📝 Inst. Operativa</option>
-                      <option value="PC">⚠️ Control (PC)</option>
-                      <option value="PCC" class="text-red-600 dark:text-red-400">🛑 Crítico (PCC)</option>
-                      <option value="SEG">🛡️ Seguridad</option>
-                    </select>
+                    <select id="stepType" class="w-full px-3 py-2.5 border border-blue-200 dark:border-gray-600 rounded-lg text-sm font-bold shadow-sm outline-none bg-white dark:bg-gray-700 dark:text-white cursor-pointer hover:border-blue-400 transition-colors"><option value="INFO">📝 Inst. Operativa</option><option value="PC">⚠️ Control (PC)</option><option value="PCC" class="text-red-600 dark:text-red-400">🛑 Crítico (PCC)</option><option value="SEG">🛡️ Seguridad</option></select>
                   </div>
-                  
                   <div class="md:col-span-4 lg:col-span-6 relative">
                     <label class="block text-[10px] font-bold text-blue-800 dark:text-blue-400 mb-1.5 uppercase tracking-wider">Evidencia Visual</label>
                     <input type="file" id="stepImage" accept="image/*" capture="environment" onchange="window.updateFileText(this)" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 mt-5">
-                    <div class="bg-white dark:bg-gray-700 border border-dashed border-blue-300 dark:border-gray-500 hover:border-blue-500 dark:hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-gray-600 rounded-lg py-2.5 px-4 text-center transition-all cursor-pointer shadow-sm flex items-center justify-center gap-2">
-                      <span id="fileNameDisplay" class="text-xs font-semibold text-blue-700 dark:text-blue-400 truncate">Foto Cámara o Archivo...</span>
-                    </div>
+                    <div class="bg-white dark:bg-gray-700 border border-dashed border-blue-300 dark:border-gray-500 hover:border-blue-500 hover:bg-blue-50 rounded-lg py-2.5 px-4 text-center cursor-pointer shadow-sm flex items-center justify-center"><span id="fileNameDisplay" class="text-xs font-semibold text-blue-700 dark:text-blue-400 truncate">Foto Cámara o Archivo...</span></div>
                   </div>
-
                   <div class="md:col-span-4 lg:col-span-3">
-                    <button type="button" id="btnAddStep" onclick="window.addAdvancedStep()" class="w-full bg-blue-600 hover:bg-blue-800 dark:bg-blue-600 dark:hover:bg-blue-500 text-white px-4 py-2.5 rounded-lg font-bold text-sm shadow-md transition transform hover:-translate-y-0.5 flex items-center justify-center gap-2">
-                      <span id="btnAddStepText">Añadir Paso</span>
-                    </button>
+                    <button type="button" id="btnAddStep" onclick="window.addAdvancedStep()" class="w-full bg-blue-600 hover:bg-blue-800 text-white px-4 py-2.5 rounded-lg font-bold text-sm shadow-md transition transform hover:-translate-y-0.5 flex items-center justify-center"><span id="btnAddStepText">Añadir Paso</span></button>
                   </div>
                 </div>
               </div>
-
               <div id="advancedStepsList" class="space-y-3 max-h-[500px] overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-inner rich-text-content"></div>
             </div>
 
             <div class="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
               <h4 class="font-black text-gray-800 dark:text-gray-100 border-b-2 border-gray-100 dark:border-gray-700 pb-3 mb-5 uppercase tracking-wide text-sm">4. Monitoreo, Control y Referencias</h4>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Frecuencia de Monitoreo *</label>
-                <div id="monitoring" class="rich-editor w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white dark:bg-gray-700 dark:text-white rich-text-content" contenteditable="true" data-placeholder="► Ejemplo: Medición de temperatura cada 2 horas por Calidad."></div></div>
-                
-                <div><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Acciones Correctivas (Desvíos) *</label>
-                <div id="correctiveActions" class="rich-editor w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white dark:bg-gray-700 dark:text-white rich-text-content" contenteditable="true" data-placeholder="► Ejemplo: Si supera los 4°C, detener la línea."></div></div>
-                
-                <div><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Registros Asociados</label>
-                <div id="records" class="rich-editor w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white dark:bg-gray-700 dark:text-white rich-text-content" contenteditable="true" data-placeholder="► Ejemplo: F-PROD-05 - Registro de T° Cocción."></div></div>
-                
-                <div><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Referencias Normativas</label>
-                <div id="references" class="rich-editor w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white dark:bg-gray-700 dark:text-white rich-text-content" contenteditable="true" data-placeholder="► Ejemplo: RM N° 087-2008/MINSA."></div></div>
+                <div><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Frecuencia de Monitoreo *</label><div id="monitoring" class="rich-editor w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-sm outline-none shadow-sm bg-white dark:bg-gray-700 dark:text-white rich-text-content" contenteditable="true" data-placeholder="► Ejemplo: Medición de temperatura cada 2 horas por Calidad."></div></div>
+                <div><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Acciones Correctivas (Desvíos) *</label><div id="correctiveActions" class="rich-editor w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-sm outline-none shadow-sm bg-white dark:bg-gray-700 dark:text-white rich-text-content" contenteditable="true" data-placeholder="► Ejemplo: Si supera los 4°C, detener la línea."></div></div>
+                <div><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Registros Asociados</label><div id="records" class="rich-editor w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-sm outline-none shadow-sm bg-white dark:bg-gray-700 dark:text-white rich-text-content" contenteditable="true" data-placeholder="► Ejemplo: F-PROD-05 - Registro de T° Cocción."></div></div>
+                <div><label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase">Referencias Normativas</label><div id="references" class="rich-editor w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-sm outline-none shadow-sm bg-white dark:bg-gray-700 dark:text-white rich-text-content" contenteditable="true" data-placeholder="► Ejemplo: RM N° 087-2008/MINSA."></div></div>
               </div>
             </div>
 
             <div class="flex flex-col-reverse sm:flex-row justify-end sm:space-x-4 pt-4 pb-4">
-              <button type="button" onclick="window.closeModal()" class="w-full sm:w-auto px-8 py-3.5 border-2 border-gray-200 dark:border-gray-600 rounded-xl font-bold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition mt-3 sm:mt-0">Cancelar Edición</button>
+              <button type="button" onclick="window.closeModal()" class="w-full sm:w-auto px-8 py-3.5 border-2 border-gray-200 dark:border-gray-600 rounded-xl font-bold text-gray-600 hover:bg-gray-50 transition mt-3 sm:mt-0">Cancelar Edición</button>
               <button type="submit" class="w-full sm:w-auto bg-red-700 hover:bg-red-800 transition px-10 py-3.5 rounded-xl text-white font-black shadow-lg">Firmar y Guardar Documento</button>
             </div>
           </form>
@@ -380,24 +320,29 @@
 
   <div id="viewModal" role="dialog" class="fixed inset-0 bg-gray-50 dark:bg-gray-900 hidden z-[80] overflow-y-auto slide-in">
     <div class="bg-gray-50 dark:bg-gray-900 min-h-screen w-full flex flex-col relative">
-      <div class="px-6 md:px-10 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between sticky top-0 bg-white/95 dark:bg-gray-900/95 z-30 shadow-sm backdrop-blur-sm">
-        <button onclick="window.closeViewModal()" class="text-gray-500 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg></button>
-        <button id="btnExportWord" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg font-bold text-sm shadow-md transition-colors">Exportar .DOC</button>
+      <div class="px-6 md:px-10 py-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row items-center justify-between sticky top-0 bg-white/95 dark:bg-gray-900/95 z-30 shadow-sm backdrop-blur-sm gap-4">
+        <div class="flex items-center space-x-4 w-full sm:w-auto">
+          <button type="button" onclick="window.closeViewModal()" class="text-gray-500 dark:text-gray-400 hover:text-red-700 bg-gray-100 dark:bg-gray-800 hover:bg-red-50 transition p-2.5 rounded-full"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg></button>
+          <h3 class="text-xl font-black text-gray-900 dark:text-white tracking-tight" id="viewTitle">Visor de Documento</h3>
+        </div>
+        <div class="flex items-center space-x-3 w-full sm:w-auto justify-end">
+          <button type="button" id="btnExportWord" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-bold text-sm shadow-md transition">Exportar .DOC</button>
+        </div>
       </div>
-      <div class="flex-grow max-w-5xl mx-auto w-full p-4 md:p-8" id="viewContent"></div>
+      <div class="flex-grow w-full max-w-5xl mx-auto p-4 md:p-8" id="viewContent"></div>
     </div>
   </div>
 
   <div id="areaFormModal" role="dialog" class="fixed inset-0 bg-gray-900/60 hidden z-[90] overflow-y-auto backdrop-blur-sm items-center justify-center p-4">
-      <div class="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-200 dark:border-gray-700 my-auto">
-          <div class="px-6 py-5 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex justify-between items-center"><h3 id="areaFormTitle" class="text-lg font-black text-gray-900 dark:text-white uppercase tracking-wide">Configurar Área</h3><button onclick="window.closeAreaForm()" class="text-gray-400 hover:text-red-500 bg-white dark:bg-gray-800 p-2 rounded-full shadow-sm border border-gray-100 dark:border-gray-700">✖</button></div>
+      <div class="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden my-auto border border-gray-200 dark:border-gray-700">
+          <div class="px-6 py-5 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex justify-between items-center"><h3 id="areaFormTitle" class="text-lg font-black text-gray-900 dark:text-white">Configurar Área</h3><button onclick="window.closeAreaForm()" class="text-gray-400 hover:text-red-500 bg-white dark:bg-gray-800 p-2 rounded-full shadow-sm border dark:border-gray-700">✖</button></div>
           <form id="area-config-form" onsubmit="window.handleAreaSubmit(event)" class="p-6 space-y-5">
-              <div><label class="block text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Macro-Área</label><select id="cfgAreaMacro" required onchange="window.toggleNewMacroFields(); window.autoCalcPrefix();" class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 dark:text-white outline-none focus:border-red-600 cursor-pointer"></select></div>
-              <div id="newMacroContainer" class="hidden grid grid-cols-2 gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800/50"><div class="col-span-2 text-[10px] font-bold text-blue-800 dark:text-blue-400 uppercase">✨ NUEVA MACRO</div><div><input type="text" id="cfgNewMacroName" placeholder="Nombre" class="w-full p-2.5 border border-white dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-white outline-none"></div><div><input type="text" id="cfgNewMacroAbbr" placeholder="Abrev." maxlength="6" oninput="window.autoCalcPrefix()" class="w-full p-2.5 border border-white dark:border-gray-600 rounded-lg text-sm font-mono uppercase bg-white dark:bg-gray-700 dark:text-white outline-none"></div></div>
-              <div class="grid grid-cols-3 gap-3 border-t border-gray-100 dark:border-gray-700 pt-4"><div class="col-span-2"><label class="block text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Nombre Oficial</label><input type="text" id="cfgAreaName" required class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 dark:text-white outline-none focus:border-red-600"></div><div><label class="block text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Abrev.</label><input type="text" id="cfgAreaAbbr" required maxlength="6" oninput="window.autoCalcPrefix()" class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-xl font-mono uppercase text-center bg-white dark:bg-gray-700 dark:text-white outline-none focus:border-red-600"></div></div>
-              <div class="grid grid-cols-3 gap-3"><div><label class="block text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase mb-1">Prefijo POE</label><input type="text" id="cfgAreaPrefix" required maxlength="15" class="w-full p-3 border border-blue-300 dark:border-blue-700 rounded-xl bg-blue-50 dark:bg-blue-900/20 font-mono uppercase text-center font-bold text-blue-900 dark:text-blue-200 outline-none focus:border-blue-600"></div><div class="col-span-2"><label class="block text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Estado Operativo</label><select id="cfgAreaStatus" class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-xl font-bold bg-white dark:bg-gray-700 dark:text-white outline-none cursor-pointer"><option value="ACT" class="text-green-600 dark:text-green-400">Activo (Visible)</option><option value="OBS" class="text-red-600 dark:text-red-400">Obsoleto (Oculto)</option></select></div></div>
-              <div><label class="block text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Descripción</label><textarea id="cfgAreaDesc" rows="2" class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-xl resize-none bg-white dark:bg-gray-700 dark:text-white outline-none focus:border-red-600"></textarea></div>
-              <div class="pt-4 flex justify-end gap-3"><button type="button" onclick="window.closeAreaForm()" class="px-5 py-2.5 text-sm font-bold text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition">Cancelar</button><button type="submit" id="btnSaveArea" class="px-6 py-2.5 rounded-xl text-sm font-bold text-white bg-gray-900 hover:bg-black dark:bg-gray-700 dark:hover:bg-gray-600 shadow-md transition-colors">Guardar</button></div>
+              <div><label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Macro-Área</label><select id="cfgAreaMacro" required onchange="window.toggleNewMacroFields(); window.autoCalcPrefix();" class="w-full p-3 border rounded-xl bg-gray-50 dark:bg-gray-700 dark:border-gray-600 outline-none"></select></div>
+              <div id="newMacroContainer" class="hidden grid grid-cols-2 gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl"><div class="col-span-2 text-[10px] font-bold text-blue-800">✨ NUEVA MACRO</div><div><input type="text" id="cfgNewMacroName" placeholder="Nombre" class="w-full p-2.5 border rounded-lg text-sm dark:bg-gray-700"></div><div><input type="text" id="cfgNewMacroAbbr" placeholder="Abrev." maxlength="6" oninput="window.autoCalcPrefix()" class="w-full p-2.5 border rounded-lg text-sm font-mono uppercase dark:bg-gray-700"></div></div>
+              <div class="grid grid-cols-3 gap-3 border-t pt-4 dark:border-gray-700"><div class="col-span-2"><label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Nombre Oficial</label><input type="text" id="cfgAreaName" required class="w-full p-3 border rounded-xl dark:bg-gray-700"></div><div><label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Abrev.</label><input type="text" id="cfgAreaAbbr" required maxlength="6" oninput="window.autoCalcPrefix()" class="w-full p-3 border rounded-xl font-mono uppercase text-center dark:bg-gray-700"></div></div>
+              <div class="grid grid-cols-3 gap-3"><div><label class="block text-[10px] font-bold text-blue-600 uppercase mb-1">Prefijo POE</label><input type="text" id="cfgAreaPrefix" required maxlength="15" class="w-full p-3 border border-blue-300 rounded-xl bg-blue-50 font-mono uppercase text-center font-bold text-blue-900 outline-none"></div><div class="col-span-2"><label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Estado</label><select id="cfgAreaStatus" class="w-full p-3 border rounded-xl font-bold dark:bg-gray-700 outline-none"><option value="ACT" class="text-green-600">Activo (Visible)</option><option value="OBS" class="text-red-600">Obsoleto (Oculto)</option></select></div></div>
+              <div><label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Descripción</label><textarea id="cfgAreaDesc" rows="2" class="w-full p-3 border rounded-xl resize-none dark:bg-gray-700"></textarea></div>
+              <div class="pt-4 flex justify-end gap-3"><button type="button" onclick="window.closeAreaForm()" class="px-5 py-2.5 text-sm font-bold text-gray-500">Cancelar</button><button type="submit" id="btnSaveArea" class="px-6 py-2.5 rounded-xl text-sm font-bold text-white bg-gray-900 hover:bg-black shadow-md">Guardar Área</button></div>
           </form>
       </div>
   </div>
