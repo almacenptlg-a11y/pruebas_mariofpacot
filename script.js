@@ -73,9 +73,19 @@ window.toggleCompactMenu = function() {
     else { sidebar.classList.replace('w-[72px]', 'w-64'); texts.forEach(el => el.classList.remove('hidden')); }
 };
 
+  // 🧠 RECUPERAR TEMA INMEDIATAMENTE AL CARGAR EL SCRIPT
+const savedTheme = localStorage.getItem('genapp_theme');
+if (savedTheme === 'dark') document.documentElement.classList.add('dark');
+
 window.addEventListener('message', (event) => {
     const { type, user, theme } = event.data || {};
-    if (type === 'THEME_UPDATE') document.documentElement.classList.toggle('dark', theme === 'dark');
+    
+    // 🎨 Guardar y aplicar el tema indicado por el HUB
+    if ((type === 'THEME_UPDATE' || type === 'SESSION_SYNC') && theme) {
+        document.documentElement.classList.toggle('dark', theme === 'dark');
+        localStorage.setItem('genapp_theme', theme);
+    }
+
     if (type === 'SESSION_SYNC' && user) {
         const isNewUser = !state.user || state.user.usuario !== user.usuario;
         state.user = user; state.isSessionVerified = true;
@@ -589,16 +599,30 @@ window.forceSync = async function () {
       return await window.sysAlert("El sistema detecta pérdida de conexión. Las funciones de sincronización están pausadas.", "warning");
   }
   
+  // 🔄 INICIAR ANIMACIÓN
+  const syncBtn = document.querySelector('button[onclick="window.forceSync()"]');
+  const syncIcon = syncBtn ? syncBtn.querySelector('svg') : null;
+  if (syncIcon) {
+      syncIcon.classList.add("animate-spin", "text-blue-500");
+      syncBtn.disabled = true;
+  }
+  
   try { 
       window.updateNet("sync"); 
-      await window.pushSync(); // Sube pendientes
-      await window.pullSync(); // Descarga frescos rompiendo caché
+      await window.pushSync(); // Subir pendientes a la nube
+      await window.pullSync(); // Descargar frescos (Rompiendo caché)
       
       await window.sysAlert("Base de datos sincronizada y caché actualizado correctamente.", "success");
   } catch (error) {
       await window.sysAlert("Ocurrió un error al intentar sincronizar con los servidores de Google.", "error");
   } finally { 
       window.updateNet(navigator.onLine ? "online" : "offline"); 
+      
+      // 🛑 DETENER ANIMACIÓN
+      if (syncIcon) {
+          syncIcon.classList.remove("animate-spin", "text-blue-500");
+          syncBtn.disabled = false;
+      }
   }
 };
 
