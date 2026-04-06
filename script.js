@@ -1,27 +1,19 @@
 /**
- * @fileoverview CORE GENAPP - Sistema POE Industrial (SPA + MOBILE + RBAC + DASHBOARD)
+ * @fileoverview CORE GENAPP - Sistema POE Industrial (SPA + DICCIONARIO + EXPORT WORD)
  */
 
 const GAS_ENDPOINT = "https://script.google.com/macros/s/AKfycbylXo9sXzLBYCdyB1AiDOa7-cyvPutjmy0XCun33Ic1YSFM0YdruE6WfkSt0SCz_PSO2Q/exec"; 
 const GAS_DICT_ENDPOINT = "https://script.google.com/macros/s/AKfycbxAHJeIS_Dq91olhikoJpRPZEVPf-wPOCs_NGQ796oowVOQRRX8jeOeiNeFeDw3zrxE/exec"; 
 
-let state = { 
-    poes: [], 
-    areas: [],       
-    config: [], 
-    form: { advancedSteps: [], editingId: null, editingStepId: null },
-    user: null,               
-    isSessionVerified: false,
-    activeAreaFilter: 'TODAS'
-};
+let state = { poes: [], areas: [], config: [], form: { advancedSteps: [], editingId: null, editingStepId: null }, user: null, isSessionVerified: false, activeAreaFilter: 'TODAS' };
 
 // ==========================================
 // MOTOR DE POPUPS DEL SISTEMA
 // ==========================================
 window.sysAlert = function(message, type = 'info') {
     return new Promise(resolve => {
-        const colors = { error: 'bg-red-100 text-red-800', warning: 'bg-amber-100 text-amber-800', success: 'bg-green-100 text-green-800', info: 'bg-blue-100 text-blue-800' };
-        const icons = { error: '❌', warning: '⚠️', success: '✅', info: 'ℹ️' };
+        const colors = { error: 'bg-red-50 text-red-600', warning: 'bg-amber-50 text-amber-600', success: 'bg-green-50 text-green-600', info: 'bg-blue-50 text-blue-600' };
+        const icons = { error: '✖', warning: '⚠️', success: '✓', info: 'ℹ️' };
         const modal = document.createElement('div');
         modal.className = 'fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4';
         modal.innerHTML = `<div class="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-700 max-w-sm w-full overflow-hidden animate-[fadeIn_0.2s]"><div class="p-6 text-center"><div class="w-16 h-16 mx-auto rounded-full flex items-center justify-center text-3xl mb-4 ${colors[type]}">${icons[type]}</div><h3 class="text-lg font-black text-gray-900 dark:text-white mb-2">Mensaje del Sistema</h3><p class="text-sm font-medium text-gray-600 dark:text-gray-400 whitespace-pre-line">${message}</p></div><div class="p-4 bg-gray-50 dark:bg-gray-900 border-t border-gray-100 dark:border-gray-700 flex justify-center"><button class="bg-gray-900 hover:bg-black dark:bg-gray-700 dark:hover:bg-gray-600 text-white px-8 py-3 rounded-xl text-sm font-bold w-full transition-colors" id="btnAlertOk">Entendido</button></div></div>`;
@@ -34,7 +26,7 @@ window.sysConfirm = function(message) {
     return new Promise(resolve => {
         const modal = document.createElement('div');
         modal.className = 'fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4';
-        modal.innerHTML = `<div class="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-700 max-w-sm w-full overflow-hidden animate-[fadeIn_0.2s]"><div class="p-6 text-center"><div class="w-16 h-16 mx-auto rounded-full flex items-center justify-center text-3xl mb-4 bg-amber-100 text-amber-800">⚠️</div><h3 class="text-lg font-black text-gray-900 dark:text-white mb-2">Confirmación</h3><p class="text-sm font-medium text-gray-600 dark:text-gray-400 whitespace-pre-line">${message}</p></div><div class="p-4 bg-gray-50 dark:bg-gray-900 border-t border-gray-100 dark:border-gray-700 flex gap-3"><button class="flex-1 bg-white border border-gray-200 text-gray-700 hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 py-3 rounded-xl text-sm font-bold transition-all" id="btnConfCancel">Cancelar</button><button class="flex-1 bg-red-700 hover:bg-red-800 text-white py-3 rounded-xl text-sm font-bold transition-colors" id="btnConfOk">Confirmar</button></div></div>`;
+        modal.innerHTML = `<div class="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-700 max-w-sm w-full overflow-hidden animate-[fadeIn_0.2s]"><div class="p-6 text-center"><div class="w-16 h-16 mx-auto rounded-full flex items-center justify-center text-3xl mb-4 bg-amber-50 text-amber-600">⚠️</div><h3 class="text-lg font-black text-gray-900 dark:text-white mb-2">Confirmación</h3><p class="text-sm font-medium text-gray-600 dark:text-gray-400 whitespace-pre-line">${message}</p></div><div class="p-4 bg-gray-50 dark:bg-gray-900 border-t border-gray-100 dark:border-gray-700 flex gap-3"><button class="flex-1 bg-white border border-gray-200 text-gray-700 hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 py-3 rounded-xl text-sm font-bold transition-all" id="btnConfCancel">Cancelar</button><button class="flex-1 bg-red-700 hover:bg-red-800 text-white py-3 rounded-xl text-sm font-bold transition-colors" id="btnConfOk">Confirmar</button></div></div>`;
         document.body.appendChild(modal);
         document.getElementById('btnConfOk').onclick = () => { modal.remove(); resolve(true); };
         document.getElementById('btnConfCancel').onclick = () => { modal.remove(); resolve(false); };
@@ -42,7 +34,7 @@ window.sysConfirm = function(message) {
 };
 
 // ==========================================
-// CONTROL DE UI Y NAVEGACIÓN (SPA & MOBILE)
+// NAVEGACIÓN Y MENÚ
 // ==========================================
 window.switchTab = function(tabId) {
     document.querySelectorAll('.nav-btn').forEach(btn => {
@@ -59,55 +51,26 @@ window.switchTab = function(tabId) {
     const activeView = document.getElementById(`view-${tabId}`);
     if(activeView) activeView.classList.add('active');
 
-    // Títulos Dinámicos y Botones Topbar
     const topTitle = document.getElementById('topbar-title');
     const topSub = document.getElementById('topbar-subtitle');
     const btnNuevo = document.getElementById('btn-nuevo-poe');
     const btnArea = document.getElementById('btn-nueva-area');
     const permisos = window.getPermisos();
     
-    if(tabId === 'dashboard') {
-        topTitle.textContent = "Dashboard Operativo"; topSub.textContent = "Resumen del Sistema";
-        if(btnNuevo) btnNuevo.classList.add('hidden');
-        if(btnArea) btnArea.classList.add('hidden');
-        window.renderDashboard();
-    } else if (tabId === 'poes') {
-        topTitle.textContent = "Procedimientos Operativos"; topSub.textContent = "Matriz Documental GFSI";
-        if(btnNuevo) (permisos.canEditAll || permisos.canEditOwn) ? btnNuevo.classList.remove('hidden') : btnNuevo.classList.add('hidden');
-        if(btnArea) btnArea.classList.add('hidden');
-        window.renderPOEs();
-    } else if (tabId === 'areas') {
-        topTitle.textContent = "Áreas de la Planta"; topSub.textContent = "Organización Estructural";
-        if(btnNuevo) btnNuevo.classList.add('hidden');
-        if(btnArea) permisos.canManageAreas ? btnArea.classList.remove('hidden') : btnArea.classList.add('hidden');
-        window.renderMapaAreas();
-    }
+    if(tabId === 'dashboard') { topTitle.textContent = "Dashboard Operativo"; topSub.textContent = "Resumen del Sistema"; if(btnNuevo) btnNuevo.classList.add('hidden'); if(btnArea) btnArea.classList.add('hidden'); window.renderDashboard(); } 
+    else if (tabId === 'poes') { topTitle.textContent = "Procedimientos Operativos"; topSub.textContent = "Matriz Documental GFSI"; if(btnNuevo) (permisos.canEditAll || permisos.canEditOwn) ? btnNuevo.classList.remove('hidden') : btnNuevo.classList.add('hidden'); if(btnArea) btnArea.classList.add('hidden'); window.renderPOEs(); } 
+    else if (tabId === 'areas') { topTitle.textContent = "Áreas de la Planta"; topSub.textContent = "Organización Estructural"; if(btnNuevo) btnNuevo.classList.add('hidden'); if(btnArea) permisos.canManageAreas ? btnArea.classList.remove('hidden') : btnArea.classList.add('hidden'); window.renderMapaAreas(); }
 };
 
 window.toggleMobileMenu = function(forceClose = false) {
-    const sidebar = document.getElementById('sidebar');
-    const overlay = document.getElementById('mobileOverlay');
-    if (!sidebar || !overlay) return;
-    if (forceClose || !sidebar.classList.contains('-translate-x-full')) {
-        sidebar.classList.add('-translate-x-full');
-        overlay.classList.add('hidden');
-    } else {
-        sidebar.classList.remove('-translate-x-full');
-        overlay.classList.remove('hidden');
-    }
+    const sidebar = document.getElementById('sidebar'); const overlay = document.getElementById('mobileOverlay'); if (!sidebar || !overlay) return;
+    if (forceClose || !sidebar.classList.contains('-translate-x-full')) { sidebar.classList.add('-translate-x-full'); overlay.classList.add('hidden'); } else { sidebar.classList.remove('-translate-x-full'); overlay.classList.remove('hidden'); }
 };
 
 window.toggleCompactMenu = function() {
-    const sidebar = document.getElementById('sidebar');
-    const texts = document.querySelectorAll('.sidebar-text');
-    if (!sidebar) return;
-    if (sidebar.classList.contains('w-64')) {
-        sidebar.classList.replace('w-64', 'w-[72px]');
-        texts.forEach(el => el.classList.add('hidden'));
-    } else {
-        sidebar.classList.replace('w-[72px]', 'w-64');
-        texts.forEach(el => el.classList.remove('hidden'));
-    }
+    const sidebar = document.getElementById('sidebar'); const texts = document.querySelectorAll('.sidebar-text'); if (!sidebar) return;
+    if (sidebar.classList.contains('w-64')) { sidebar.classList.replace('w-64', 'w-[72px]'); texts.forEach(el => el.classList.add('hidden')); } 
+    else { sidebar.classList.replace('w-[72px]', 'w-64'); texts.forEach(el => el.classList.remove('hidden')); }
 };
 
 window.addEventListener('message', (event) => {
@@ -122,7 +85,7 @@ window.addEventListener('message', (event) => {
 });
 
 // ==========================================
-// LÓGICA DE NEGOCIO Y RENDERIZADO
+// BASE DE DATOS Y PERMISOS
 // ==========================================
 window.getPermisos = function() {
     if (!state.user) return { rol: 'GUEST', areas: [], canViewAll: false, canEditAll: false, canEditOwn: false, canManageAreas: false };
@@ -131,37 +94,18 @@ window.getPermisos = function() {
     if (Array.isArray(state.user.area)) assignedAreas = state.user.area.map(a => String(a).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
     else if (typeof state.user.area === 'string') assignedAreas = state.user.area.split(',').map(a => a.trim().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
 
-    const isOperario = rol === 'OPERARIO';
-    const isSupervisor = rol === 'SUPERVISOR';
-    const isGerente = rol === 'GERENTE';
-    const isJefe = rol === 'JEFE';
-    const isAdmin = ['ADMINISTRADOR', 'ADMIN', 'SISTEMAS'].includes(rol);
-
     return { 
         rol, areas: assignedAreas, 
-        canViewAll: isSupervisor || isJefe || isGerente || isAdmin,
-        canEditAll: isJefe || isAdmin, canEditOwn: isSupervisor, canManageAreas: isJefe || isAdmin
+        canViewAll: ['SUPERVISOR', 'JEFE', 'GERENTE', 'ADMINISTRADOR', 'ADMIN', 'SISTEMAS'].includes(rol),
+        canEditAll: ['JEFE', 'ADMINISTRADOR', 'ADMIN', 'SISTEMAS'].includes(rol), 
+        canEditOwn: rol === 'SUPERVISOR', 
+        canManageAreas: ['JEFE', 'ADMINISTRADOR', 'ADMIN', 'SISTEMAS'].includes(rol)
     };
 };
 
 const POEDB = {
   db: null, useRAM: false, ramDB: { poes: [], sync_queue: [], sys_config: [], areas: [] },
-  init() {
-    return new Promise((resolve) => {
-      try {
-        const req = indexedDB.open("POE_DB_V8", 2); 
-        req.onupgradeneeded = (e) => {
-          const db = e.target.result;
-          if (!db.objectStoreNames.contains("poes")) db.createObjectStore("poes", { keyPath: "id" });
-          if (!db.objectStoreNames.contains("sync_queue")) db.createObjectStore("sync_queue", { keyPath: "id" });
-          if (!db.objectStoreNames.contains("sys_config")) db.createObjectStore("sys_config", { keyPath: "key" });
-          if (!db.objectStoreNames.contains("areas")) db.createObjectStore("areas", { keyPath: "id" }); 
-        };
-        req.onsuccess = (e) => { this.db = e.target.result; resolve(); };
-        req.onerror = () => { this.useRAM = true; resolve(); };
-      } catch (e) { this.useRAM = true; resolve(); }
-    });
-  },
+  init() { return new Promise((resolve) => { try { const req = indexedDB.open("POE_DB_V8", 2); req.onupgradeneeded = (e) => { const db = e.target.result; if (!db.objectStoreNames.contains("poes")) db.createObjectStore("poes", { keyPath: "id" }); if (!db.objectStoreNames.contains("sync_queue")) db.createObjectStore("sync_queue", { keyPath: "id" }); if (!db.objectStoreNames.contains("sys_config")) db.createObjectStore("sys_config", { keyPath: "key" }); if (!db.objectStoreNames.contains("areas")) db.createObjectStore("areas", { keyPath: "id" }); }; req.onsuccess = (e) => { this.db = e.target.result; resolve(); }; req.onerror = () => { this.useRAM = true; resolve(); }; } catch (e) { this.useRAM = true; resolve(); } }); },
   save(store, data) { return new Promise((r) => { if (this.useRAM) { const idx = this.ramDB[store].findIndex((i) => i.id === data.id || i.key === data.key); if (idx > -1) this.ramDB[store][idx] = data; else this.ramDB[store].push(data); return r(); } const tx = this.db.transaction(store, "readwrite"); tx.objectStore(store).put(data); tx.oncomplete = r; }); },
   getAll(store) { return new Promise((r) => { if (this.useRAM) return r(this.ramDB[store]); const tx = this.db.transaction(store, "readonly"); const req = tx.objectStore(store).getAll(); req.onsuccess = () => r(req.result); }); },
   delete(store, id) { return new Promise((r) => { if (this.useRAM) { this.ramDB[store] = this.ramDB[store].filter((i) => i.id !== id && i.key !== id); return r(); } const tx = this.db.transaction(store, "readwrite"); tx.objectStore(store).delete(id); tx.oncomplete = r; }); }
@@ -192,9 +136,10 @@ window.refreshUI = async function () {
 
   if (state.user) {
       safeSet('userName', state.user.nombre);
-      const areaNames = permisos.areas.map(abbr => { 
-          const a = state.areas.find(x => x.areaAbbr === abbr); 
-          return a ? a.areaName : abbr; 
+      // 🧠 TRADUCCIÓN DEL DICCIONARIO: Convertir ID o Abrev a Nombre Real
+      const areaNames = permisos.areas.map(val => { 
+          const a = state.areas.find(x => x.id === val || x.areaAbbr === val); 
+          return a ? a.areaName : val; 
       });
       const areasFormat = areaNames.length > 0 ? `<span class="text-gray-400 dark:text-gray-500 font-medium block truncate mt-0.5" title="${areaNames.join(', ')}">📍 ${areaNames.join(', ')}</span>` : '';
       const userRoleEl = document.getElementById('userRole');
@@ -210,46 +155,28 @@ window.refreshUI = async function () {
   window.buildDynamicDictionaries();
   window.renderDashboard();
   window.renderPOEs();
-  
-  // Ocultar botón "Nuevo POE" en el widget del dashboard si no hay permisos
-  const dashBtnNuevo = document.getElementById("dash-btn-nuevo");
-  if(dashBtnNuevo) dashBtnNuevo.style.display = (permisos.canEditAll || permisos.canEditOwn) ? 'flex' : 'none';
+  window.renderMapaAreas();
 };
 
+// ==========================================
+// RENDERIZADO DE VISTAS (DASHBOARD Y POES)
+// ==========================================
 window.renderDashboard = function() {
-    // 1. Actualizar contador POEs en revisión
     const revCount = state.poes.filter(p => p.status === 'REV' || p.status === 'En Revisión').length;
     const revEl = document.getElementById("dashRevCount");
-    if(revEl) revEl.textContent = `${revCount} procedimientos pendientes de revisión`;
+    if(revEl) revEl.textContent = `${revCount} pendientes de revisión`;
 
-    // 2. Inyectar Lista de Áreas dinámica
-    const container = document.getElementById("dashboard-areas-list");
-    if(!container) return;
-
+    const container = document.getElementById("dashboard-areas-list"); if(!container) return;
     let html = '';
     state.areas.forEach(area => {
         const count = state.poes.filter(p => p.subCategory === area.areaAbbr).length;
-        html += `
-        <div class="flex items-center justify-between p-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition" onclick="window.switchTab('poes'); document.getElementById('filterArea').value = '${area.areaAbbr}'; window.renderPOEs();">
-            <div class="flex items-center gap-3">
-                <div class="w-8 h-8 rounded-lg bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-400">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-7h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
-                </div>
-                <div>
-                    <p class="text-xs font-bold text-gray-900 dark:text-white leading-tight">${area.areaName}</p>
-                    <p class="text-[10px] text-gray-500">${area.macroName}</p>
-                </div>
-            </div>
-            <span class="text-xs font-black bg-white dark:bg-gray-900 px-2 py-1 rounded-md border border-gray-200 dark:border-gray-600">${count}</span>
-        </div>`;
+        html += `<div class="flex items-center justify-between p-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition" onclick="window.switchTab('poes'); document.getElementById('filterArea').value = '${area.areaAbbr}'; window.renderPOEs();"><div class="flex items-center gap-3"><div class="w-8 h-8 rounded-lg bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-400"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-7h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg></div><div><p class="text-xs font-bold text-gray-900 dark:text-white leading-tight">${area.areaName}</p><p class="text-[10px] text-gray-500">${area.macroName}</p></div></div><span class="text-xs font-black bg-white dark:bg-gray-900 px-2 py-1 rounded-md border border-gray-200 dark:border-gray-600">${count}</span></div>`;
     });
     container.innerHTML = html || `<p class="text-sm text-gray-400 col-span-2">No hay áreas configuradas.</p>`;
 };
 
 window.renderPOEs = function () {
-  const tbody = document.getElementById("table-body");
-  if (!tbody) return;
-
+  const tbody = document.getElementById("table-body"); if (!tbody) return;
   const query = document.getElementById("searchInput")?.value.toLowerCase() || "";
   const filterStat = document.getElementById("filterStatus")?.value || "ALL";
   const filterAr = document.getElementById("filterArea")?.value || "ALL";
@@ -261,9 +188,7 @@ window.renderPOEs = function () {
       return srch.toLowerCase().includes(query) && (filterStat === "ALL" || p.status === filterStat || (filterStat === 'ACT' && p.status === 'Activo')) && (filterAr === "ALL" || p.subCategory === filterAr);
   });
 
-  const countLabel = document.getElementById("lblPoeCount");
-  if(countLabel) countLabel.textContent = filtered.length;
-
+  const countLabel = document.getElementById("lblPoeCount"); if(countLabel) countLabel.textContent = filtered.length;
   if (filtered.length === 0) { tbody.innerHTML = `<tr><td colspan="7" class="text-center p-8 text-gray-500 font-medium">Sin resultados para la búsqueda.</td></tr>`; return; }
 
   tbody.innerHTML = filtered.slice().reverse().map((poe) => {
@@ -298,28 +223,19 @@ window.renderPOEs = function () {
 };
 
 window.setAreaFilter = function(macro) { state.activeAreaFilter = macro; window.renderMapaAreas(); };
-
 window.renderMapaAreas = function() {
-    const grid = document.getElementById('grid-areas');
-    const filterContainer = document.getElementById('area-filters');
-    if (!grid || !filterContainer) return;
-
-    const macrosMap = new Map();
-    state.areas.forEach(a => macrosMap.set(a.macroAbbr, a.macroName));
-    
+    const grid = document.getElementById('grid-areas'); const filterContainer = document.getElementById('area-filters'); if (!grid || !filterContainer) return;
+    const macrosMap = new Map(); state.areas.forEach(a => macrosMap.set(a.macroAbbr, a.macroName));
     const pillBase = "px-5 py-2 rounded-lg text-xs transition-all outline-none font-bold";
     const pillInact = "text-gray-500 hover:bg-white hover:text-gray-800 hover:shadow-sm dark:hover:bg-gray-700 dark:hover:text-white";
     const pillAct = "bg-gray-900 text-white shadow-md dark:bg-gray-100 dark:text-gray-900";
     
     let filtersHTML = `<button onclick="window.setAreaFilter('TODAS')" class="${pillBase} ${state.activeAreaFilter === 'TODAS' ? pillAct : pillInact}">Todas</button>`;
-    for (let [abbr, name] of macrosMap.entries()) {
-        filtersHTML += `<button onclick="window.setAreaFilter('${abbr}')" class="${pillBase} ${abbr === state.activeAreaFilter ? pillAct : pillInact}">${name}</button>`;
-    }
+    for (let [abbr, name] of macrosMap.entries()) filtersHTML += `<button onclick="window.setAreaFilter('${abbr}')" class="${pillBase} ${abbr === state.activeAreaFilter ? pillAct : pillInact}">${name}</button>`;
     filterContainer.innerHTML = filtersHTML;
 
     let areasToRender = state.activeAreaFilter === 'TODAS' ? state.areas : state.areas.filter(a => a.macroAbbr === state.activeAreaFilter);
-    const groups = {};
-    areasToRender.forEach(a => { if(!groups[a.macroName]) groups[a.macroName] = []; groups[a.macroName].push(a); });
+    const groups = {}; areasToRender.forEach(a => { if(!groups[a.macroName]) groups[a.macroName] = []; groups[a.macroName].push(a); });
 
     let gridHTML = '';
     for (let macro in groups) {
@@ -344,7 +260,7 @@ window.renderMapaAreas = function() {
 };
 
 // ==========================================
-// FORMULARIOS Y CRUD
+// FORMULARIOS DE POE (EDICIÓN Y VISOR)
 // ==========================================
 const getFieldValue = (id) => { const el = document.getElementById(id); return el ? (el.classList.contains("rich-editor") ? el.innerHTML.trim() : el.value.trim()) : ""; };
 const setFieldValue = (id, val) => { const el = document.getElementById(id); if (!el) return; if (el.classList.contains("rich-editor")) el.innerHTML = val || ""; else el.value = val || ""; };
@@ -353,37 +269,23 @@ window.initRichEditors = function() {
   document.querySelectorAll('.rich-editor').forEach(editor => {
       if (editor.classList.contains('initialized')) return;
       editor.classList.add("initialized");
-      editor.addEventListener('paste', function(e) {
-          e.preventDefault(); const text = (e.originalEvent || e).clipboardData.getData('text/plain'); document.execCommand('insertText', false, text);
-      });
-      editor.addEventListener('keydown', function(e) {
-          if (e.key === 'Enter' && !document.queryCommandState('insertOrderedList') && !document.queryCommandState('insertUnorderedList')) { document.execCommand('insertLineBreak'); e.preventDefault(); }
-      });
+      editor.addEventListener('paste', function(e) { e.preventDefault(); const text = (e.originalEvent || e).clipboardData.getData('text/plain'); document.execCommand('insertText', false, text); });
+      editor.addEventListener('keydown', function(e) { if (e.key === 'Enter' && !document.queryCommandState('insertOrderedList') && !document.queryCommandState('insertUnorderedList')) { document.execCommand('insertLineBreak'); e.preventDefault(); } });
   });
 };
 
-window.setListType = function(type) {
-    let node = document.getSelection().anchorNode;
-    while(node && node.nodeName !== 'OL' && node.nodeName !== 'DIV') { node = node.parentNode; }
-    if(node && node.nodeName === 'OL') node.type = type;
-};
+window.setListType = function(type) { let node = document.getSelection().anchorNode; while(node && node.nodeName !== 'OL' && node.nodeName !== 'DIV') { node = node.parentNode; } if(node && node.nodeName === 'OL') node.type = type; };
 
 window.buildDynamicDictionaries = function () {
-  const selectCategory = document.getElementById("category");
-  if (!selectCategory || state.areas.length === 0) return;
-  const cv = selectCategory.value;
-  const macrosMap = new Map();
-  state.areas.forEach(a => macrosMap.set(a.macroAbbr, a.macroName));
+  const selectCategory = document.getElementById("category"); if (!selectCategory || state.areas.length === 0) return;
+  const cv = selectCategory.value; const macrosMap = new Map(); state.areas.forEach(a => macrosMap.set(a.macroAbbr, a.macroName));
   let options = '<option value="" disabled selected>Seleccione Macro-Área...</option>';
   for (let [abbr, name] of macrosMap.entries()) options += `<option value="${abbr}">${name}</option>`;
-  selectCategory.innerHTML = options;
-  if (cv) selectCategory.value = cv;
+  selectCategory.innerHTML = options; if (cv) selectCategory.value = cv;
 };
 
 window.updateSubCategories = function () {
-  const catSelect = document.getElementById("category").value;
-  const subSelect = document.getElementById("poeSubCategory");
-  if (!subSelect) return;
+  const catSelect = document.getElementById("category").value; const subSelect = document.getElementById("poeSubCategory"); if (!subSelect) return;
   const subs = state.areas.filter(a => a.macroAbbr === catSelect);
   subSelect.innerHTML = subs.length > 0 ? '<option value="" disabled selected>Seleccione Sub-Área...</option>' + subs.map((s) => `<option value="${s.areaAbbr}">${s.areaName}</option>`).join("") : `<option value="GEN">General</option>`;
   window.generatePoeCode();
@@ -391,31 +293,20 @@ window.updateSubCategories = function () {
 
 window.generatePoeCode = function () {
   if (state.form.editingId) return;
-  const cat = document.getElementById("category")?.value;
-  const sub = document.getElementById("poeSubCategory")?.value;
-  if (!cat || !sub) return;
-
-  const areaDef = state.areas.find(a => a.macroAbbr === cat && a.areaAbbr === sub);
-  const prefix = areaDef && areaDef.poePrefix ? areaDef.poePrefix : `${cat}-${sub}`;
-  const areaName = areaDef ? areaDef.areaName.toUpperCase() : '';
-  const isPOES = areaName.includes('SANEAMIENTO') || areaName.includes('LIMPIEZA') || areaName.includes('TÓXICO') || sub === 'SAN';
+  const cat = document.getElementById("category")?.value; const sub = document.getElementById("poeSubCategory")?.value; if (!cat || !sub) return;
+  const areaDef = state.areas.find(a => a.macroAbbr === cat && a.areaAbbr === sub); const prefix = areaDef && areaDef.poePrefix ? areaDef.poePrefix : `${cat}-${sub}`;
+  const isPOES = (areaDef ? areaDef.areaName.toUpperCase() : '').match(/SANEAMIENTO|LIMPIEZA|TÓXICO|TOXICO/) || sub === 'SAN';
   const docType = isPOES ? 'POES' : 'POE';
   const count = state.poes.filter((p) => p.category === cat && p.subCategory === sub).length;
   
-  const codeEl = document.getElementById("code");
-  if (codeEl) codeEl.value = `${docType}-${prefix}-${String(count + 1).padStart(3, "0")}`;
-
-  const modalTitle = document.getElementById("modalTitle");
-  if (modalTitle && !state.form.editingId) modalTitle.textContent = `Registrar ${docType} (GFSI)`;
-
-  const btnTemplate = document.getElementById("btnTemplatePOES");
-  if (btnTemplate) { isPOES ? (btnTemplate.classList.remove('hidden'), btnTemplate.classList.add('flex')) : (btnTemplate.classList.add('hidden'), btnTemplate.classList.remove('flex')); }
+  const codeEl = document.getElementById("code"); if (codeEl) codeEl.value = `${docType}-${prefix}-${String(count + 1).padStart(3, "0")}`;
+  const modalTitle = document.getElementById("modalTitle"); if (modalTitle && !state.form.editingId) modalTitle.textContent = `Registrar ${docType} (GFSI)`;
+  const btnTemplate = document.getElementById("btnTemplatePOES"); if (btnTemplate) { isPOES ? (btnTemplate.classList.remove('hidden'), btnTemplate.classList.add('flex')) : (btnTemplate.classList.add('hidden'), btnTemplate.classList.remove('flex')); }
 };
 
 window.openModal = function () {
   const form = document.getElementById("poe-form"); if (form) form.reset();
-  state.form.editingId = null; document.getElementById("modalTitle").textContent = "Registrar Procedimiento";
-  document.querySelectorAll('.rich-editor').forEach(el => el.innerHTML = "");
+  state.form.editingId = null; document.getElementById("modalTitle").textContent = "Registrar Procedimiento"; document.querySelectorAll('.rich-editor').forEach(el => el.innerHTML = "");
   ["category", "poeSubCategory"].forEach(id => { const el = document.getElementById(id); if (el) { el.disabled = false; el.classList.remove("bg-gray-100", "dark:bg-gray-600", "cursor-not-allowed"); }});
   const versionInput = document.getElementById("poeVersion"); if (versionInput) { versionInput.value = "1.0"; versionInput.classList.remove("bg-blue-50", "text-blue-800"); }
   state.form.advancedSteps = []; window.renderAdvancedSteps(); window.updateSubCategories();
@@ -425,8 +316,7 @@ window.closeModal = function () { const m = document.getElementById("modal"); if
 window.closeViewModal = function () { const m = document.getElementById("viewModal"); if (m) { m.classList.add("hidden"); m.classList.remove("flex"); } };
 
 window.handleFormSubmit = async function (e) {
-  e.preventDefault();
-  const permisos = window.getPermisos();
+  e.preventDefault(); const permisos = window.getPermisos();
   if (!state.isSessionVerified || !state.user) return await window.sysAlert("Acción bloqueada: Esperando sincronización con el HUB central.", "error");
   if (!permisos.canEditAll && !permisos.canEditOwn) return await window.sysAlert("Acción denegada. Nivel de acceso insuficiente.", "error");
   if (state.form.advancedSteps.length === 0) return await window.sysAlert("El procedimiento debe incluir al menos 1 paso operativo.", "warning");
@@ -437,34 +327,23 @@ window.handleFormSubmit = async function (e) {
       const catStr = areaDef ? `${areaDef.macroName} ${areaDef.areaName} ${areaDef.macroAbbr} ${areaDef.areaAbbr} ${areaDef.id}`.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
       
       if (!permisos.areas.some(userArea => catStr.includes(userArea))) {
-          const areaNamesForAlert = permisos.areas.map(abbr => { const a = state.areas.find(x => x.areaAbbr === abbr); return a ? a.areaName : abbr; });
+          const areaNamesForAlert = permisos.areas.map(val => { const a = state.areas.find(x => x.id === val || x.areaAbbr === val); return a ? a.areaName : val; });
           return await window.sysAlert(`BLOQUEO DE SEGURIDAD:\nNo tiene permisos para crear o modificar procedimientos en el área seleccionada.\n\nÁreas autorizadas:\n📍 ${areaNamesForAlert.join(', ')}`, "error");
       }
   }
 
-  const isEditing = !!state.form.editingId;
-  const poeId = isEditing ? state.form.editingId : `UUID-${Date.now()}`;
+  const isEditing = !!state.form.editingId; const poeId = isEditing ? state.form.editingId : `UUID-${Date.now()}`;
   let originalDate = new Date().toISOString(); let autorOriginal = state.user.nombre; let ultimoEditor = "";
   if (isEditing) { const existing = state.poes.find((p) => p.id === poeId); if (existing) { originalDate = existing.date; autorOriginal = existing.author || autorOriginal; ultimoEditor = state.user.nombre; } }
 
-  const poeData = {
-    id: poeId, code: getFieldValue("code"), category: getFieldValue("category"), subCategory: getFieldValue("poeSubCategory"),
-    title: getFieldValue("title"), version: getFieldValue("poeVersion"), status: getFieldValue("poeStatus"), objective: getFieldValue("objective"),
-    scope: getFieldValue("scope"), frequency: getFieldValue("monitoring"), responsibles: getFieldValue("responsibles"),
-    definitions: getFieldValue("definitions"), materials: getFieldValue("materials"), monitoring: getFieldValue("monitoring"),
-    corrective_actions: getFieldValue("correctiveActions"), records: getFieldValue("records"), references: getFieldValue("references"),
-    author: autorOriginal, lastEditor: ultimoEditor, procedure: JSON.stringify(state.form.advancedSteps), date: originalDate, _syncStatus: "pending"
-  };
-
+  const poeData = { id: poeId, code: getFieldValue("code"), category: getFieldValue("category"), subCategory: getFieldValue("poeSubCategory"), title: getFieldValue("title"), version: getFieldValue("poeVersion"), status: getFieldValue("poeStatus"), objective: getFieldValue("objective"), scope: getFieldValue("scope"), frequency: getFieldValue("monitoring"), responsibles: getFieldValue("responsibles"), definitions: getFieldValue("definitions"), materials: getFieldValue("materials"), monitoring: getFieldValue("monitoring"), corrective_actions: getFieldValue("correctiveActions"), records: getFieldValue("records"), references: getFieldValue("references"), author: autorOriginal, lastEditor: ultimoEditor, procedure: JSON.stringify(state.form.advancedSteps), date: originalDate, _syncStatus: "pending" };
   await POEDB.save("poes", poeData); await POEDB.save("sync_queue", { id: poeData.id, payload: poeData });
-  window.closeModal(); await window.refreshUI(); window.pushSync();
-  await window.sysAlert("Procedimiento guardado y encolado para la nube.", "success");
+  window.closeModal(); await window.refreshUI(); window.pushSync(); await window.sysAlert("Procedimiento guardado y encolado para la nube.", "success");
 };
 
 window.deletePOE = async function (id) {
   if (!window.getPermisos().canEditAll && !window.getPermisos().canEditOwn) return await window.sysAlert("Acción denegada por políticas de seguridad.", "error");
-  const confirmed = await window.sysConfirm("¿Está seguro de marcar como obsoleto este procedimiento?\n\nSe ocultará permanentemente de la matriz operativa.");
-  if (!confirmed) return;
+  const confirmed = await window.sysConfirm("¿Está seguro de marcar como obsoleto este procedimiento?\n\nSe ocultará permanentemente de la matriz operativa."); if (!confirmed) return;
   const poe = state.poes.find((p) => p.id === id);
   if (poe) { poe.status = "OBS"; poe._syncStatus = "pending"; await POEDB.save("sync_queue", { id, payload: poe }); await POEDB.delete("poes", id); await window.refreshUI(); window.pushSync(); }
 };
@@ -472,14 +351,11 @@ window.deletePOE = async function (id) {
 window.editPOE = function (id) {
   const poe = state.poes.find((p) => p.id === id); if (!poe) return;
   state.form.editingId = poe.id; document.getElementById("modalTitle").textContent = `Editar Documento: ${poe.code}`;
-  
   const catSelect = document.getElementById("category"); const subCatSelect = document.getElementById("poeSubCategory");
   catSelect.value = poe.category; catSelect.disabled = true; catSelect.classList.add("bg-gray-100", "dark:bg-gray-600", "cursor-not-allowed"); window.updateSubCategories();
   setTimeout(() => { subCatSelect.value = poe.subCategory; subCatSelect.disabled = true; subCatSelect.classList.add("bg-gray-100", "dark:bg-gray-600", "cursor-not-allowed"); document.getElementById("code").value = poe.code; }, 50);
-
   let nextVersion = (parseFloat(poe.version || 1.0) + 0.1).toFixed(1); if (isNaN(nextVersion)) nextVersion = "1.1";
   const vInput = document.getElementById("poeVersion"); vInput.value = nextVersion; vInput.classList.add("bg-blue-50", "text-blue-800", "font-bold");
-
   setFieldValue("title", poe.title); setFieldValue("poeStatus", poe.status || "ACT"); setFieldValue("objective", poe.objective); setFieldValue("scope", poe.scope); setFieldValue("responsibles", poe.responsibles); setFieldValue("definitions", poe.definitions); setFieldValue("materials", poe.materials); setFieldValue("monitoring", poe.monitoring || poe.frequency); setFieldValue("correctiveActions", poe.corrective_actions); setFieldValue("records", poe.records); setFieldValue("references", poe.references);
   try { state.form.advancedSteps = JSON.parse(poe.procedure); } catch (e) { state.form.advancedSteps = []; } window.renderAdvancedSteps();
   const m = document.getElementById("modal"); if (m) { m.classList.remove("hidden"); m.classList.add("flex"); }
@@ -530,7 +406,30 @@ window.viewPOE = function (id) {
   const m = document.getElementById("viewModal"); if (m) { m.classList.remove("hidden"); m.classList.add("flex"); }
 };
 
-window.exportPOEToWord = function (id) { /* Export code works same as before */ };
+// 🌟 EXPORTACIÓN A WORD (Restaurada al 100%)
+window.exportPOEToWord = function (id) {
+  const poe = state.poes.find((p) => p.id === id); if (!poe) return;
+  let stepsHTML = "";
+  try {
+    const arr = JSON.parse(poe.procedure);
+    stepsHTML = arr.map((s, i) => `<div style="margin-bottom: 20px;"><p><strong>Paso ${i + 1}</strong> <span style="color: #555;">[${s.type}]</span></p><div style="margin-top: 0;">${s.desc}</div>${s.image ? `<img src="${s.image}" width="400" style="border: 1px solid #ccc; margin-top: 10px;">` : ""}</div>`).join("");
+  } catch (e) { stepsHTML = `<p>${poe.procedure}</p>`; }
+
+  const catObj = state.areas.find((c) => c.areaAbbr === poe.subCategory); const catName = catObj ? catObj.areaName : poe.subCategory;
+  const isPOES = poe.code.startsWith('POES'); const docTitle = isPOES ? 'Procedimiento Operativo Estandarizado de Saneamiento' : 'Procedimiento Operativo Estandarizado';
+
+  const htmlStr = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>${poe.code}</title><style>body { font-family: 'Arial'; color: #000; } table { width: 100%; border-collapse: collapse; margin-bottom: 20px; } th, td { border: 1px solid #000; padding: 8px; text-align: left; vertical-align: top; } th { background-color: #f2f2f2; width: 25%; } h1 { color: #1e3a5f; font-size: 24px; text-transform: uppercase; text-align: center; border-bottom: 2px solid #1e3a5f; padding-bottom: 10px; margin-bottom: 20px; } h2 { color: #2d5a87; font-size: 16px; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-top: 25px; } ul { list-style-type: disc; margin-left: 20px; margin-bottom: 5px; } ol { list-style-type: decimal; margin-left: 20px; margin-bottom: 5px; } h3 { color: #1e3a5f; font-size: 14px; margin-top: 15px; margin-bottom: 5px; text-transform: uppercase; }</style></head><body>
+      <h1>La Genovesa Agroindustrias S.A.<br><span style="font-size:16px;">${docTitle}</span></h1>
+      <table><tr><th>Código:</th><td>${poe.code}</td><th>Versión:</th><td>v${poe.version} - ${poe.status}</td></tr><tr><th>Título:</th><td colspan="3"><strong>${poe.title}</strong></td></tr><tr><th>Área:</th><td>${catName}</td><th>Fecha:</th><td>${new Date(poe.date).toLocaleDateString()}</td></tr></table>
+      <h2>1. Contexto Operativo</h2><p><strong>Objetivo:</strong></p> ${poe.objective || "N/A"}<p><strong>Alcance:</strong></p> ${poe.scope || "N/A"}<p><strong>Responsabilidades:</strong></p> ${poe.responsibles || "N/A"}
+      <h2>2. Control y Recursos</h2><p><strong>Frecuencia:</strong></p> ${poe.monitoring || poe.frequency || "N/A"}<p><strong>Acciones Correctivas:</strong></p> ${poe.corrective_actions || "N/A"}<p><strong>Equipos y Materiales:</strong></p> ${poe.materials || "N/A"}<p><strong>Definiciones:</strong></p> ${poe.definitions || "N/A"}<p><strong>Registros:</strong></p> ${poe.records || "N/A"} | ${poe.references || ""}
+      <h2>3. Desarrollo del Procedimiento</h2><div style="border: 1px solid #000; padding: 15px;">${stepsHTML}</div>
+      <table style="border: none; margin-top: 50px;"><tr style="border: none;">
+      <td style="border: none; text-align: center; width: 50%;">_________________________<br><strong>Elaborado/Editado por:</strong><br>${poe.lastEditor || poe.author || 'Responsable de Área'}</td>
+      <td style="border: none; text-align: center; width: 50%;">_________________________<br><strong>Aprobación Calidad</strong></td></tr></table></body></html>`;
+
+  const blob = new Blob(["\ufeff", htmlStr], { type: "application/msword" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${poe.code}_${poe.title.replace(/[^a-z0-9]/gi, "_")}.doc`; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+};
 
 // ==========================================
 // FORMULARIOS DE ÁREAS (CRUD)
@@ -545,7 +444,6 @@ window.autoCalcPrefix = function() {
     const areaAbbr = document.getElementById("cfgAreaAbbr").value.trim().toUpperCase();
     if (macroAbbr && areaAbbr) document.getElementById("cfgAreaPrefix").value = `${macroAbbr}-${areaAbbr}`;
 };
-
 window.openAreaForm = function(id = null) {
     const m = document.getElementById("areaFormModal"); const form = document.getElementById("area-config-form"); if (!m || !form) return;
     form.reset(); state.form.editingAreaId = id; document.getElementById("areaFormTitle").textContent = id ? "Editar Área" : "Registrar Nueva Área";
@@ -564,9 +462,7 @@ window.openAreaForm = function(id = null) {
     }
     m.classList.remove("hidden"); m.classList.add("flex");
 };
-
 window.closeAreaForm = function() { const m = document.getElementById("areaFormModal"); if (m) { m.classList.add("hidden"); m.classList.remove("flex"); } };
-
 window.handleAreaSubmit = async function(e) {
     e.preventDefault();
     if (!state.isSessionVerified || !state.user) return await window.sysAlert("Acción bloqueada: Esperando autorización del HUB.", "error");
@@ -576,7 +472,6 @@ window.handleAreaSubmit = async function(e) {
     const id = state.form.editingAreaId ? state.form.editingAreaId : `AREA-${Date.now()}`;
     let macroName, macroAbbr; const macroSel = document.getElementById("cfgAreaMacro").value;
     if (macroSel === 'NEW') { macroName = document.getElementById("cfgNewMacroName").value.trim(); macroAbbr = document.getElementById("cfgNewMacroAbbr").value.trim().toUpperCase(); } else { const parts = macroSel.split('|'); macroAbbr = parts[0]; macroName = parts[1]; }
-
     const payload = { action: 'save_area', id: id, macroName: macroName, macroAbbr: macroAbbr, areaName: document.getElementById("cfgAreaName").value.trim(), areaAbbr: document.getElementById("cfgAreaAbbr").value.trim().toUpperCase(), poePrefix: document.getElementById("cfgAreaPrefix").value.trim().toUpperCase(), desc: document.getElementById("cfgAreaDesc").value.trim(), status: document.getElementById("cfgAreaStatus").value };
 
     try {
@@ -592,7 +487,6 @@ window.handleAreaSubmit = async function(e) {
 // BUILDER DE PASOS WYSIWYG
 // ==========================================
 window.updateFileText = function (input) { const d = document.getElementById("fileNameDisplay"); if (!d) return; if (input.files.length > 0) { d.textContent = "📸 " + input.files[0].name; d.classList.add("text-blue-600", "font-bold"); } else { d.textContent = "Cámara o Archivo"; d.classList.remove("text-blue-600", "font-bold"); } };
-
 window.addAdvancedStep = async function () {
   const desc = getFieldValue("stepDesc"); if (!desc || desc === "<br>") return await window.sysAlert("Describa el paso operativo.", "warning");
   const type = document.getElementById("stepType") ? document.getElementById("stepType").value : "INFO";
@@ -600,18 +494,15 @@ window.addAdvancedStep = async function () {
   const fileInput = document.getElementById("stepImage");
   if (fileInput && fileInput.files.length > 0) { const reader = new FileReader(); reader.onload = (e) => { const img = new Image(); img.onload = () => { const cvs = document.createElement("canvas"); let w = img.width, h = img.height; if (w > 800) { h = Math.round((h * 800) / w); w = 800; } cvs.width = w; cvs.height = h; cvs.getContext("2d").drawImage(img, 0, 0, w, h); processStep(cvs.toDataURL("image/jpeg", 0.7)); }; img.src = e.target.result; }; reader.readAsDataURL(fileInput.files[0]); } else { processStep(undefined); }
 };
-
-function _resetStepUI() { setFieldValue("stepDesc", ""); const f = document.getElementById("stepImage"); if (f) { f.value = ""; window.updateFileText(f); } state.form.editingStepId = null; const btn = document.getElementById("btnAddStep"); if(btn) { btn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path></svg><span id="btnAddStepText">Añadir Paso</span>`; btn.classList.replace("bg-green-600", "bg-blue-600"); btn.classList.replace("hover:bg-green-800", "hover:bg-blue-800"); } window.renderAdvancedSteps(); }
+function _resetStepUI() { setFieldValue("stepDesc", ""); const f = document.getElementById("stepImage"); if (f) { f.value = ""; window.updateFileText(f); } state.form.editingStepId = null; const btn = document.getElementById("btnAddStep"); if(btn) { btn.innerHTML = `Añadir Paso`; btn.classList.replace("bg-green-600", "bg-blue-600"); btn.classList.replace("hover:bg-green-800", "hover:bg-blue-800"); } window.renderAdvancedSteps(); }
 window.removeAdvancedStep = function (id) { state.form.advancedSteps = state.form.advancedSteps.filter((s) => s.id !== id); window.renderAdvancedSteps(); };
-window.editStep = function(id) { const s = state.form.advancedSteps.find(s => s.id === id); if (!s) return; setFieldValue("stepDesc", s.desc); document.getElementById("stepType").value = s.type; state.form.editingStepId = id; const btn = document.getElementById("btnAddStep"); if(btn) { btn.innerHTML = `<span id="btnAddStepText">Actualizar Paso</span>`; btn.classList.replace("bg-blue-600", "bg-green-600"); btn.classList.replace("hover:bg-blue-800", "hover:bg-green-800"); } document.getElementById("stepDesc").focus(); };
+window.editStep = function(id) { const s = state.form.advancedSteps.find(s => s.id === id); if (!s) return; setFieldValue("stepDesc", s.desc); document.getElementById("stepType").value = s.type; state.form.editingStepId = id; const btn = document.getElementById("btnAddStep"); if(btn) { btn.innerHTML = `Actualizar Paso`; btn.classList.replace("bg-blue-600", "bg-green-600"); btn.classList.replace("hover:bg-blue-800", "hover:bg-green-800"); } document.getElementById("stepDesc").focus(); };
 window.moveStep = function(index, dir) { if (dir === 'up' && index > 0) { const temp = state.form.advancedSteps[index]; state.form.advancedSteps[index] = state.form.advancedSteps[index - 1]; state.form.advancedSteps[index - 1] = temp; } else if (dir === 'down' && index < state.form.advancedSteps.length - 1) { const temp = state.form.advancedSteps[index]; state.form.advancedSteps[index] = state.form.advancedSteps[index + 1]; state.form.advancedSteps[index + 1] = temp; } window.renderAdvancedSteps(); };
-
 window.loadPoesTemplate = async function() {
     if (state.form.advancedSteps.length > 0) { const ok = await window.sysConfirm("Se reemplazarán los pasos actuales. ¿Cargar plantilla?"); if (!ok) return; }
     state.form.advancedSteps = [ { id: Date.now()+1, type: 'INFO', desc: '<b>PASO 1: Limpieza en Seco.</b> Retirar restos gruesos, desarmar y proteger componentes eléctricos.', image: null }, { id: Date.now()+2, type: 'INFO', desc: '<b>PASO 2: Pre-enjuague.</b> Aplicar agua a presión para remover suciedad suelta.', image: null }, { id: Date.now()+3, type: 'PC', desc: '<b>PASO 3: Lavado (Acción Mecánica).</b> Aplicar detergente y fregar con escobillas.', image: null }, { id: Date.now()+4, type: 'INFO', desc: '<b>PASO 4: Enjuague Final.</b> Aplicar agua potable hasta eliminar químicos.', image: null }, { id: Date.now()+5, type: 'PC', desc: '<b>PASO 5: Inspección.</b> Verificación visual minuciosa.', image: null }, { id: Date.now()+6, type: 'PCC', desc: '<b>PASO 6: Sanitización.</b> Aplicar desinfectante respetando PPM y tiempo.', image: null }, { id: Date.now()+7, type: 'INFO', desc: '<b>PASO 7: Secado y Montaje.</b> Retirar humedad y re-ensamblar.', image: null } ];
     window.renderAdvancedSteps();
 };
-
 window.renderAdvancedSteps = function () {
   const container = document.getElementById("advancedStepsList"); if (!container) return;
   if (state.form.advancedSteps.length === 0) { container.innerHTML = `<div class="py-6 text-center text-gray-400 text-sm">Historial vacío.</div>`; return; }
@@ -664,8 +555,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   window.updateNet(navigator.onLine ? "online" : "offline"); 
   await POEDB.init(); 
   
-  if (!state.user) { state.user = { nombre: 'Ing. Supervisor', rol: 'SUPERVISOR', area: ['DSP', 'EMP'], usuario: 'dev' }; state.isSessionVerified = true; }
-  const savedUser = sessionStorage.getItem('moduloUserPOE'); if (savedUser) { state.user = JSON.parse(savedUser); state.isSessionVerified = true; }
   
   await window.refreshUI(); 
   setTimeout(() => { window.initRichEditors(); window.switchTab('dashboard'); }, 100); 
