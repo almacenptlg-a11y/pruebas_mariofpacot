@@ -3,9 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sistema POE - La Genovesa Agroindustrias S.A.</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <title>Sistema POE - La Genovesa Agroindustrias</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script>tailwind.config = { darkMode: 'class' }</script>
@@ -17,7 +15,6 @@
     .rich-text-content ol, .rich-editor ol { list-style-type: decimal; margin-left: 1.5rem; margin-bottom: 0.5rem; }
     .rich-text-content li, .rich-editor li { margin-bottom: 0.25rem; }
     .rich-text-content h3, .rich-editor h3 { color: #1e3a5f; font-size: 1.1rem; font-weight: 900; text-transform: uppercase; margin-top: 0.5rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.25rem;}
-    .dark .rich-text-content h3, .dark .rich-editor h3 { color: #60a5fa; border-bottom-color: #374151; }
     
     .view-section { display: none; animation: fadeIn 0.3s ease-in-out; }
     .view-section.active { display: block; }
@@ -26,7 +23,6 @@
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-    .dark ::-webkit-scrollbar-thumb { background: #475569; }
   </style>
 </head>
 
@@ -36,30 +32,37 @@
 
   <aside id="sidebar" class="absolute md:relative inset-y-0 left-0 z-50 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col justify-between h-full transition-all duration-300 w-64 transform -translate-x-full md:translate-x-0 shrink-0">
     <div>
-      <div class="h-16 md:h-20 flex items-center justify-between px-4 border-b border-gray-100 dark:border-gray-800">
-        <span class="sidebar-text font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest text-[10px]">Menú Principal</span>
-        <button onclick="window.toggleCompactMenu()" class="hidden md:flex p-1.5 rounded-lg bg-gray-50 hover:bg-gray-100 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-gray-500 transition" title="Compactar Menú">
-           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"></path></svg>
-        </button>
+      <div class="h-20 flex items-center justify-between px-4 border-b border-gray-100 dark:border-gray-800 overflow-hidden relative">
+        <div class="flex items-center justify-center w-full">
+          <svg class="h-12 w-auto shrink-0 drop-shadow-sm" viewBox="0 0 284 164" xmlns="http://www.w3.org/2000/svg">
+            <path d="m142 7 135 47v56l-135 47-135-47V54z" fill="#C50D23" stroke="#C50D23" stroke-width="10" stroke-linejoin="round"></path>
+            <path d="m142 7 135 47v56l-135 47-135-47V54z" fill="none" stroke="#B08D57" stroke-width="2" stroke-linejoin="round"></path>
+            <text x="142" y="68" font-family="Times, serif" font-size="36" font-weight="bold" text-anchor="middle" fill="#404040">LA</text>
+            <text x="142" y="67" font-family="Times, serif" font-size="36" font-weight="bold" text-anchor="middle" fill="#FFF">LA</text>
+            <text x="142" y="103" font-family="Times, serif" font-size="42" font-weight="bold" text-anchor="middle" fill="#404040">GENOVESA</text>
+            <text x="142" y="102" font-family="Times, serif" font-size="42" font-weight="bold" text-anchor="middle" fill="#FFF">GENOVESA</text>
+            <text class="sidebar-text" x="142" y="127" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#FFF" letter-spacing="3">DESDE 1977</text>
+          </svg>
+        </div>
       </div>
 
       <nav class="p-3 space-y-1.5 mt-2">
-        <button onclick="window.switchTab('dashboard'); window.toggleMobileMenu(true)" id="nav-dashboard" class="nav-btn w-full flex items-center justify-center md:justify-start gap-3 px-3 py-3 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-100 transition-all dark:text-gray-400 dark:hover:bg-gray-800" title="Dashboard">
+        <button onclick="window.switchTab('dashboard'); window.toggleMobileMenu(true)" id="nav-dashboard" class="nav-btn active w-full flex items-center justify-center md:justify-start gap-3 px-3 py-3 rounded-xl text-sm font-bold bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400 transition-all" title="Dashboard">
           <svg class="w-6 h-6 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg> 
           <span class="sidebar-text truncate">Dashboard</span>
         </button>
-        <button onclick="window.switchTab('poes'); window.toggleMobileMenu(true)" id="nav-poes" class="nav-btn active w-full flex items-center justify-center md:justify-start gap-3 px-3 py-3 rounded-xl text-sm font-bold bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400 transition-all" title="Matriz POEs">
+        <button onclick="window.switchTab('poes'); window.toggleMobileMenu(true)" id="nav-poes" class="nav-btn w-full flex items-center justify-center md:justify-start gap-3 px-3 py-3 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-100 transition-all dark:text-gray-400 dark:hover:bg-gray-800" title="Matriz POEs">
           <svg class="w-6 h-6 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg> 
-          <span class="sidebar-text truncate">Matriz POEs</span>
+          <span class="sidebar-text truncate">POEs</span>
         </button>
         <button onclick="window.switchTab('areas'); window.toggleMobileMenu(true)" id="nav-areas" class="nav-btn w-full flex items-center justify-center md:justify-start gap-3 px-3 py-3 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-100 transition-all dark:text-gray-400 dark:hover:bg-gray-800" title="Plantas y Áreas">
-          <svg class="w-6 h-6 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg> 
-          <span class="sidebar-text truncate">Plantas y Áreas</span>
+          <svg class="w-6 h-6 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-7h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg> 
+          <span class="sidebar-text truncate">Áreas</span>
         </button>
       </nav>
     </div>
 
-    <div class="p-3 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900 overflow-hidden">
+    <div class="p-3 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900 overflow-hidden relative">
       <div class="flex items-center justify-between mb-3 px-2">
         <div class="flex items-center gap-2" title="Estado de Red">
           <div id="network-indicator" class="w-2.5 h-2.5 rounded-full bg-green-500 shadow-sm"></div>
@@ -79,58 +82,73 @@
     </div>
   </aside>
 
-  <main class="flex-1 flex flex-col h-full w-full overflow-hidden relative">
+  <main class="flex-1 flex flex-col h-full w-full overflow-hidden relative bg-[#f8fafc] dark:bg-gray-950">
     
-    <header class="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 shrink-0 h-16 md:h-20 px-4 md:px-8 flex items-center justify-between shadow-sm z-10">
+    <header class="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 shrink-0 h-16 md:h-20 px-4 md:px-8 flex items-center justify-between shadow-sm z-10 relative">
        <div class="flex items-center gap-4">
-          <button onclick="window.toggleMobileMenu()" class="md:hidden p-2 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-300 transition">
+          <button onclick="window.toggleCompactMenu()" class="hidden md:flex absolute -left-4 top-1/2 -translate-y-1/2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-400 hover:text-red-600 rounded-full p-1 shadow-md z-50 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"></path></svg>
+          </button>
+
+          <button onclick="window.toggleMobileMenu()" class="md:hidden p-2 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 text-gray-600 transition">
              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
           </button>
           
-          <svg class="h-10 md:h-14 w-auto shrink-0 drop-shadow-sm" viewBox="0 0 284 164" xmlns="http://www.w3.org/2000/svg">
-            <path d="m142 7 135 47v56l-135 47-135-47V54z" fill="#C50D23" stroke="#C50D23" stroke-width="10" stroke-linejoin="round"></path>
-            <path d="m142 7 135 47v56l-135 47-135-47V54z" fill="none" stroke="#B08D57" stroke-width="2" stroke-linejoin="round"></path>
-            <text x="142" y="68" font-family="Times, serif" font-size="36" font-weight="bold" text-anchor="middle" fill="#404040">LA</text>
-            <text x="142" y="67" font-family="Times, serif" font-size="36" font-weight="bold" text-anchor="middle" fill="#FFF">LA</text>
-            <text x="142" y="103" font-family="Times, serif" font-size="42" font-weight="bold" text-anchor="middle" fill="#404040">GENOVESA</text>
-            <text x="142" y="102" font-family="Times, serif" font-size="42" font-weight="bold" text-anchor="middle" fill="#FFF">GENOVESA</text>
-            <text x="142" y="127" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#FFF" letter-spacing="3">DESDE 1977</text>
-          </svg>
-
-          <div class="hidden sm:block border-l-2 border-gray-200 dark:border-gray-700 h-8 mx-2"></div>
-          <div>
-              <h2 class="text-sm md:text-xl font-black text-gray-900 dark:text-white tracking-tight">Control Documental</h2>
-              <p class="text-[10px] font-bold text-red-600 dark:text-red-400 uppercase tracking-widest hidden md:block">Inocuidad y Calidad (GFSI)</p>
+          <div class="ml-2 md:ml-4">
+              <h2 id="topbar-title" class="text-lg md:text-2xl font-black text-gray-900 dark:text-white tracking-tight">Dashboard Operativo</h2>
+              <p id="topbar-subtitle" class="text-[10px] md:text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest hidden md:block">Resumen del Sistema</p>
           </div>
+       </div>
+
+       <div id="topbar-actions" class="flex gap-2">
+            <button type="button" id="btn-nuevo-poe" onclick="window.openModal()" class="bg-red-700 hover:bg-red-800 text-white px-4 md:px-6 py-2.5 rounded-xl text-sm font-bold shadow-md transition flex items-center justify-center gap-2 hidden">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path></svg> <span class="hidden md:inline">Nuevo POE</span>
+            </button>
+            <button type="button" id="btn-nueva-area" onclick="window.openAreaForm()" class="bg-gray-900 hover:bg-black dark:bg-gray-700 dark:hover:bg-gray-600 text-white px-4 md:px-6 py-2.5 rounded-xl text-sm font-bold shadow-md transition flex items-center justify-center gap-2 hidden">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path></svg> <span class="hidden md:inline">Nueva Área</span>
+            </button>
        </div>
     </header>
 
-    <div class="flex-1 overflow-y-auto p-4 md:p-8">
+    <div class="flex-1 overflow-y-auto p-4 md:p-8 relative">
       <div class="max-w-7xl mx-auto">
         
-        <section id="view-dashboard" class="view-section">
-          <h3 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white mb-2">Resumen Operativo</h3>
-          <p class="text-sm text-gray-500 dark:text-gray-400 mb-8 font-medium">Indicadores en tiempo real del sistema.</p>
+        <section id="view-dashboard" class="view-section active">
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 md:p-6 transition hover:shadow-md"><p class="text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-2"><span class="w-2 h-2 bg-gray-400 rounded-full"></span>Total POEs</p><p class="text-3xl md:text-4xl font-black text-gray-900 dark:text-white" id="totalPOEs">0</p></div>
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 md:p-6 transition hover:shadow-md"><p class="text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-2"><span class="w-2 h-2 bg-red-600 rounded-full"></span>Producción</p><p class="text-3xl md:text-4xl font-black text-red-600" id="produccionCount">0</p></div>
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 md:p-6 transition hover:shadow-md"><p class="text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-2"><span class="w-2 h-2 bg-blue-600 rounded-full"></span>Logística</p><p class="text-3xl md:text-4xl font-black text-blue-600" id="logisticaCount">0</p></div>
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 md:p-6 transition hover:shadow-md"><p class="text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-2"><span class="w-2 h-2 bg-orange-500 rounded-full"></span>Calidad</p><p class="text-3xl md:text-4xl font-black text-orange-500" id="calidadCount">0</p></div>
+          </div>
           
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 transition hover:shadow-md"><p class="text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-2"><div class="w-2 h-2 bg-gray-400 rounded-full"></div>Total POEs</p><p class="text-4xl font-black text-gray-900 dark:text-white" id="totalPOEs">0</p></div>
-            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 transition hover:shadow-md"><p class="text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-2"><div class="w-2 h-2 bg-red-600 rounded-full"></div>Producción</p><p class="text-4xl font-black text-red-600" id="produccionCount">0</p></div>
-            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 transition hover:shadow-md"><p class="text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-2"><div class="w-2 h-2 bg-blue-600 rounded-full"></div>Logística</p><p class="text-4xl font-black text-blue-600" id="logisticaCount">0</p></div>
-            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 transition hover:shadow-md"><p class="text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-2"><div class="w-2 h-2 bg-orange-500 rounded-full"></div>Calidad</p><p class="text-4xl font-black text-orange-500" id="calidadCount">0</p></div>
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 h-max">
+               <h3 class="text-lg font-black text-gray-900 dark:text-white mb-4">Acciones Rápidas</h3>
+               <div class="space-y-3">
+                  <button onclick="window.openModal()" id="dash-btn-nuevo" class="w-full flex items-center p-3 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-red-200 dark:hover:border-red-900 hover:shadow-sm transition bg-white dark:bg-gray-800 group text-left">
+                     <div class="w-10 h-10 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-600 flex items-center justify-center mr-4 group-hover:scale-110 transition"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path></svg></div>
+                     <div><p class="text-sm font-bold text-gray-900 dark:text-white leading-tight">Crear nuevo POE</p><p class="text-[10px] text-gray-500 dark:text-gray-400">Redactar un procedimiento operativo</p></div>
+                  </button>
+                  <button onclick="window.switchTab('poes'); document.getElementById('filterStatus').value='ALL'; window.renderPOEs();" class="w-full flex items-center p-3 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-blue-200 dark:hover:border-blue-900 hover:shadow-sm transition bg-white dark:bg-gray-800 group text-left">
+                     <div class="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 flex items-center justify-center mr-4 group-hover:scale-110 transition"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg></div>
+                     <div><p class="text-sm font-bold text-gray-900 dark:text-white leading-tight">Ver todos los POEs</p><p class="text-[10px] text-gray-500 dark:text-gray-400">Listado completo de procedimientos</p></div>
+                  </button>
+                  <button onclick="window.switchTab('poes'); document.getElementById('filterStatus').value='REV'; window.renderPOEs();" class="w-full flex items-center p-3 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-yellow-200 dark:hover:border-yellow-900 hover:shadow-sm transition bg-white dark:bg-gray-800 group text-left">
+                     <div class="w-10 h-10 rounded-lg bg-yellow-50 dark:bg-yellow-900/30 text-yellow-600 flex items-center justify-center mr-4 group-hover:scale-110 transition"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg></div>
+                     <div><p class="text-sm font-bold text-gray-900 dark:text-white leading-tight">POEs en revisión</p><p class="text-[10px] text-gray-500 dark:text-gray-400" id="dashRevCount">0 pendientes de revisión</p></div>
+                  </button>
+               </div>
+            </div>
+
+            <div class="lg:col-span-2 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+               <h3 class="text-lg font-black text-gray-900 dark:text-white mb-4">Documentos por Área</h3>
+               <div id="dashboard-areas-list" class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[350px] overflow-y-auto pr-2 pb-2">
+                   </div>
+            </div>
           </div>
         </section>
 
-        <section id="view-poes" class="view-section active">
-          <div class="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
-            <div>
-              <h3 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white mb-2">Procedimientos</h3>
-              <p class="text-sm font-medium text-gray-500 dark:text-gray-400"><span id="lblPoeCount" class="font-bold text-gray-700 dark:text-gray-200">0</span> documentos registrados en la matriz.</p>
-            </div>
-            <button type="button" id="btn-nuevo-poe" onclick="window.openModal()" class="bg-red-700 hover:bg-red-800 text-white px-6 py-3 rounded-xl text-sm font-bold shadow-lg transition flex items-center justify-center gap-2 hidden w-full md:w-auto">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path></svg> NUEVO POE
-            </button>
-          </div>
-
+        <section id="view-poes" class="view-section">
           <div class="flex flex-col lg:flex-row gap-3 mb-6 bg-white dark:bg-gray-800 p-3 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
             <div class="relative flex-grow group">
               <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -160,6 +178,7 @@
                     <th class="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Área</th>
                     <th class="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Versión</th>
                     <th class="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Estado</th>
+                    <th class="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Fecha</th>
                     <th class="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Acciones</th>
                   </tr>
                 </thead>
@@ -170,16 +189,6 @@
         </section>
 
         <section id="view-areas" class="view-section">
-          <div class="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
-            <div>
-              <h3 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white mb-2">Áreas de la Planta</h3>
-              <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Diccionarios estructurales para codificación.</p>
-            </div>
-            <button type="button" id="btn-nueva-area" onclick="window.openAreaForm()" class="bg-gray-900 hover:bg-black dark:bg-gray-700 dark:hover:bg-gray-600 text-white px-6 py-3 rounded-xl text-sm font-bold shadow-md transition flex items-center justify-center gap-2 hidden w-full md:w-auto">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path></svg> NUEVA ÁREA
-            </button>
-          </div>
-
           <div id="area-filters" class="flex flex-wrap gap-2 mb-8 p-1.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm inline-flex">
               </div>
 
@@ -191,7 +200,7 @@
     </div>
   </main>
 
-  <div id="modal" role="dialog" class="fixed inset-0 bg-gray-50 dark:bg-gray-900 hidden z-[70] slide-in">
+  <div id="modal" role="dialog" class="fixed inset-0 bg-gray-50 dark:bg-gray-900 hidden z-[80] slide-in">
     <div class="h-screen w-full flex flex-col relative">
       <div class="flex-shrink-0 shadow-sm flex flex-col bg-white dark:bg-gray-800">
         <div class="px-4 md:px-10 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
@@ -371,17 +380,26 @@
     </div>
   </div>
 
-  <div id="viewModal" role="dialog" class="fixed inset-0 bg-gray-50 dark:bg-gray-900 hidden z-[70] overflow-y-auto slide-in">
+  <div id="viewModal" role="dialog" class="fixed inset-0 bg-gray-50 dark:bg-gray-900 hidden z-[80] overflow-y-auto slide-in">
     <div class="bg-gray-50 dark:bg-gray-900 min-h-screen w-full flex flex-col relative">
-      <div class="px-6 md:px-10 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between sticky top-0 bg-white/95 dark:bg-gray-900/95 z-30 shadow-sm backdrop-blur-sm">
-        <button onclick="window.closeViewModal()" class="text-gray-500 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg></button>
-        <button id="btnExportWord" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg font-bold text-sm shadow-md transition-colors">Exportar DOC</button>
+      <div class="px-6 md:px-10 py-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row items-center justify-between sticky top-0 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm z-30 shadow-sm gap-4">
+        <div class="flex items-center space-x-4 w-full sm:w-auto">
+          <button type="button" onclick="window.closeViewModal()" class="text-gray-500 dark:text-gray-400 hover:text-red-700 dark:hover:text-red-400 bg-gray-100 dark:bg-gray-700 hover:bg-red-50 dark:hover:bg-gray-600 transition p-2.5 rounded-full">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+          </button>
+          <h3 class="text-2xl font-black text-gray-900 dark:text-white tracking-tight" id="viewTitle">Visor de Documento</h3>
+        </div>
+        <div class="flex items-center space-x-3 w-full sm:w-auto justify-end">
+          <button type="button" id="btnExportWord" class="bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 text-white px-5 py-2.5 rounded-lg font-bold text-sm flex items-center space-x-2 transition shadow shrink-0">
+            <span class="hidden sm:inline">Exportar .DOC</span><span class="sm:hidden">.DOC</span>
+          </button>
+        </div>
       </div>
-      <div class="flex-grow max-w-5xl mx-auto w-full p-4 md:p-8" id="viewContent"></div>
+      <div class="flex-grow w-full max-w-6xl mx-auto p-4 md:p-8 rich-text-content" id="viewContent"></div>
     </div>
   </div>
 
-  <div id="areaFormModal" role="dialog" class="fixed inset-0 bg-gray-900/60 hidden z-[80] overflow-y-auto backdrop-blur-sm items-center justify-center p-4">
+  <div id="areaFormModal" role="dialog" class="fixed inset-0 bg-gray-900/60 hidden z-[90] overflow-y-auto backdrop-blur-sm items-center justify-center p-4">
       <div class="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-200 dark:border-gray-700 my-auto">
           <div class="px-6 py-5 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex justify-between items-center"><h3 id="areaFormTitle" class="text-lg font-black text-gray-900 dark:text-white uppercase tracking-wide">Configurar Área</h3><button onclick="window.closeAreaForm()" class="text-gray-400 hover:text-red-500 bg-white dark:bg-gray-800 p-2 rounded-full shadow-sm border border-gray-100 dark:border-gray-700"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button></div>
           <form id="area-config-form" onsubmit="window.handleAreaSubmit(event)" class="p-6 space-y-5">
