@@ -950,9 +950,14 @@ window.clonePOE = function (id) {
 window.drawFlowchartArrows = function(steps) {
     const canvas = document.getElementById('flowchart-canvas');
     const svgLayer = document.getElementById('svg-layer');
-    if (!canvas || !svgLayer) return;
+    
+    if (!canvas || !svgLayer) {
+        return;
+    }
 
     const canvasRect = canvas.getBoundingClientRect();
+    
+    // Definimos las cabezas de flecha (Markers)
     let svgContent = `
         <defs>
             <marker id="arrowhead-red" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
@@ -964,35 +969,45 @@ window.drawFlowchartArrows = function(steps) {
         </defs>
     `;
 
-    steps.forEach(s => {
-        if ((s.type === 'PC' || s.type === 'PCC') && s.devRoute) {
-            const devBox = document.getElementById(`dev-${s.id}`);
-            const targetNode = s.devRoute === "FIN" ? document.getElementById("node-fin") : document.getElementById(`node-${s.devRoute}`);
+    steps.forEach(step => {
+        if ((step.type === 'PC' || step.type === 'PCC') && step.devRoute) {
+            
+            const devBox = document.getElementById(`dev-${step.id}`);
+            
+            let targetNodeId = `node-${step.devRoute}`;
+            if (step.devRoute === "FIN") {
+                targetNodeId = "node-fin";
+            }
+            
+            const targetNode = document.getElementById(targetNodeId);
 
             if (devBox && targetNode) {
-                // Obtenemos la caja blanca/gris real dentro del contenedor de desviación
-                const devRect = devBox.lastElementChild.getBoundingClientRect();
-                const targetRect = targetNode.getBoundingClientRect();
-
-                // Punto de Partida: Borde derecho de la caja de acción correctiva
-                const startX = devRect.right - canvasRect.left;
-                const startY = devRect.top + (devRect.height / 2) - canvasRect.top;
-
-                // Punto de LLegada: Borde derecho del nodo de destino
-                const endX = targetRect.right - canvasRect.left;
-                const endY = targetRect.top + (targetRect.height / 2) - canvasRect.top;
-
-                const color = s.type === 'PCC' ? '#dc2626' : '#d97706';
-                const marker = s.type === 'PCC' ? 'url(#arrowhead-red)' : 'url(#arrowhead-amber)';
-
-                // Calculamos el codo (margen derecho) para que las flechas no se crucen sobre el texto
-                // Si va hacia arriba, lo abrimos 40px, si va muy lejos lo abrimos un poco más.
-                const elbowX = Math.max(startX, endX) + 40; 
+                // Seleccionamos la caja visual interna de la alerta de desviación
+                const devBoxContent = devBox.lastElementChild;
                 
-                // Trazamos la ruta: Derecha -> Arriba/Abajo -> Izquierda
-                const path = `M ${startX},${startY} L ${elbowX},${startY} L ${elbowX},${endY} L ${endX + 5},${endY}`;
+                if (devBoxContent) {
+                    const devRect = devBoxContent.getBoundingClientRect();
+                    const targetRect = targetNode.getBoundingClientRect();
 
-                svgContent += `<path d="${path}" fill="none" stroke="${color}" stroke-width="2.5" stroke-dasharray="5,5" marker-end="${marker}" class="animate-[fadeIn_1s_ease-in-out]" />`;
+                    // Coordenada Inicial: Borde derecho de la desviación
+                    const startX = devRect.right - canvasRect.left;
+                    const startY = devRect.top + (devRect.height / 2) - canvasRect.top;
+
+                    // Coordenada Final: Borde derecho del nodo de destino
+                    const endX = targetRect.right - canvasRect.left;
+                    const endY = targetRect.top + (targetRect.height / 2) - canvasRect.top;
+
+                    const color = step.type === 'PCC' ? '#dc2626' : '#d97706';
+                    const marker = step.type === 'PCC' ? 'url(#arrowhead-red)' : 'url(#arrowhead-amber)';
+
+                    // Calculamos el "codo" de la flecha (40px a la derecha del punto más lejano)
+                    const elbowX = Math.max(startX, endX) + 40; 
+                    
+                    // Trazamos la línea: -> Derecha, -> Arriba/Abajo, -> Izquierda
+                    const path = `M ${startX},${startY} L ${elbowX},${startY} L ${elbowX},${endY} L ${endX + 5},${endY}`;
+
+                    svgContent += `<path d="${path}" fill="none" stroke="${color}" stroke-width="2.5" stroke-dasharray="5,5" marker-end="${marker}" class="animate-[fadeIn_1s_ease-in-out]" />`;
+                }
             }
         }
     });
@@ -1000,212 +1015,314 @@ window.drawFlowchartArrows = function(steps) {
     svgLayer.innerHTML = svgContent;
 };
 
+
 // ==========================================
 // 👁️ VISOR MODULAR CON AUTO-FLUJOGRAMA
 // ==========================================
 window.viewPOE = function (id, scrollToFlowchart = false) {
-  const poe = state.poes.find((p) => p.id === id); if (!poe) return;
-  const btnExportWord = document.getElementById("btnExportWord"); if (btnExportWord) btnExportWord.onclick = () => window.exportPOEToWord(poe.id);
-  
-  let stepsHTML = "";
-  // 🧠 Añadimos id="flowchart-canvas" y relative position
-  let flowchartHTML = `<div id="flowchart-canvas" class="relative flex flex-col items-center py-6 font-sans w-full min-w-max"><div class="bg-blue-900 text-white px-8 py-3 rounded-[50px] font-black text-xs shadow-md border-4 border-blue-200 z-10 w-48 text-center uppercase tracking-widest shrink-0">INICIO</div>`;
-  
-  try {
-    const arr = JSON.parse(poe.procedure);
+    const poe = state.poes.find((p) => p.id === id); 
     
-    // 1. CONSTRUIR AUTO-FLUJOGRAMA WEB
-    arr.forEach((s, i) => {
-        const tempDiv = document.createElement('div'); tempDiv.innerHTML = s.desc;
-        let stepTitle = `Paso ${i + 1}`;
-        const h3 = tempDiv.querySelector('h3'); const b = tempDiv.querySelector('b');
-        if (h3) { stepTitle = h3.innerText; h3.remove(); } else if (b) { stepTitle = b.innerText; b.remove(); }
+    if (!poe) {
+        return;
+    }
+    
+    const btnExportWord = document.getElementById("btnExportWord"); 
+    if (btnExportWord) {
+        btnExportWord.onclick = () => window.exportPOEToWord(poe.id);
+    }
+    
+    let stepsHTML = "";
+    
+    // Contenedor principal del Canvas del Flujograma
+    let flowchartHTML = `
+        <div id="flowchart-canvas" class="relative flex flex-col items-center py-6 font-sans w-full min-w-max">
+            <div class="bg-blue-900 text-white px-8 py-3 rounded-[50px] font-black text-xs shadow-md border-4 border-blue-200 z-10 w-48 text-center uppercase tracking-widest shrink-0">
+                INICIO
+            </div>
+    `;
+    
+    try {
+        const arr = JSON.parse(poe.procedure);
         
-        const listItems = Array.from(tempDiv.querySelectorAll('li')).map(li => `• ${li.innerText}`);
-        tempDiv.querySelectorAll('ul, ol').forEach(list => list.remove());
-        const remainingText = tempDiv.innerText.trim().substring(0, 95) + (tempDiv.innerText.length > 95 ? "..." : "");
-        
-        let bodyHtml = "";
-        if (listItems.length > 0) bodyHtml = `<ul class="text-[10px] text-left list-none mt-1.5 space-y-0.5 text-gray-700 dark:text-gray-300 w-full pl-2">` + listItems.slice(0,3).map(li => `<li class="truncate" title="${li}">${li}</li>`).join('') + (listItems.length > 3 ? `<li class="text-gray-400 italic text-center">...</li>` : '') + `</ul>`;
-        else if (remainingText) bodyHtml = `<p class="text-[10px] font-medium text-gray-700 dark:text-gray-300 leading-tight line-clamp-3 mt-1.5">${remainingText}</p>`;
-
-        flowchartHTML += `<div class="flex flex-col items-center my-1"><div class="w-1 h-8 bg-gray-400"></div><div class="w-3 h-3 border-b-2 border-r-2 border-gray-400 transform rotate-45 -mt-1.5"></div></div>`;
-        
-        if (s.type === 'PCC' || s.type === 'PC') {
-            const color = s.type === 'PCC' ? 'red' : 'amber'; const label = s.type === 'PCC' ? 'PCC' : 'PC';
-            const devActionText = s.devAction || "Acción Correctiva";
+        // ----------------------------------------------------
+        // 1. CONSTRUIR AUTO-FLUJOGRAMA WEB
+        // ----------------------------------------------------
+        arr.forEach((step, i) => {
+            // Parser del DOM para extraer texto limpio
+            const tempDiv = document.createElement('div'); 
+            tempDiv.innerHTML = step.desc;
             
-            // Traductor de ID a Nombre del Paso
-            let routeName = s.devRoute;
-            if (s.devRoute === "FIN") routeName = "Fin / Desecho";
-            else if (s.devRoute) {
-                const targetIdx = arr.findIndex(x => String(x.id) === String(s.devRoute));
-                if (targetIdx > -1) routeName = `Paso ${targetIdx + 1}`;
+            let stepTitle = `Paso ${i + 1}`;
+            const h3 = tempDiv.querySelector('h3'); 
+            const b = tempDiv.querySelector('b');
+            
+            if (h3) { 
+                stepTitle = h3.innerText; 
+                h3.remove(); 
+            } else if (b) { 
+                stepTitle = b.innerText; 
+                b.remove(); 
             }
-            const devRouteText = routeName || "Siguiente paso";
+            
+            const listItems = Array.from(tempDiv.querySelectorAll('li')).map(li => `• ${li.innerText}`);
+            
+            tempDiv.querySelectorAll('ul, ol').forEach(list => list.remove());
+            
+            const remainingText = tempDiv.innerText.trim().substring(0, 95) + (tempDiv.innerText.length > 95 ? "..." : "");
+            
+            let bodyHtml = "";
+            if (listItems.length > 0) {
+                bodyHtml = `
+                    <ul class="text-[10px] text-left list-none mt-1.5 space-y-0.5 text-gray-700 dark:text-gray-300 w-full pl-2">
+                        ${listItems.slice(0,3).map(li => `<li class="truncate" title="${li}">${li}</li>`).join('')}
+                        ${listItems.length > 3 ? `<li class="text-gray-400 italic text-center">...</li>` : ''}
+                    </ul>
+                `;
+            } else if (remainingText) {
+                bodyHtml = `<p class="text-[10px] font-medium text-gray-700 dark:text-gray-300 leading-tight line-clamp-3 mt-1.5">${remainingText}</p>`;
+            }
 
+            // Flecha vertical de conexión entre pasos
             flowchartHTML += `
-            <div class="relative flex items-center z-10 shrink-0 w-[450px] justify-center">
-                <div id="node-${s.id}" class="relative w-48 h-48 flex items-center justify-center shrink-0">
-                    <div class="absolute inset-0 bg-${color}-50 border-4 border-${color}-500 transform rotate-45 rounded-2xl shadow-md dark:bg-${color}-900/20 dark:border-${color}-600"></div>
-                    <div class="relative z-10 text-center px-3 w-full flex flex-col items-center max-w-[140px]">
-                        <span class="font-black text-${color}-700 dark:text-${color}-400 text-[13px] mb-1 drop-shadow-sm">${label}</span>
-                        <span class="font-bold text-[11px] text-gray-900 dark:text-white leading-tight uppercase truncate w-full border-b border-${color}-200 dark:border-${color}-700 pb-1 mb-1" title="${stepTitle}">${stepTitle}</span>
-                        ${s.devLimit ? `<span class="font-bold text-[10px] text-${color}-700 dark:text-${color}-400 bg-white dark:bg-gray-800 rounded px-1 mb-1 border border-${color}-200">${s.devLimit}</span>` : ''}
+                <div class="flex flex-col items-center my-1">
+                    <div class="w-1 h-8 bg-gray-400"></div>
+                    <div class="w-3 h-3 border-b-2 border-r-2 border-gray-400 transform rotate-45 -mt-1.5"></div>
+                </div>
+            `;
+            
+            if (step.type === 'PCC' || step.type === 'PC') {
+                const color = step.type === 'PCC' ? 'red' : 'amber'; 
+                const label = step.type === 'PCC' ? 'PCC' : 'PC';
+                const devActionText = step.devAction || "Acción Correctiva";
+                
+                // Traductor de ID de Ruta a Nombre de Paso
+                let routeName = step.devRoute;
+                if (step.devRoute === "FIN") {
+                    routeName = "Fin / Desecho";
+                } else if (step.devRoute) {
+                    const targetIdx = arr.findIndex(x => String(x.id) === String(step.devRoute));
+                    if (targetIdx > -1) {
+                        routeName = `Paso ${targetIdx + 1}`;
+                    }
+                }
+                
+                const devRouteText = routeName || "Siguiente paso";
+                const limitHtml = step.devLimit ? `<span class="font-bold text-[10px] text-${color}-700 dark:text-${color}-400 bg-white dark:bg-gray-800 rounded px-1 mb-1 border border-${color}-200">${step.devLimit}</span>` : '';
+
+                flowchartHTML += `
+                <div class="relative flex items-center z-10 shrink-0 w-[450px] justify-center">
+                    <div id="node-${step.id}" class="relative w-48 h-48 flex items-center justify-center shrink-0">
+                        <div class="absolute inset-0 bg-${color}-50 border-4 border-${color}-500 transform rotate-45 rounded-2xl shadow-md dark:bg-${color}-900/20 dark:border-${color}-600"></div>
+                        <div class="relative z-10 text-center px-3 w-full flex flex-col items-center max-w-[140px]">
+                            <span class="font-black text-${color}-700 dark:text-${color}-400 text-[13px] mb-1 drop-shadow-sm">${label}</span>
+                            <span class="font-bold text-[11px] text-gray-900 dark:text-white leading-tight uppercase truncate w-full border-b border-${color}-200 dark:border-${color}-700 pb-1 mb-1" title="${stepTitle}">${stepTitle}</span>
+                            ${limitHtml}
+                            ${bodyHtml}
+                        </div>
+                    </div>
+                    
+                    <div id="dev-${step.id}" class="absolute left-[calc(50%+6rem)] flex items-center w-40 hidden sm:flex shrink-0">
+                        <div class="w-10 h-1 bg-gray-400"></div>
+                        <div class="w-3 h-3 border-t-2 border-r-2 border-gray-400 transform rotate-45 -ml-1.5 bg-white dark:bg-gray-800"></div>
+                        
+                        <div class="bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 p-2.5 rounded-lg flex flex-col gap-1 text-left ml-2 w-36 shadow-sm border-l-4 ${step.type === 'PCC' ? 'border-l-red-500' : 'border-l-yellow-500'}">
+                            <span class="text-[9px] font-black ${step.type === 'PCC' ? 'text-red-600 dark:text-red-400' : 'text-yellow-600 dark:text-yellow-400'} uppercase">⚠️ NO CONFORME:</span>
+                            <span class="text-[10px] font-bold text-gray-700 dark:text-gray-300 leading-tight line-clamp-2" title="${devActionText}">⚡ ${devActionText}</span>
+                            <span class="text-[10px] font-bold text-gray-700 dark:text-gray-300 leading-tight line-clamp-1" title="${devRouteText}">🔄 ${devRouteText}</span>
+                        </div>
+                    </div>
+                </div>`;
+                
+            } else if (step.type === 'SEG') {
+                flowchartHTML += `
+                <div id="node-${step.id}" class="relative w-64 min-h-[5.5rem] flex items-center justify-center z-10 shrink-0">
+                    <div class="absolute inset-0 bg-green-50 border-2 border-green-500 skew-x-[-15deg] rounded-xl shadow-md dark:bg-green-900/20 dark:border-green-600"></div>
+                    <div class="relative z-10 text-center px-6 py-3 w-full flex flex-col items-center">
+                        <span class="font-black text-green-700 dark:text-green-400 text-[11px] mb-0.5 block uppercase tracking-wider">Seguridad</span>
+                        <span class="font-bold text-[11px] text-gray-900 dark:text-white block uppercase truncate w-full border-b border-green-200 dark:border-green-700 pb-1 mb-1" title="${stepTitle}">${stepTitle}</span>
                         ${bodyHtml}
                     </div>
+                </div>`;
+                
+            } else {
+                flowchartHTML += `
+                <div id="node-${step.id}" class="bg-white dark:bg-gray-800 border-2 border-blue-600 dark:border-blue-500 rounded-xl p-4 w-64 text-center shadow-md z-10 shrink-0 flex flex-col items-center">
+                    <span class="font-black text-blue-800 dark:text-blue-400 text-[11px] mb-1 block uppercase tracking-wider">Paso ${i+1}</span>
+                    <span class="font-bold text-[11px] text-gray-900 dark:text-white block uppercase truncate w-full border-b border-gray-200 dark:border-gray-700 pb-1 mb-1" title="${stepTitle}">${stepTitle}</span>
+                    ${bodyHtml}
+                </div>`;
+            }
+        });
+        
+        // Cierre del Flujograma y Capa SVG
+        flowchartHTML += `
+                <div class="flex flex-col items-center my-1">
+                    <div class="w-1 h-8 bg-gray-400"></div>
+                    <div class="w-3 h-3 border-b-2 border-r-2 border-gray-400 transform rotate-45 -mt-1.5"></div>
                 </div>
-                <div id="dev-${s.id}" class="absolute left-[calc(50%+6rem)] flex items-center w-40 hidden sm:flex shrink-0">
-                    <div class="w-10 h-1 bg-gray-400"></div>
-                    <div class="w-3 h-3 border-t-2 border-r-2 border-gray-400 transform rotate-45 -ml-1.5 bg-white dark:bg-gray-800"></div>
-                    <div class="bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 p-2.5 rounded-lg flex flex-col gap-1 text-left ml-2 w-36 shadow-sm border-l-4 ${s.type==='PCC'?'border-l-red-500':'border-l-yellow-500'}">
-                        <span class="text-[9px] font-black ${s.type==='PCC'?'text-red-600 dark:text-red-400':'text-yellow-600 dark:text-yellow-400'} uppercase">⚠️ NO CONFORME:</span>
-                        <span class="text-[10px] font-bold text-gray-700 dark:text-gray-300 leading-tight line-clamp-2" title="${devActionText}">⚡ ${devActionText}</span>
-                        <span class="text-[10px] font-bold text-gray-700 dark:text-gray-300 leading-tight line-clamp-1" title="${devRouteText}">🔄 ${devRouteText}</span>
+                <div id="node-fin" class="rounded-full bg-gray-800 text-white px-8 py-3 font-black shadow-md border-4 border-gray-300 z-10 w-48 text-center uppercase tracking-widest text-xs shrink-0">
+                    FIN
+                </div>
+                
+                <svg id="svg-layer" class="absolute inset-0 w-full h-full pointer-events-none z-0"></svg>
+            </div>
+        `;
+
+        // ----------------------------------------------------
+        // 2. CONSTRUIR DETALLE DE PASOS (ACORDEÓN WEB)
+        // ----------------------------------------------------
+        stepsHTML = arr.map((step, i) => {
+            const bColor = step.type === "PCC" ? "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800" : step.type === "PC" ? "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800" : "bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700";
+            const img = step.image ? `<img src="${step.image}" class="mt-4 max-h-64 object-cover rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">` : "";
+            const truncDesc = step.desc.replace(/<[^>]*>?/gm, '').substring(0, 50) + "...";
+            
+            let routeName = step.devRoute;
+            if (step.devRoute === "FIN") {
+                routeName = "Fin / Desecho";
+            } else if (step.devRoute) { 
+                const targetIdx = arr.findIndex(x => String(x.id) === String(step.devRoute)); 
+                if (targetIdx > -1) routeName = `Paso ${targetIdx + 1}`; 
+            }
+
+            let devHtml = '';
+            if ((step.type === 'PC' || step.type === 'PCC') && (step.devAction || step.devRoute)) {
+                devHtml = `
+                    <div class="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/50 rounded-xl text-xs text-red-900 dark:text-red-200 flex flex-col gap-1.5">
+                        <span class="font-black uppercase tracking-widest text-[10px] text-red-600 dark:text-red-400">Medidas ante Desviación</span>
+                        ${step.devLimit ? `<span><strong>🎯 Límite:</strong> ${step.devLimit}</span>` : ''}
+                        ${step.devAction ? `<span><strong>⚡ Acción:</strong> ${step.devAction}</span>` : ''}
+                        ${routeName ? `<span><strong>🔄 Ruta:</strong> ${routeName}</span>` : ''}
+                    </div>
+                `;
+            }
+            
+            return `
+            <details class="group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm mb-3" open>
+                <summary class="flex items-center justify-between p-4 font-bold cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition rounded-xl outline-none select-none">
+                    <div class="flex items-center gap-4 w-full pr-4">
+                        <div class="w-8 h-8 rounded-full bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400 font-black flex items-center justify-center shrink-0 text-sm border border-red-100 dark:border-red-900/50">${i + 1}</div>
+                        <span class="text-[10px] font-black px-2 py-0.5 rounded border uppercase tracking-widest ${bColor} shrink-0">${step.type}</span>
+                        <span class="text-sm text-gray-800 dark:text-gray-200 truncate hidden sm:block">${truncDesc}</span>
+                    </div>
+                    <svg class="w-5 h-5 text-gray-400 group-open:rotate-180 transition-transform shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </summary>
+                <div class="p-4 pt-0 md:p-6 md:pt-0 ml-2 md:ml-12 border-t border-transparent group-open:border-gray-100 dark:group-open:border-gray-700 mt-2">
+                    <div class="text-sm font-medium text-gray-800 dark:text-gray-200 leading-relaxed rich-text-content">${step.desc}</div>
+                    ${devHtml}
+                    ${img}
+                </div>
+            </details>`;
+          }).join("");
+          
+    } catch (e) { 
+        stepsHTML = `<div class="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700"><p class="text-base font-medium text-gray-800 dark:text-gray-200 leading-relaxed">${poe.procedure}</p></div>`; 
+        flowchartHTML = `<p class="text-center text-gray-500 my-8">Flujograma no disponible.</p>`;
+    }
+
+    const catObj = state.areas.find((c) => c.areaAbbr === poe.subCategory); 
+    const catName = catObj ? catObj.areaName : poe.subCategory;
+    const statusColor = poe.status === "ACT" || poe.status === "Activo" ? "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800" : "bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800";
+    const statusText = poe.status === "ACT" ? "ACTIVO" : "EN REVISIÓN";
+
+    const vContent = document.getElementById("viewContent");
+    if (vContent) {
+        vContent.innerHTML = `
+        <div class="bg-white dark:bg-gray-800 p-6 md:p-10 rounded-3xl border border-gray-200 dark:border-gray-700 shadow-xl mb-8">
+            
+            <div class="flex flex-col md:flex-row justify-between items-start border-b-2 border-gray-100 dark:border-gray-700 pb-8 mb-8 gap-6">
+                <div class="w-full md:w-2/3">
+                    <span class="inline-block px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-bold text-xs rounded-lg uppercase tracking-wider mb-3 border border-gray-200 dark:border-gray-600">${catName}</span>
+                    <h2 class="text-3xl md:text-4xl font-black text-gray-900 dark:text-white uppercase tracking-tight leading-tight">${poe.title}</h2>
+                </div>
+                <div class="md:text-right flex flex-col md:items-end bg-gray-50 dark:bg-gray-900/50 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 w-full md:w-1/3">
+                    <p class="text-2xl font-black font-mono text-red-700 dark:text-red-400 tracking-wider">${poe.code}</p>
+                    <div class="flex items-center md:justify-end gap-3 mt-2 text-sm font-bold text-gray-500 dark:text-gray-400">
+                        <span>v${poe.version}</span><span>•</span><span>${new Date(poe.date).toLocaleDateString('es-ES', {day: 'numeric', month: 'long', year: 'numeric'})}</span>
+                    </div>
+                    <div class="mt-4 flex flex-col items-end gap-2">
+                        <span class="inline-flex items-center px-3 py-1 rounded-md text-xs font-black uppercase tracking-widest border ${statusColor}">${statusText}</span>
+                        <div class="text-xs text-gray-500 dark:text-gray-400 font-medium mt-2">✍️ Creado por: <span class="font-bold text-gray-800 dark:text-gray-200">${poe.author || 'S/N'}</span></div>
                     </div>
                 </div>
-            </div>`;
-        } else if (s.type === 'SEG') {
-            flowchartHTML += `<div id="node-${s.id}" class="relative w-64 min-h-[5.5rem] flex items-center justify-center z-10 shrink-0"><div class="absolute inset-0 bg-green-50 border-2 border-green-500 skew-x-[-15deg] rounded-xl shadow-md dark:bg-green-900/20 dark:border-green-600"></div><div class="relative z-10 text-center px-6 py-3 w-full flex flex-col items-center"><span class="font-black text-green-700 dark:text-green-400 text-[11px] mb-0.5 block uppercase tracking-wider">Seguridad</span><span class="font-bold text-[11px] text-gray-900 dark:text-white block uppercase truncate w-full border-b border-green-200 dark:border-green-700 pb-1 mb-1" title="${stepTitle}">${stepTitle}</span>${bodyHtml}</div></div>`;
-        } else {
-            flowchartHTML += `<div id="node-${s.id}" class="bg-white dark:bg-gray-800 border-2 border-blue-600 dark:border-blue-500 rounded-xl p-4 w-64 text-center shadow-md z-10 shrink-0 flex flex-col items-center"><span class="font-black text-blue-800 dark:text-blue-400 text-[11px] mb-1 block uppercase tracking-wider">Paso ${i+1}</span><span class="font-bold text-[11px] text-gray-900 dark:text-white block uppercase truncate w-full border-b border-gray-200 dark:border-gray-700 pb-1 mb-1" title="${stepTitle}">${stepTitle}</span>${bodyHtml}</div>`;
-        }
-    });
-    
-    // 🧠 Añadimos id="node-fin" y la capa <svg> al fondo
-    flowchartHTML += `<div class="flex flex-col items-center my-1"><div class="w-1 h-8 bg-gray-400"></div><div class="w-3 h-3 border-b-2 border-r-2 border-gray-400 transform rotate-45 -mt-1.5"></div></div><div id="node-fin" class="rounded-full bg-gray-800 text-white px-8 py-3 font-black shadow-md border-4 border-gray-300 z-10 w-48 text-center uppercase tracking-widest text-xs shrink-0">FIN</div>
-    <svg id="svg-layer" class="absolute inset-0 w-full h-full pointer-events-none z-0"></svg>
-    </div>`;
-
-    // 2. CONSTRUIR DETALLE DE PASOS (ACORDEÓN WEB)
-    stepsHTML = arr.map((s, i) => {
-        const bColor = s.type === "PCC" ? "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800" : s.type === "PC" ? "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800" : "bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700";
-        const img = s.image ? `<img src="${s.image}" class="mt-4 max-h-64 object-cover rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">` : "";
-        const truncDesc = s.desc.replace(/<[^>]*>?/gm, '').substring(0, 50) + "...";
-        
-        let routeName = s.devRoute;
-        if (s.devRoute === "FIN") routeName = "Fin / Desecho";
-        else if (s.devRoute) { const targetIdx = arr.findIndex(x => String(x.id) === String(s.devRoute)); if (targetIdx > -1) routeName = `Paso ${targetIdx + 1}`; }
-
-        const devHtml = (s.type === 'PC' || s.type === 'PCC') && (s.devAction || s.devRoute) ? 
-            `<div class="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/50 rounded-xl text-xs text-red-900 dark:text-red-200 flex flex-col gap-1.5">
-                <span class="font-black uppercase tracking-widest text-[10px] text-red-600 dark:text-red-400">Medidas ante Desviación</span>
-                ${s.devLimit ? `<span><strong>🎯 Límite:</strong> ${s.devLimit}</span>` : ''}
-                ${s.devAction ? `<span><strong>⚡ Acción:</strong> ${s.devAction}</span>` : ''}
-                ${routeName ? `<span><strong>🔄 Ruta:</strong> ${routeName}</span>` : ''}
-            </div>` : '';
-        
-        return `
-        <details class="group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm mb-3" open>
-            <summary class="flex items-center justify-between p-4 font-bold cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition rounded-xl outline-none select-none">
-                <div class="flex items-center gap-4 w-full pr-4">
-                    <div class="w-8 h-8 rounded-full bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400 font-black flex items-center justify-center shrink-0 text-sm border border-red-100 dark:border-red-900/50">${i + 1}</div>
-                    <span class="text-[10px] font-black px-2 py-0.5 rounded border uppercase tracking-widest ${bColor} shrink-0">${s.type}</span>
-                    <span class="text-sm text-gray-800 dark:text-gray-200 truncate hidden sm:block">${truncDesc}</span>
-                </div>
-                <svg class="w-5 h-5 text-gray-400 group-open:rotate-180 transition-transform shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-            </summary>
-            <div class="p-4 pt-0 md:p-6 md:pt-0 ml-2 md:ml-12 border-t border-transparent group-open:border-gray-100 dark:group-open:border-gray-700 mt-2">
-                <div class="text-sm font-medium text-gray-800 dark:text-gray-200 leading-relaxed rich-text-content">${s.desc}</div>
-                ${devHtml}
-                ${img}
             </div>
-        </details>`;
-      }).join("");
-  } catch (e) { 
-      stepsHTML = `<div class="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700"><p class="text-base font-medium text-gray-800 dark:text-gray-200 leading-relaxed">${poe.procedure}</p></div>`; 
-      flowchartHTML = `<p class="text-center text-gray-500 my-8">Flujograma no disponible.</p>`;
-  }
 
-  const catObj = state.areas.find((c) => c.areaAbbr === poe.subCategory); const catName = catObj ? catObj.areaName : poe.subCategory;
-  const statusColor = poe.status === "ACT" || poe.status === "Activo" ? "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800" : "bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800";
-  const statusText = poe.status === "ACT" ? "ACTIVO" : "EN REVISIÓN";
+            <details class="group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm mb-4" open>
+                <summary class="flex items-center justify-between p-5 font-black cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition rounded-2xl outline-none select-none">
+                    <div class="flex items-center gap-3 text-gray-800 dark:text-gray-200 uppercase tracking-widest text-sm"><span class="text-lg">📘</span> 1. Contexto Operativo</div>
+                    <svg class="w-5 h-5 text-gray-400 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </summary>
+                <div class="p-6 pt-0 border-t border-gray-100 dark:border-gray-700 mt-2">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div><h4 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">🎯 Objetivo General</h4><div class="text-sm text-gray-700 dark:text-gray-300 font-medium leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-5 rounded-xl border border-gray-100 dark:border-gray-700 h-full rich-text-content">${poe.objective || "No especificado"}</div></div>
+                        <div><h4 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">📏 Alcance Operativo</h4><div class="text-sm text-gray-700 dark:text-gray-300 font-medium leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-5 rounded-xl border border-gray-100 dark:border-gray-700 h-full rich-text-content">${poe.scope || "No especificado"}</div></div>
+                        <div><h4 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">👤 Responsabilidades</h4><div class="text-sm text-gray-700 dark:text-gray-300 font-medium leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-5 rounded-xl border border-gray-100 dark:border-gray-700 h-full rich-text-content">${poe.responsibles || "No especificadas"}</div></div>
+                        <div><h4 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">📝 Definiciones</h4><div class="text-sm text-gray-700 dark:text-gray-300 font-medium leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-5 rounded-xl border border-gray-100 dark:border-gray-700 h-full rich-text-content">${poe.definitions || "Ninguna"}</div></div>
+                        <div class="md:col-span-2"><h4 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">🛠️ Equipos, Materiales y EPPs</h4><div class="text-sm text-gray-700 dark:text-gray-300 font-medium leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-5 rounded-xl border border-gray-100 dark:border-gray-700 h-full rich-text-content">${poe.materials || "No especificados"}</div></div>
+                    </div>
+                </div>
+            </details>
 
-  const vContent = document.getElementById("viewContent");
-  if (vContent) {
-    vContent.innerHTML = `
-      <div class="bg-white dark:bg-gray-800 p-6 md:p-10 rounded-3xl border border-gray-200 dark:border-gray-700 shadow-xl mb-8">
-        
-        <div class="flex flex-col md:flex-row justify-between items-start border-b-2 border-gray-100 dark:border-gray-700 pb-8 mb-8 gap-6">
-          <div class="w-full md:w-2/3"><span class="inline-block px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-bold text-xs rounded-lg uppercase tracking-wider mb-3 border border-gray-200 dark:border-gray-600">${catName}</span><h2 class="text-3xl md:text-4xl font-black text-gray-900 dark:text-white uppercase tracking-tight leading-tight">${poe.title}</h2></div>
-          <div class="md:text-right flex flex-col md:items-end bg-gray-50 dark:bg-gray-900/50 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 w-full md:w-1/3"><p class="text-2xl font-black font-mono text-red-700 dark:text-red-400 tracking-wider">${poe.code}</p><div class="flex items-center md:justify-end gap-3 mt-2 text-sm font-bold text-gray-500 dark:text-gray-400"><span>v${poe.version}</span><span>•</span><span>${new Date(poe.date).toLocaleDateString('es-ES', {day: 'numeric', month: 'long', year: 'numeric'})}</span></div><div class="mt-4 flex flex-col items-end gap-2"><span class="inline-flex items-center px-3 py-1 rounded-md text-xs font-black uppercase tracking-widest border ${statusColor}">${statusText}</span><div class="text-xs text-gray-500 dark:text-gray-400 font-medium mt-2">✍️ Creado por: <span class="font-bold text-gray-800 dark:text-gray-200">${poe.author || 'S/N'}</span></div></div></div>
-        </div>
+            <details class="group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm mb-6" open>
+                <summary class="flex items-center justify-between p-5 font-black cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition rounded-2xl outline-none select-none">
+                    <div class="flex items-center gap-3 text-gray-800 dark:text-gray-200 uppercase tracking-widest text-sm"><span class="text-lg">🛡️</span> 2. Control y Referencias</div>
+                    <svg class="w-5 h-5 text-gray-400 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </summary>
+                <div class="p-6 pt-0 border-t border-gray-100 dark:border-gray-700 mt-2">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div><h4 class="text-xs font-black text-red-700 dark:text-red-400 uppercase tracking-widest mb-2">⏱️ Frecuencia / Monitoreo</h4><div class="text-sm text-gray-900 dark:text-gray-100 font-bold leading-relaxed bg-red-50 dark:bg-red-900/20 p-5 rounded-xl border border-red-100 dark:border-red-900/50 h-full rich-text-content">${poe.monitoring || poe.frequency || "No especificada"}</div></div>
+                        <div><h4 class="text-xs font-black text-red-700 dark:text-red-400 uppercase tracking-widest mb-2">⚠️ Acciones Correctivas</h4><div class="text-sm text-gray-900 dark:text-gray-100 font-bold leading-relaxed bg-red-50 dark:bg-red-900/20 p-5 rounded-xl border border-red-100 dark:border-red-900/50 h-full rich-text-content">${poe.corrective_actions || "No especificadas"}</div></div>
+                        <div><h4 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">📎 Registros Asociados</h4><div class="text-sm text-gray-700 dark:text-gray-300 font-medium leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-5 rounded-xl border border-gray-100 dark:border-gray-700 h-full rich-text-content">${poe.records || "Ninguno"}</div></div>
+                        <div><h4 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">📚 Referencias / Anexos</h4><div class="text-sm text-gray-700 dark:text-gray-300 font-medium leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-5 rounded-xl border border-gray-100 dark:border-gray-700 h-full rich-text-content">${poe.references || "Ninguna"}</div></div>
+                    </div>
+                </div>
+            </details>
 
-        <details class="group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm mb-4" open>
-            <summary class="flex items-center justify-between p-5 font-black cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition rounded-2xl outline-none select-none">
-                <div class="flex items-center gap-3 text-gray-800 dark:text-gray-200 uppercase tracking-widest text-sm"><span class="text-lg">📘</span> 1. Contexto Operativo</div>
-                <svg class="w-5 h-5 text-gray-400 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-            </summary>
-            <div class="p-6 pt-0 border-t border-gray-100 dark:border-gray-700 mt-2">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                   <div><h4 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">🎯 Objetivo General</h4><div class="text-sm text-gray-700 dark:text-gray-300 font-medium leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-5 rounded-xl border border-gray-100 dark:border-gray-700 h-full rich-text-content">${poe.objective || "No especificado"}</div></div>
-                   <div><h4 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">📏 Alcance Operativo</h4><div class="text-sm text-gray-700 dark:text-gray-300 font-medium leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-5 rounded-xl border border-gray-100 dark:border-gray-700 h-full rich-text-content">${poe.scope || "No especificado"}</div></div>
-                   <div><h4 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">👤 Responsabilidades</h4><div class="text-sm text-gray-700 dark:text-gray-300 font-medium leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-5 rounded-xl border border-gray-100 dark:border-gray-700 h-full rich-text-content">${poe.responsibles || "No especificadas"}</div></div>
-                   <div><h4 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">📝 Definiciones</h4><div class="text-sm text-gray-700 dark:text-gray-300 font-medium leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-5 rounded-xl border border-gray-100 dark:border-gray-700 h-full rich-text-content">${poe.definitions || "Ninguna"}</div></div>
-                   <div class="md:col-span-2"><h4 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">🛠️ Equipos, Materiales y EPPs</h4><div class="text-sm text-gray-700 dark:text-gray-300 font-medium leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-5 rounded-xl border border-gray-100 dark:border-gray-700 h-full rich-text-content">${poe.materials || "No especificados"}</div></div>
+            <details id="acc-flowchart" class="group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm mb-6" ${scrollToFlowchart ? 'open' : ''}>
+                <summary class="flex items-center justify-between p-5 font-black cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition rounded-2xl outline-none select-none">
+                    <div class="flex items-center gap-3 text-gray-800 dark:text-gray-200 uppercase tracking-widest text-sm"><span class="text-lg">🗺️</span> 3. Flujograma del Proceso</div>
+                    <svg class="w-5 h-5 text-gray-400 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </summary>
+                <div class="border-t border-gray-100 dark:border-gray-700 mt-2 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjEiIGZpbGw9IiNlNWU3ZWIiLz48L3N2Zz4=')] dark:bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjEiIGZpbGw9IiMzNzQxNTEiLz48L3N2Zz4=')] rounded-b-2xl overflow-auto max-h-[600px] custom-scrollbar shadow-inner relative">
+                    <div class="min-w-max px-20 py-8 flex justify-center">
+                        ${flowchartHTML}
+                    </div>
+                </div>
+            </details>
+
+            <div>
+                <h4 class="text-sm font-black text-gray-900 dark:text-white uppercase tracking-widest mb-4 border-b-2 border-gray-100 dark:border-gray-700 pb-3 flex items-center gap-2"><span class="text-lg">⚙️</span> 4. Desarrollo Detallado</h4>
+                <div class="space-y-2 pl-2 md:pl-4">
+                    ${stepsHTML}
                 </div>
             </div>
-        </details>
 
-        <details class="group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm mb-6" open>
-            <summary class="flex items-center justify-between p-5 font-black cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition rounded-2xl outline-none select-none">
-                <div class="flex items-center gap-3 text-gray-800 dark:text-gray-200 uppercase tracking-widest text-sm"><span class="text-lg">🛡️</span> 2. Control y Referencias</div>
-                <svg class="w-5 h-5 text-gray-400 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-            </summary>
-            <div class="p-6 pt-0 border-t border-gray-100 dark:border-gray-700 mt-2">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                   <div><h4 class="text-xs font-black text-red-700 dark:text-red-400 uppercase tracking-widest mb-2">⏱️ Frecuencia / Monitoreo</h4><div class="text-sm text-gray-900 dark:text-gray-100 font-bold leading-relaxed bg-red-50 dark:bg-red-900/20 p-5 rounded-xl border border-red-100 dark:border-red-900/50 h-full rich-text-content">${poe.monitoring || poe.frequency || "No especificada"}</div></div>
-                   <div><h4 class="text-xs font-black text-red-700 dark:text-red-400 uppercase tracking-widest mb-2">⚠️ Acciones Correctivas</h4><div class="text-sm text-gray-900 dark:text-gray-100 font-bold leading-relaxed bg-red-50 dark:bg-red-900/20 p-5 rounded-xl border border-red-100 dark:border-red-900/50 h-full rich-text-content">${poe.corrective_actions || "No especificadas"}</div></div>
-                   <div><h4 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">📎 Registros Asociados</h4><div class="text-sm text-gray-700 dark:text-gray-300 font-medium leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-5 rounded-xl border border-gray-100 dark:border-gray-700 h-full rich-text-content">${poe.records || "Ninguno"}</div></div>
-                   <div><h4 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">📚 Referencias / Anexos</h4><div class="text-sm text-gray-700 dark:text-gray-300 font-medium leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-5 rounded-xl border border-gray-100 dark:border-gray-700 h-full rich-text-content">${poe.references || "Ninguna"}</div></div>
-                </div>
-            </div>
-        </details>
-
-        <details id="acc-flowchart" class="group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm mb-6" ${scrollToFlowchart ? 'open' : ''}>
-            <summary class="flex items-center justify-between p-5 font-black cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition rounded-2xl outline-none select-none">
-                <div class="flex items-center gap-3 text-gray-800 dark:text-gray-200 uppercase tracking-widest text-sm"><span class="text-lg">🗺️</span> 3. Flujograma del Proceso</div>
-                <svg class="w-5 h-5 text-gray-400 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-            </summary>
-            <div class="border-t border-gray-100 dark:border-gray-700 mt-2 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjEiIGZpbGw9IiNlNWU3ZWIiLz48L3N2Zz4=')] dark:bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjEiIGZpbGw9IiMzNzQxNTEiLz48L3N2Zz4=')] rounded-b-2xl overflow-auto max-h-[600px] custom-scrollbar shadow-inner relative">
-                <div class="min-w-max px-20 py-8 flex justify-center">
-                    ${flowchartHTML}
-                </div>
-            </div>
-        </details>
-
-        <div>
-          <h4 class="text-sm font-black text-gray-900 dark:text-white uppercase tracking-widest mb-4 border-b-2 border-gray-100 dark:border-gray-700 pb-3 flex items-center gap-2"><span class="text-lg">⚙️</span> 4. Desarrollo Detallado</h4>
-          <div class="space-y-2 pl-2 md:pl-4">
-            ${stepsHTML}
-          </div>
-        </div>
-
-      </div>
-    `;
-  }
+        </div>`;
+    }
   
-  const viewTitleEl = document.getElementById("viewTitle");
-  if (viewTitleEl) {
-      viewTitleEl.textContent = `${poe.code} - ${poe.title}`;
-      viewTitleEl.title = `${poe.code} - ${poe.title}`;
-  }
+    const viewTitleEl = document.getElementById("viewTitle");
+    if (viewTitleEl) {
+        viewTitleEl.textContent = `${poe.code} - ${poe.title}`;
+        viewTitleEl.title = `${poe.code} - ${poe.title}`;
+    }
 
-  const m = document.getElementById("viewModal"); 
-  if (m) { 
-      m.classList.remove("hidden"); m.classList.add("flex"); 
-      
-      // 🧠 Disparamos el Motor SVG
-      setTimeout(() => {
-          if (poe.procedure) {
-              try { window.drawFlowchartArrows(JSON.parse(poe.procedure)); } catch(e){}
-          }
-          if (scrollToFlowchart) {
-              const el = document.getElementById("acc-flowchart");
-              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }
-      }, 300);
-  }
+    const m = document.getElementById("viewModal"); 
+    if (m) { 
+        m.classList.remove("hidden"); 
+        m.classList.add("flex"); 
+        
+        // 🧠 Disparamos el Motor SVG
+        setTimeout(() => {
+            if (poe.procedure) {
+                try { 
+                    window.drawFlowchartArrows(JSON.parse(poe.procedure)); 
+                } catch(e) {}
+            }
+            if (scrollToFlowchart) {
+                const el = document.getElementById("acc-flowchart");
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }, 300);
+    }
 };
 
 window.exportPOEToWord = function (id) {
