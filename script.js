@@ -1,5 +1,5 @@
 /**
- * @fileoverview CORE GENAPP - Sistema POE Industrial (SPA + MOBILE + RBAC)
+ * @fileoverview CORE GENAPP - Sistema POE Industrial (SPA + MOBILE + RBAC + DASHBOARD)
  */
 
 const GAS_ENDPOINT = "https://script.google.com/macros/s/AKfycbylXo9sXzLBYCdyB1AiDOa7-cyvPutjmy0XCun33Ic1YSFM0YdruE6WfkSt0SCz_PSO2Q/exec"; 
@@ -24,7 +24,7 @@ window.sysAlert = function(message, type = 'info') {
         const icons = { error: '❌', warning: '⚠️', success: '✅', info: 'ℹ️' };
         const modal = document.createElement('div');
         modal.className = 'fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4';
-        modal.innerHTML = `<div class="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-700 max-w-sm w-full overflow-hidden animate-[fadeIn_0.2s]"><div class="p-6 text-center"><div class="w-16 h-16 mx-auto rounded-full flex items-center justify-center text-3xl mb-4 ${colors[type]}">${icons[type]}</div><h3 class="text-lg font-black text-gray-900 dark:text-white mb-2">Mensaje del Sistema</h3><p class="text-sm font-medium text-gray-600 dark:text-gray-400 whitespace-pre-line">${message}</p></div><div class="p-4 bg-gray-50 dark:bg-gray-900 border-t border-gray-100 dark:border-gray-700 flex justify-center"><button class="bg-gray-900 hover:bg-black dark:bg-gray-700 dark:hover:bg-gray-600 text-white px-8 py-3 rounded-xl text-sm font-bold w-full" id="btnAlertOk">Entendido</button></div></div>`;
+        modal.innerHTML = `<div class="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-700 max-w-sm w-full overflow-hidden animate-[fadeIn_0.2s]"><div class="p-6 text-center"><div class="w-16 h-16 mx-auto rounded-full flex items-center justify-center text-3xl mb-4 ${colors[type]}">${icons[type]}</div><h3 class="text-lg font-black text-gray-900 dark:text-white mb-2">Mensaje del Sistema</h3><p class="text-sm font-medium text-gray-600 dark:text-gray-400 whitespace-pre-line">${message}</p></div><div class="p-4 bg-gray-50 dark:bg-gray-900 border-t border-gray-100 dark:border-gray-700 flex justify-center"><button class="bg-gray-900 hover:bg-black dark:bg-gray-700 dark:hover:bg-gray-600 text-white px-8 py-3 rounded-xl text-sm font-bold w-full transition-colors" id="btnAlertOk">Entendido</button></div></div>`;
         document.body.appendChild(modal);
         document.getElementById('btnAlertOk').onclick = () => { modal.remove(); resolve(); };
     });
@@ -34,7 +34,7 @@ window.sysConfirm = function(message) {
     return new Promise(resolve => {
         const modal = document.createElement('div');
         modal.className = 'fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4';
-        modal.innerHTML = `<div class="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-700 max-w-sm w-full overflow-hidden animate-[fadeIn_0.2s]"><div class="p-6 text-center"><div class="w-16 h-16 mx-auto rounded-full flex items-center justify-center text-3xl mb-4 bg-amber-100 text-amber-800">⚠️</div><h3 class="text-lg font-black text-gray-900 dark:text-white mb-2">Confirmación</h3><p class="text-sm font-medium text-gray-600 dark:text-gray-400 whitespace-pre-line">${message}</p></div><div class="p-4 bg-gray-50 dark:bg-gray-900 border-t border-gray-100 dark:border-gray-700 flex gap-3"><button class="flex-1 bg-white border border-gray-200 text-gray-700 hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 py-3 rounded-xl text-sm font-bold" id="btnConfCancel">Cancelar</button><button class="flex-1 bg-red-700 hover:bg-red-800 text-white py-3 rounded-xl text-sm font-bold" id="btnConfOk">Confirmar</button></div></div>`;
+        modal.innerHTML = `<div class="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-700 max-w-sm w-full overflow-hidden animate-[fadeIn_0.2s]"><div class="p-6 text-center"><div class="w-16 h-16 mx-auto rounded-full flex items-center justify-center text-3xl mb-4 bg-amber-100 text-amber-800">⚠️</div><h3 class="text-lg font-black text-gray-900 dark:text-white mb-2">Confirmación</h3><p class="text-sm font-medium text-gray-600 dark:text-gray-400 whitespace-pre-line">${message}</p></div><div class="p-4 bg-gray-50 dark:bg-gray-900 border-t border-gray-100 dark:border-gray-700 flex gap-3"><button class="flex-1 bg-white border border-gray-200 text-gray-700 hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 py-3 rounded-xl text-sm font-bold transition-all" id="btnConfCancel">Cancelar</button><button class="flex-1 bg-red-700 hover:bg-red-800 text-white py-3 rounded-xl text-sm font-bold transition-colors" id="btnConfOk">Confirmar</button></div></div>`;
         document.body.appendChild(modal);
         document.getElementById('btnConfOk').onclick = () => { modal.remove(); resolve(true); };
         document.getElementById('btnConfCancel').onclick = () => { modal.remove(); resolve(false); };
@@ -54,12 +54,34 @@ window.switchTab = function(tabId) {
         activeBtn.classList.remove('text-gray-600', 'dark:text-gray-400');
         activeBtn.classList.add('bg-red-50', 'text-red-700', 'dark:bg-red-900/30', 'dark:text-red-400');
     }
+    
     document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
     const activeView = document.getElementById(`view-${tabId}`);
     if(activeView) activeView.classList.add('active');
 
-    if(tabId === 'areas') window.renderMapaAreas();
-    if(tabId === 'poes') window.renderPOEs();
+    // Títulos Dinámicos y Botones Topbar
+    const topTitle = document.getElementById('topbar-title');
+    const topSub = document.getElementById('topbar-subtitle');
+    const btnNuevo = document.getElementById('btn-nuevo-poe');
+    const btnArea = document.getElementById('btn-nueva-area');
+    const permisos = window.getPermisos();
+    
+    if(tabId === 'dashboard') {
+        topTitle.textContent = "Dashboard Operativo"; topSub.textContent = "Resumen del Sistema";
+        if(btnNuevo) btnNuevo.classList.add('hidden');
+        if(btnArea) btnArea.classList.add('hidden');
+        window.renderDashboard();
+    } else if (tabId === 'poes') {
+        topTitle.textContent = "Procedimientos Operativos"; topSub.textContent = "Matriz Documental GFSI";
+        if(btnNuevo) (permisos.canEditAll || permisos.canEditOwn) ? btnNuevo.classList.remove('hidden') : btnNuevo.classList.add('hidden');
+        if(btnArea) btnArea.classList.add('hidden');
+        window.renderPOEs();
+    } else if (tabId === 'areas') {
+        topTitle.textContent = "Áreas de la Planta"; topSub.textContent = "Organización Estructural";
+        if(btnNuevo) btnNuevo.classList.add('hidden');
+        if(btnArea) permisos.canManageAreas ? btnArea.classList.remove('hidden') : btnArea.classList.add('hidden');
+        window.renderMapaAreas();
+    }
 };
 
 window.toggleMobileMenu = function(forceClose = false) {
@@ -162,30 +184,22 @@ window.refreshUI = async function () {
     return true;
   });
 
-  const btnNuevo = document.getElementById('btn-nuevo-poe');
-  if (btnNuevo) btnNuevo.style.display = (permisos.canEditAll || permisos.canEditOwn) ? 'flex' : 'none';
-
   const safeSet = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
   safeSet("totalPOEs", state.poes.length);
   safeSet("produccionCount", state.poes.filter((p) => p.category === "PROD").length);
   safeSet("logisticaCount", state.poes.filter((p) => p.category === "LOG").length);
   safeSet("calidadCount", state.poes.filter((p) => p.category === "CAL").length);
 
-  // Llenar datos de Usuario en Sidebar
   if (state.user) {
       safeSet('userName', state.user.nombre);
-      
       const areaNames = permisos.areas.map(abbr => { 
           const a = state.areas.find(x => x.areaAbbr === abbr); 
           return a ? a.areaName : abbr; 
       });
       const areasFormat = areaNames.length > 0 ? `<span class="text-gray-400 dark:text-gray-500 font-medium block truncate mt-0.5" title="${areaNames.join(', ')}">📍 ${areaNames.join(', ')}</span>` : '';
-      
       const userRoleEl = document.getElementById('userRole');
       if(userRoleEl) userRoleEl.innerHTML = `<span class="font-black text-gray-700 dark:text-gray-300 block truncate">${permisos.rol}</span>${areasFormat}`;
-      
-      const initials = state.user.nombre.substring(0, 2).toUpperCase();
-      safeSet('userAvatar', initials);
+      safeSet('userAvatar', state.user.nombre.substring(0, 2).toUpperCase());
   }
 
   const filterAreaSelect = document.getElementById('filterArea');
@@ -193,12 +207,43 @@ window.refreshUI = async function () {
       state.areas.forEach(a => { filterAreaSelect.innerHTML += `<option value="${a.areaAbbr}">${a.areaName}</option>`; });
   }
 
-  const btnNuevaArea = document.getElementById('btn-nueva-area');
-  if (btnNuevaArea) btnNuevaArea.style.display = permisos.canManageAreas ? 'flex' : 'none';  
-  
   window.buildDynamicDictionaries();
+  window.renderDashboard();
   window.renderPOEs();
-  window.renderMapaAreas();
+  
+  // Ocultar botón "Nuevo POE" en el widget del dashboard si no hay permisos
+  const dashBtnNuevo = document.getElementById("dash-btn-nuevo");
+  if(dashBtnNuevo) dashBtnNuevo.style.display = (permisos.canEditAll || permisos.canEditOwn) ? 'flex' : 'none';
+};
+
+window.renderDashboard = function() {
+    // 1. Actualizar contador POEs en revisión
+    const revCount = state.poes.filter(p => p.status === 'REV' || p.status === 'En Revisión').length;
+    const revEl = document.getElementById("dashRevCount");
+    if(revEl) revEl.textContent = `${revCount} procedimientos pendientes de revisión`;
+
+    // 2. Inyectar Lista de Áreas dinámica
+    const container = document.getElementById("dashboard-areas-list");
+    if(!container) return;
+
+    let html = '';
+    state.areas.forEach(area => {
+        const count = state.poes.filter(p => p.subCategory === area.areaAbbr).length;
+        html += `
+        <div class="flex items-center justify-between p-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition" onclick="window.switchTab('poes'); document.getElementById('filterArea').value = '${area.areaAbbr}'; window.renderPOEs();">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-400">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-7h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                </div>
+                <div>
+                    <p class="text-xs font-bold text-gray-900 dark:text-white leading-tight">${area.areaName}</p>
+                    <p class="text-[10px] text-gray-500">${area.macroName}</p>
+                </div>
+            </div>
+            <span class="text-xs font-black bg-white dark:bg-gray-900 px-2 py-1 rounded-md border border-gray-200 dark:border-gray-600">${count}</span>
+        </div>`;
+    });
+    container.innerHTML = html || `<p class="text-sm text-gray-400 col-span-2">No hay áreas configuradas.</p>`;
 };
 
 window.renderPOEs = function () {
@@ -284,7 +329,7 @@ window.renderMapaAreas = function() {
             gridHTML += `
             <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-lg transition-all cursor-pointer group" onclick="window.switchTab('poes'); document.getElementById('searchInput').value = '${area.areaName}'; window.renderPOEs();">
                 <div class="flex gap-4">
-                    <div class="w-12 h-12 rounded-xl bg-red-50 dark:bg-red-900/20 flex items-center justify-center text-red-600 dark:text-red-400 group-hover:scale-110 transition shrink-0"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-7h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg></div>
+                    <div class="w-12 h-12 rounded-xl bg-red-50 dark:bg-red-900/20 flex items-center justify-center text-red-600 dark:text-red-400 group-hover:scale-110 transition shrink-0"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg></div>
                     <div>
                         <h4 class="font-bold text-gray-900 dark:text-white text-lg leading-tight mb-1">${area.areaName}</h4>
                         <p class="text-[10px] text-gray-500 font-mono tracking-widest uppercase mb-2 bg-gray-100 dark:bg-gray-700 inline-block px-2 py-0.5 rounded">${area.poePrefix}-XXX</p>
@@ -390,7 +435,11 @@ window.handleFormSubmit = async function (e) {
       const cat = getFieldValue("category"); const sub = getFieldValue("poeSubCategory");
       const areaDef = state.areas.find(a => a.macroAbbr === cat && a.areaAbbr === sub);
       const catStr = areaDef ? `${areaDef.macroName} ${areaDef.areaName} ${areaDef.macroAbbr} ${areaDef.areaAbbr} ${areaDef.id}`.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
-      if (!permisos.areas.some(userArea => catStr.includes(userArea))) return await window.sysAlert(`BLOQUEO DE SEGURIDAD:\nNo tiene permisos para crear o modificar procedimientos en el área seleccionada.\n\nÁreas autorizadas: ${permisos.areas.join(', ')}`, "error");
+      
+      if (!permisos.areas.some(userArea => catStr.includes(userArea))) {
+          const areaNamesForAlert = permisos.areas.map(abbr => { const a = state.areas.find(x => x.areaAbbr === abbr); return a ? a.areaName : abbr; });
+          return await window.sysAlert(`BLOQUEO DE SEGURIDAD:\nNo tiene permisos para crear o modificar procedimientos en el área seleccionada.\n\nÁreas autorizadas:\n📍 ${areaNamesForAlert.join(', ')}`, "error");
+      }
   }
 
   const isEditing = !!state.form.editingId;
@@ -443,14 +492,14 @@ window.viewPOE = function (id) {
   try {
     const arr = JSON.parse(poe.procedure);
     stepsHTML = arr.map((s, i) => {
-        const bColor = s.type === "PCC" ? "bg-red-100 text-red-800 border-red-200" : s.type === "PC" ? "bg-yellow-100 text-yellow-800 border-yellow-200" : "bg-gray-100 text-gray-600 border-gray-200";
-        const img = s.image ? `<img src="${s.image}" class="mt-4 max-h-64 object-cover rounded-xl border border-gray-200 shadow-sm">` : "";
-        return `<div class="flex gap-4 p-5 md:p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm"><div class="w-10 h-10 rounded-full bg-red-50 text-red-700 font-black flex items-center justify-center shrink-0 text-lg border border-red-100">${i + 1}</div><div class="flex-grow overflow-hidden"><span class="text-[10px] font-black px-2.5 py-1 rounded border uppercase mb-3 inline-block tracking-widest ${bColor}">${s.type}</span><div class="text-base font-medium text-gray-800 dark:text-gray-200 leading-relaxed">${s.desc}</div>${img}</div></div>`;
+        const bColor = s.type === "PCC" ? "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-400 border-red-200 dark:border-red-800" : s.type === "PC" ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800" : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600";
+        const img = s.image ? `<img src="${s.image}" class="mt-4 max-h-64 object-cover rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">` : "";
+        return `<div class="flex gap-4 p-5 md:p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm"><div class="w-10 h-10 rounded-full bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400 font-black flex items-center justify-center shrink-0 text-lg border border-red-100 dark:border-red-900/50">${i + 1}</div><div class="flex-grow overflow-hidden"><span class="text-[10px] font-black px-2.5 py-1 rounded border uppercase mb-3 inline-block tracking-widest ${bColor}">${s.type}</span><div class="text-base font-medium text-gray-800 dark:text-gray-200 leading-relaxed">${s.desc}</div>${img}</div></div>`;
       }).join("");
   } catch (e) { stepsHTML = `<div class="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700"><p class="text-base font-medium text-gray-800 dark:text-gray-200 leading-relaxed">${poe.procedure}</p></div>`; }
 
   const catObj = state.areas.find((c) => c.areaAbbr === poe.subCategory); const catName = catObj ? catObj.areaName : poe.subCategory;
-  const statusColor = poe.status === "ACT" || poe.status === "Activo" ? "bg-green-50 text-green-700 border-green-200" : "bg-yellow-50 text-yellow-700 border-yellow-200";
+  const statusColor = poe.status === "ACT" || poe.status === "Activo" ? "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800" : "bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800";
   const statusText = poe.status === "ACT" ? "ACTIVO" : "EN REVISIÓN";
 
   const vContent = document.getElementById("viewContent");
@@ -459,7 +508,7 @@ window.viewPOE = function (id) {
       <div class="bg-white dark:bg-gray-800 p-8 md:p-10 rounded-3xl border border-gray-200 dark:border-gray-700 shadow-xl mb-8">
         <div class="flex flex-col md:flex-row justify-between items-start border-b-2 border-gray-100 dark:border-gray-700 pb-8 mb-8 gap-6">
           <div class="w-full md:w-2/3"><span class="inline-block px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-bold text-xs rounded-lg uppercase tracking-wider mb-3 border border-gray-200 dark:border-gray-600">${catName}</span><h2 class="text-3xl md:text-4xl font-black text-gray-900 dark:text-white uppercase tracking-tight leading-tight">${poe.title}</h2></div>
-          <div class="md:text-right flex flex-col md:items-end bg-gray-50 dark:bg-gray-900 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 w-full md:w-1/3"><p class="text-2xl font-black font-mono text-red-700 dark:text-red-400 tracking-wider">${poe.code}</p><div class="flex items-center md:justify-end gap-3 mt-2 text-sm font-bold text-gray-500"><span>v${poe.version}</span><span>•</span><span>${new Date(poe.date).toLocaleDateString()}</span></div><div class="mt-4 flex flex-col items-end gap-2"><span class="inline-flex items-center px-3 py-1 rounded-md text-xs font-black uppercase tracking-widest border ${statusColor}">${statusText}</span><div class="text-xs text-gray-500 font-medium mt-2">✍️ Creado por: <span class="font-bold text-gray-800 dark:text-gray-300">${poe.author || 'S/N'}</span></div>${poe.lastEditor ? `<div class="text-xs text-gray-500 font-medium text-right">🔄 Últ. Edición: <span class="font-bold text-gray-800 dark:text-gray-300">${poe.lastEditor}</span></div>` : ''}</div></div>
+          <div class="md:text-right flex flex-col md:items-end bg-gray-50 dark:bg-gray-900/50 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 w-full md:w-1/3"><p class="text-2xl font-black font-mono text-red-700 dark:text-red-400 tracking-wider">${poe.code}</p><div class="flex items-center md:justify-end gap-3 mt-2 text-sm font-bold text-gray-500 dark:text-gray-400"><span>v${poe.version}</span><span>•</span><span>${new Date(poe.date).toLocaleDateString()}</span></div><div class="mt-4 flex flex-col items-end gap-2"><span class="inline-flex items-center px-3 py-1 rounded-md text-xs font-black uppercase tracking-widest border ${statusColor}">${statusText}</span><div class="text-xs text-gray-500 dark:text-gray-400 font-medium mt-2">✍️ Creado por: <span class="font-bold text-gray-800 dark:text-gray-200">${poe.author || 'S/N'}</span></div>${poe.lastEditor ? `<div class="text-xs text-gray-500 dark:text-gray-400 font-medium text-right">🔄 Últ. Edición: <span class="font-bold text-gray-800 dark:text-gray-200">${poe.lastEditor}</span></div>` : ''}</div></div>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
            <div><h4 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">🎯 Objetivo General</h4><div class="text-sm text-gray-700 dark:text-gray-300 font-medium leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 h-full">${poe.objective || "No especificado"}</div></div>
@@ -474,14 +523,14 @@ window.viewPOE = function (id) {
            <div><h4 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">📎 Registros Asociados</h4><div class="text-sm text-gray-700 dark:text-gray-300 font-medium leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 h-full">${poe.records || "Ninguno"}</div></div>
            <div><h4 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">📚 Referencias / Anexos</h4><div class="text-sm text-gray-700 dark:text-gray-300 font-medium leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 h-full">${poe.references || "Ninguna"}</div></div>
         </div>
-        <div><h4 class="text-sm font-black text-gray-900 dark:text-gray-100 uppercase tracking-widest mb-6 border-b-2 border-gray-100 dark:border-gray-700 pb-3">Desarrollo del Procedimiento Operativo</h4><div class="space-y-4">${stepsHTML}</div></div>
+        <div><h4 class="text-sm font-black text-gray-900 dark:text-white uppercase tracking-widest mb-6 border-b-2 border-gray-100 dark:border-gray-700 pb-3">Desarrollo del Procedimiento Operativo</h4><div class="space-y-4">${stepsHTML}</div></div>
       </div>
     `;
   }
-  const m = document.getElementById("viewModal"); if (m) { document.getElementById("viewTitle").textContent = "Visor Documental"; m.classList.remove("hidden"); m.classList.add("flex"); }
+  const m = document.getElementById("viewModal"); if (m) { m.classList.remove("hidden"); m.classList.add("flex"); }
 };
 
-window.exportPOEToWord = function (id) { /* Export code omitted for brevity but works same as before */ };
+window.exportPOEToWord = function (id) { /* Export code works same as before */ };
 
 // ==========================================
 // FORMULARIOS DE ÁREAS (CRUD)
@@ -552,9 +601,9 @@ window.addAdvancedStep = async function () {
   if (fileInput && fileInput.files.length > 0) { const reader = new FileReader(); reader.onload = (e) => { const img = new Image(); img.onload = () => { const cvs = document.createElement("canvas"); let w = img.width, h = img.height; if (w > 800) { h = Math.round((h * 800) / w); w = 800; } cvs.width = w; cvs.height = h; cvs.getContext("2d").drawImage(img, 0, 0, w, h); processStep(cvs.toDataURL("image/jpeg", 0.7)); }; img.src = e.target.result; }; reader.readAsDataURL(fileInput.files[0]); } else { processStep(undefined); }
 };
 
-function _resetStepUI() { setFieldValue("stepDesc", ""); const f = document.getElementById("stepImage"); if (f) { f.value = ""; window.updateFileText(f); } state.form.editingStepId = null; const btn = document.getElementById("btnAddStep"); if(btn) { btn.textContent = "Añadir Paso"; btn.classList.replace("bg-green-600", "bg-blue-600"); btn.classList.replace("hover:bg-green-800", "hover:bg-blue-800"); } window.renderAdvancedSteps(); }
+function _resetStepUI() { setFieldValue("stepDesc", ""); const f = document.getElementById("stepImage"); if (f) { f.value = ""; window.updateFileText(f); } state.form.editingStepId = null; const btn = document.getElementById("btnAddStep"); if(btn) { btn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path></svg><span id="btnAddStepText">Añadir Paso</span>`; btn.classList.replace("bg-green-600", "bg-blue-600"); btn.classList.replace("hover:bg-green-800", "hover:bg-blue-800"); } window.renderAdvancedSteps(); }
 window.removeAdvancedStep = function (id) { state.form.advancedSteps = state.form.advancedSteps.filter((s) => s.id !== id); window.renderAdvancedSteps(); };
-window.editStep = function(id) { const s = state.form.advancedSteps.find(s => s.id === id); if (!s) return; setFieldValue("stepDesc", s.desc); document.getElementById("stepType").value = s.type; state.form.editingStepId = id; const btn = document.getElementById("btnAddStep"); if(btn) { btn.textContent = "Actualizar Paso"; btn.classList.replace("bg-blue-600", "bg-green-600"); btn.classList.replace("hover:bg-blue-800", "hover:bg-green-800"); } document.getElementById("stepDesc").focus(); };
+window.editStep = function(id) { const s = state.form.advancedSteps.find(s => s.id === id); if (!s) return; setFieldValue("stepDesc", s.desc); document.getElementById("stepType").value = s.type; state.form.editingStepId = id; const btn = document.getElementById("btnAddStep"); if(btn) { btn.innerHTML = `<span id="btnAddStepText">Actualizar Paso</span>`; btn.classList.replace("bg-blue-600", "bg-green-600"); btn.classList.replace("hover:bg-blue-800", "hover:bg-green-800"); } document.getElementById("stepDesc").focus(); };
 window.moveStep = function(index, dir) { if (dir === 'up' && index > 0) { const temp = state.form.advancedSteps[index]; state.form.advancedSteps[index] = state.form.advancedSteps[index - 1]; state.form.advancedSteps[index - 1] = temp; } else if (dir === 'down' && index < state.form.advancedSteps.length - 1) { const temp = state.form.advancedSteps[index]; state.form.advancedSteps[index] = state.form.advancedSteps[index + 1]; state.form.advancedSteps[index + 1] = temp; } window.renderAdvancedSteps(); };
 
 window.loadPoesTemplate = async function() {
@@ -614,8 +663,10 @@ window.addEventListener("offline", () => window.updateNet("offline"));
 document.addEventListener("DOMContentLoaded", async () => {
   window.updateNet(navigator.onLine ? "online" : "offline"); 
   await POEDB.init(); 
-  if (!state.user) { state.user = { nombre: 'Dev Admin', rol: 'ADMINISTRADOR', area: ['DSP'], usuario: 'dev' }; state.isSessionVerified = true; }
+  
+  if (!state.user) { state.user = { nombre: 'Ing. Supervisor', rol: 'SUPERVISOR', area: ['DSP', 'EMP'], usuario: 'dev' }; state.isSessionVerified = true; }
   const savedUser = sessionStorage.getItem('moduloUserPOE'); if (savedUser) { state.user = JSON.parse(savedUser); state.isSessionVerified = true; }
+  
   await window.refreshUI(); 
   setTimeout(() => { window.initRichEditors(); window.switchTab('dashboard'); }, 100); 
   window.parent.postMessage({ type: 'MODULO_LISTO' }, '*');
