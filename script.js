@@ -412,6 +412,7 @@ function loadApp(app, user) {
         const urlObj = new URL(app.link);
         urlObj.searchParams.append('email', user.email);
         urlObj.searchParams.append('rol', user.rol);
+        urlObj.searchParams.append('jefatura', user.jefatura || '');
         urlObj.searchParams.append('t', Date.now());
         urlSegura = urlObj.toString();
     } catch (e) {
