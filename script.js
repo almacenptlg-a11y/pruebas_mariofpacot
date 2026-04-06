@@ -1,5 +1,5 @@
 /**
- * @fileoverview CORE GENAPP - Sistema POE Industrial (AUTO-FLUJOGRAMAS + SPA + RBAC)
+ * @fileoverview CORE GENAPP - Sistema POE Industrial (AUTO-FLUJOGRAMAS + SPA + LINKS)
  */
 
 const GAS_ENDPOINT = "https://script.google.com/macros/s/AKfycbylXo9sXzLBYCdyB1AiDOa7-cyvPutjmy0XCun33Ic1YSFM0YdruE6WfkSt0SCz_PSO2Q/exec"; 
@@ -253,7 +253,7 @@ window.renderPOEs = function () {
       <td class="px-6 py-4">${badge}</td>
       <td class="px-6 py-4 text-xs font-medium text-gray-500">${new Date(poe.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</td>
       <td class="px-6 py-4 text-right flex justify-end gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-        <button onclick="window.viewPOE('${poe.id}', true)" class="text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition p-1" title="Ver Flujograma"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg></button>
+        <button onclick="window.viewPOE('${poe.id}', true)" class="text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition p-1" title="Ver Flujograma"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012-2v2M7 7h10"></path></svg></button>
         <button onclick="window.viewPOE('${poe.id}')" class="text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition p-1" title="Ver Documento"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg></button>
         ${actionButtons}
       </td>
@@ -339,7 +339,7 @@ window.handleFormSubmit = async function (e) {
       const catStr = areaDef ? `${areaDef.macroName} ${areaDef.areaName} ${areaDef.macroAbbr} ${areaDef.areaAbbr} ${areaDef.id}`.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
       if (!permisos.areas.some(userArea => catStr.includes(userArea))) {
           const areaNamesForAlert = permisos.areas.map(val => { const a = state.areas.find(x => x.id === val || x.areaAbbr === val); return a ? a.areaName : val; });
-          return await window.sysAlert(`BLOQUEO DE SEGURIDAD:\nNo tiene permisos para crear o modificar procedimientos en el área seleccionada.\n\nÁreas autorizadas:\n📍 ${areaNamesForAlert.join(', ')}`, "error");
+          return await window.sysAlert(`BLOQUEO DE SEGURIDAD:\nNo tiene permisos para crear procedimientos en el área seleccionada.\n\nÁreas autorizadas:\n📍 ${areaNamesForAlert.join(', ')}`, "error");
       }
   }
   const isEditing = !!state.form.editingId; const poeId = isEditing ? state.form.editingId : `UUID-${Date.now()}`;
@@ -390,41 +390,28 @@ window.viewPOE = function (id, scrollToFlowchart = false) {
   const btnExportWord = document.getElementById("btnExportWord"); if (btnExportWord) btnExportWord.onclick = () => window.exportPOEToWord(poe.id);
   
   let stepsHTML = "";
-  let flowchartHTML = `<div class="flex flex-col items-center py-6 font-sans"><div class="bg-gray-800 dark:bg-gray-700 text-white px-6 py-2 rounded-full font-black text-xs shadow-md z-10">INICIO DEL PROCESO</div>`;
+  let flowchartHTML = `<div class="flex flex-col items-center py-6 font-sans w-full overflow-x-auto"><div class="bg-blue-900 text-white px-8 py-3 rounded-[50px] font-black text-xs shadow-md border-4 border-blue-200 z-10 w-48 text-center uppercase tracking-widest shrink-0">INICIO</div>`;
   
   try {
     const arr = JSON.parse(poe.procedure);
     
     // 1. CONSTRUIR AUTO-FLUJOGRAMA (VISTA WEB)
     arr.forEach((s, i) => {
-        flowchartHTML += `<div class="w-1 h-8 bg-gray-300 dark:bg-gray-600"></div><div class="w-3 h-3 border-r-2 border-b-2 border-gray-400 dark:border-gray-500 transform rotate-45 -mt-2 mb-1"></div>`;
+        flowchartHTML += `<div class="flex flex-col items-center my-1"><div class="w-1 h-6 bg-gray-400"></div><div class="w-3 h-3 border-b-2 border-r-2 border-gray-400 transform rotate-45 -mt-1.5"></div></div>`;
+        const plainText = s.desc.replace(/<[^>]*>?/gm, '').substring(0, 65) + (s.desc.length > 65 ? "..." : "");
         
-        let fColor = "bg-white border-gray-300 dark:bg-gray-800 dark:border-gray-600 text-gray-800 dark:text-gray-200";
-        let fLabel = "";
-        
-        if (s.type === 'PCC') { 
-            fColor = "bg-red-50 border-red-500 text-red-900 dark:bg-red-900/20 dark:border-red-600 dark:text-red-200"; 
-            fLabel = `<div class="text-[9px] font-black text-red-600 dark:text-red-400 mb-1.5 uppercase">🛑 Punto Crítico de Control</div>`; 
-        } else if (s.type === 'PC') { 
-            fColor = "bg-yellow-50 border-yellow-500 text-yellow-900 dark:bg-yellow-900/20 dark:border-yellow-600 dark:text-yellow-200"; 
-            fLabel = `<div class="text-[9px] font-black text-yellow-600 dark:text-yellow-400 mb-1.5 uppercase">⚠️ Punto de Control</div>`; 
-        } else if (s.type === 'SEG') { 
-            fColor = "bg-green-50 border-green-500 text-green-900 dark:bg-green-900/20 dark:border-green-600 dark:text-green-200"; 
-            fLabel = `<div class="text-[9px] font-black text-green-600 dark:text-green-400 mb-1.5 uppercase">🛡️ Seguridad</div>`; 
+        if (s.type === 'PCC' || s.type === 'PC') {
+            const color = s.type === 'PCC' ? 'red' : 'amber'; const label = s.type === 'PCC' ? 'PCC' : 'PC';
+            flowchartHTML += `<div class="relative flex items-center z-10 shrink-0"><div class="relative w-40 h-40 flex items-center justify-center"><div class="absolute inset-0 bg-${color}-50 border-4 border-${color}-500 transform rotate-45 rounded-lg shadow-sm"></div><div class="relative z-10 text-center px-4 w-full flex flex-col items-center"><span class="font-black text-${color}-700 text-[11px] mb-1">${label}</span><p class="text-[10px] font-bold text-gray-900 leading-tight line-clamp-3">${plainText}</p></div></div><div class="absolute left-full flex items-center w-32 hidden sm:flex"><div class="w-10 h-1 bg-gray-400"></div><div class="w-2.5 h-2.5 border-t-2 border-r-2 border-gray-400 transform rotate-45 -ml-1.5"></div><div class="bg-gray-100 border border-gray-300 p-2 rounded-lg text-[9px] font-bold text-gray-600 ml-2 w-24 shadow-sm text-center leading-tight">Acción Correctiva</div></div></div>`;
+        } else if (s.type === 'SEG') {
+            flowchartHTML += `<div class="relative w-56 h-20 flex items-center justify-center z-10 shrink-0"><div class="absolute inset-0 bg-green-50 border-2 border-green-500 skew-x-[-15deg] rounded-lg shadow-sm"></div><div class="relative z-10 text-center px-6"><span class="font-black text-green-700 text-[10px] mb-0.5 block uppercase">Seguridad</span><p class="text-[11px] font-bold text-gray-900 leading-tight line-clamp-2">${plainText}</p></div></div>`;
+        } else {
+            flowchartHTML += `<div class="bg-white border-2 border-blue-600 rounded-xl p-4 w-56 text-center shadow-sm z-10 shrink-0"><span class="font-black text-blue-800 text-[10px] mb-1 block uppercase">Paso ${i+1}</span><p class="text-[11px] font-bold text-gray-900 leading-tight line-clamp-3">${plainText}</p></div>`;
         }
-        
-        const plainText = s.desc.replace(/<[^>]*>?/gm, '').substring(0, 75) + (s.desc.length > 75 ? "..." : "");
-        
-        flowchartHTML += `
-        <div class="border-2 ${fColor} rounded-xl p-4 w-64 text-center shadow-sm z-10 relative">
-            <div class="absolute -left-3 -top-3 w-7 h-7 rounded-full bg-gray-800 dark:bg-gray-600 text-white text-[11px] font-black flex items-center justify-center shadow-md">${i+1}</div>
-            ${fLabel}
-            <p class="text-xs font-semibold leading-tight">${plainText}</p>
-        </div>`;
     });
-    flowchartHTML += `<div class="w-1 h-8 bg-gray-300 dark:bg-gray-600"></div><div class="w-3 h-3 border-r-2 border-b-2 border-gray-400 dark:border-gray-500 transform rotate-45 -mt-2 mb-1"></div><div class="bg-gray-800 dark:bg-gray-700 text-white px-6 py-2 rounded-full font-black text-xs shadow-md z-10">FIN DEL PROCESO</div></div>`;
+    flowchartHTML += `<div class="flex flex-col items-center my-1"><div class="w-1 h-6 bg-gray-400"></div><div class="w-3 h-3 border-b-2 border-r-2 border-gray-400 transform rotate-45 -mt-1.5"></div></div><div class="rounded-full bg-gray-800 text-white px-8 py-3 font-black shadow-md border-4 border-gray-300 z-10 w-48 text-center uppercase tracking-widest text-xs shrink-0">FIN</div></div>`;
 
-    // 2. CONSTRUIR DETALLE DE PASOS
+    // 2. CONSTRUIR DETALLE DE PASOS (ACORDEÓN)
     stepsHTML = arr.map((s, i) => {
         const bColor = s.type === "PCC" ? "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800" : s.type === "PC" ? "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800" : "bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700";
         const img = s.image ? `<img src="${s.image}" class="mt-4 max-h-64 object-cover rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">` : "";
@@ -433,7 +420,7 @@ window.viewPOE = function (id, scrollToFlowchart = false) {
         return `
         <details class="group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm mb-3" open>
             <summary class="flex items-center justify-between p-4 font-bold cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition rounded-xl outline-none select-none">
-                <div class="flex items-center gap-4 w-full">
+                <div class="flex items-center gap-4 w-full pr-4">
                     <div class="w-8 h-8 rounded-full bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400 font-black flex items-center justify-center shrink-0 text-sm border border-red-100 dark:border-red-900/50">${i + 1}</div>
                     <span class="text-[10px] font-black px-2 py-0.5 rounded border uppercase tracking-widest ${bColor} shrink-0">${s.type}</span>
                     <span class="text-sm text-gray-800 dark:text-gray-200 truncate hidden sm:block">${truncDesc}</span>
@@ -448,7 +435,7 @@ window.viewPOE = function (id, scrollToFlowchart = false) {
       }).join("");
   } catch (e) { 
       stepsHTML = `<div class="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700"><p class="text-base font-medium text-gray-800 dark:text-gray-200 leading-relaxed">${poe.procedure}</p></div>`; 
-      flowchartHTML = `<p class="text-center text-gray-500 my-8">No se pudo generar el flujograma.</p>`;
+      flowchartHTML = `<p class="text-center text-gray-500 my-8">Flujograma no disponible.</p>`;
   }
 
   const catObj = state.areas.find((c) => c.areaAbbr === poe.subCategory); const catName = catObj ? catObj.areaName : poe.subCategory;
@@ -501,7 +488,7 @@ window.viewPOE = function (id, scrollToFlowchart = false) {
                 <div class="flex items-center gap-3 text-gray-800 dark:text-gray-200 uppercase tracking-widest text-sm"><span class="text-lg">🗺️</span> 3. Flujograma del Proceso</div>
                 <svg class="w-5 h-5 text-gray-400 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
             </summary>
-            <div class="border-t border-gray-100 dark:border-gray-700 mt-2 bg-gray-50/50 dark:bg-gray-900/50 overflow-x-auto rounded-b-2xl">
+            <div class="border-t border-gray-100 dark:border-gray-700 mt-2 bg-gray-50/50 dark:bg-gray-900/50 overflow-x-auto rounded-b-2xl scroll-smooth">
                 ${flowchartHTML}
             </div>
         </details>
@@ -520,15 +507,11 @@ window.viewPOE = function (id, scrollToFlowchart = false) {
   const m = document.getElementById("viewModal"); 
   if (m) { 
       m.classList.remove("hidden"); m.classList.add("flex"); 
-      if (scrollToFlowchart) {
-          setTimeout(() => {
-              const el = document.getElementById("acc-flowchart");
-              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }, 300);
-      }
+      if (scrollToFlowchart) { setTimeout(() => { const el = document.getElementById("acc-flowchart"); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 300); }
   }
 };
 
+// 🌟 EXPORTACIÓN A WORD (CON FLUJOGRAMA TABULAR)
 window.exportPOEToWord = function (id) {
   const poe = state.poes.find((p) => p.id === id); if (!poe) return;
   let stepsHTML = "";
@@ -537,7 +520,7 @@ window.exportPOEToWord = function (id) {
   try {
     const arr = JSON.parse(poe.procedure);
     
-    // Construir Flujograma en Word (CSS Inline Básico)
+    // Flujograma en Word (CSS Inline Básico tolerado por MS Word)
     flowWord = `<div style="text-align: center; margin: 30px 0; font-family: Arial, sans-serif;">
       <div style="display: inline-block; background-color: #1e3a5f; color: #fff; padding: 6px 25px; border-radius: 20px; font-weight: bold; font-size: 12px; margin-bottom: 5px;">INICIO DEL PROCESO</div><br>`;
     
@@ -560,7 +543,6 @@ window.exportPOEToWord = function (id) {
     <div style="margin: 0 auto; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 5px solid #666;"></div>
     <div style="display: inline-block; background-color: #1e3a5f; color: #fff; padding: 6px 25px; border-radius: 20px; font-weight: bold; font-size: 12px; margin-top: 3px;">FIN DEL PROCESO</div></div><br><hr>`;
 
-    // Pasos Detallados
     stepsHTML = arr.map((s, i) => `<div style="margin-bottom: 20px;"><p><strong>Paso ${i + 1}</strong> <span style="color: #555;">[${s.type}]</span></p><div style="margin-top: 0;">${s.desc}</div>${s.image ? `<img src="${s.image}" width="400" style="border: 1px solid #ccc; margin-top: 10px;">` : ""}</div>`).join("");
   } catch (e) { stepsHTML = `<p>${poe.procedure}</p>`; }
 
