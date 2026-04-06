@@ -962,48 +962,72 @@ window.viewPOE = function (id, scrollToFlowchart = false) {
     try {
         const arr = JSON.parse(poe.procedure);
         
-        // 1. CONSTRUIR AUTO-FLUJOGRAMA (VISTA WEB)
-        arr.forEach((s, i) => {
-            flowchartHTML += `<div class="flex flex-col items-center my-1"><div class="w-1 h-6 bg-gray-400"></div><div class="w-3 h-3 border-b-2 border-r-2 border-gray-400 transform rotate-45 -mt-1.5"></div></div>`;
-            const plainText = s.desc.replace(/<[^>]*>?/gm, '').substring(0, 65) + (s.desc.length > 65 ? "..." : "");
-            
-            if (s.type === 'PCC' || s.type === 'PC') {
-                const color = s.type === 'PCC' ? 'red' : 'amber'; 
-                const label = s.type === 'PCC' ? 'PCC' : 'PC';
-                flowchartHTML += `
-                <div class="relative flex items-center z-10 shrink-0">
-                    <div class="relative w-40 h-40 flex items-center justify-center">
-                        <div class="absolute inset-0 bg-${color}-50 border-4 border-${color}-500 transform rotate-45 rounded-lg shadow-sm"></div>
-                        <div class="relative z-10 text-center px-4 w-full flex flex-col items-center">
-                            <span class="font-black text-${color}-700 text-[11px] mb-1">${label}</span>
-                            <p class="text-[10px] font-bold text-gray-900 leading-tight line-clamp-3">${plainText}</p>
-                        </div>
-                    </div>
-                    <div class="absolute left-full flex items-center w-32 hidden sm:flex">
-                        <div class="w-10 h-1 bg-gray-400"></div>
-                        <div class="w-2.5 h-2.5 border-t-2 border-r-2 border-gray-400 transform rotate-45 -ml-1.5"></div>
-                        <div class="bg-gray-100 border border-gray-300 p-2 rounded-lg text-[9px] font-bold text-gray-600 ml-2 w-24 shadow-sm text-center leading-tight">Acción Correctiva</div>
-                    </div>
-                </div>`;
-            } else if (s.type === 'SEG') {
-                flowchartHTML += `
-                <div class="relative w-56 h-20 flex items-center justify-center z-10 shrink-0">
-                    <div class="absolute inset-0 bg-green-50 border-2 border-green-500 skew-x-[-15deg] rounded-lg shadow-sm"></div>
-                    <div class="relative z-10 text-center px-6">
-                        <span class="font-black text-green-700 text-[10px] mb-0.5 block uppercase">Seguridad</span>
-                        <p class="text-[11px] font-bold text-gray-900 leading-tight line-clamp-2">${plainText}</p>
-                    </div>
-                </div>`;
-            } else {
-                flowchartHTML += `
-                <div class="bg-white border-2 border-blue-600 rounded-xl p-4 w-56 text-center shadow-sm z-10 shrink-0">
-                    <span class="font-black text-blue-800 text-[10px] mb-1 block uppercase">Paso ${i+1}</span>
-                    <p class="text-[11px] font-bold text-gray-900 leading-tight line-clamp-3">${plainText}</p>
-                </div>`;
-            }
-        });
-        flowchartHTML += `<div class="flex flex-col items-center my-1"><div class="w-1 h-6 bg-gray-400"></div><div class="w-3 h-3 border-b-2 border-r-2 border-gray-400 transform rotate-45 -mt-1.5"></div></div><div class="rounded-full bg-gray-800 text-white px-8 py-3 font-black shadow-md border-4 border-gray-300 z-10 w-48 text-center uppercase tracking-widest text-xs shrink-0">FIN</div></div>`;
+        // 1. CONSTRUIR AUTO-FLUJOGRAMA (VISTA WEB CON PARSER INTELIGENTE)
+    arr.forEach((s, i) => {
+        // PARSER DEL DOM: Extraemos títulos, viñetas y texto limpio
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = s.desc;
+        
+        let stepTitle = `Paso ${i + 1}`;
+        const h3 = tempDiv.querySelector('h3');
+        const b = tempDiv.querySelector('b');
+        
+        if (h3) { stepTitle = h3.innerText; h3.remove(); }
+        else if (b) { stepTitle = b.innerText; b.remove(); }
+        
+        // Extraer viñetas y eliminar las listas originales para limpiar el texto
+        const listItems = Array.from(tempDiv.querySelectorAll('li')).map(li => `• ${li.innerText}`);
+        tempDiv.querySelectorAll('ul, ol').forEach(list => list.remove());
+        const remainingText = tempDiv.innerText.trim().substring(0, 95) + (tempDiv.innerText.length > 95 ? "..." : "");
+        
+        let bodyHtml = "";
+        if (listItems.length > 0) {
+            bodyHtml = `<ul class="text-[10px] text-left list-none mt-1.5 space-y-0.5 text-gray-700 dark:text-gray-300 w-full pl-2">` + listItems.slice(0,3).map(li => `<li class="truncate" title="${li}">${li}</li>`).join('') + (listItems.length > 3 ? `<li class="text-gray-400 italic text-center">...</li>` : '') + `</ul>`;
+        } else if (remainingText) {
+            bodyHtml = `<p class="text-[10px] font-medium text-gray-700 dark:text-gray-300 leading-tight line-clamp-3 mt-1.5">${remainingText}</p>`;
+        }
 
+        flowchartHTML += `<div class="flex flex-col items-center my-1"><div class="w-1 h-8 bg-gray-400"></div><div class="w-3 h-3 border-b-2 border-r-2 border-gray-400 transform rotate-45 -mt-1.5"></div></div>`;
+        
+        if (s.type === 'PCC' || s.type === 'PC') {
+            const color = s.type === 'PCC' ? 'red' : 'amber'; 
+            const label = s.type === 'PCC' ? 'PCC' : 'PC';
+            flowchartHTML += `
+            <div class="relative flex items-center z-10 shrink-0">
+                <div class="relative w-48 h-48 flex items-center justify-center">
+                    <div class="absolute inset-0 bg-${color}-50 border-4 border-${color}-500 transform rotate-45 rounded-2xl shadow-md dark:bg-${color}-900/20 dark:border-${color}-600"></div>
+                    <div class="relative z-10 text-center px-3 w-full flex flex-col items-center max-w-[140px]">
+                        <span class="font-black text-${color}-700 dark:text-${color}-400 text-[13px] mb-1 drop-shadow-sm">${label}</span>
+                        <span class="font-bold text-[11px] text-gray-900 dark:text-white leading-tight uppercase truncate w-full border-b border-${color}-200 dark:border-${color}-700 pb-1 mb-1" title="${stepTitle}">${stepTitle}</span>
+                        ${bodyHtml}
+                    </div>
+                </div>
+                <div class="absolute left-full flex items-center w-36 hidden sm:flex">
+                    <div class="w-12 h-1 bg-gray-400"></div>
+                    <div class="w-3 h-3 border-t-2 border-r-2 border-gray-400 transform rotate-45 -ml-1.5"></div>
+                    <div class="bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 p-2.5 rounded-lg text-[10px] font-bold text-gray-600 dark:text-gray-300 ml-2 w-28 shadow-sm text-center leading-tight">Acción Correctiva</div>
+                </div>
+            </div>`;
+        } else if (s.type === 'SEG') {
+            flowchartHTML += `
+            <div class="relative w-64 min-h-[5.5rem] flex items-center justify-center z-10 shrink-0">
+                <div class="absolute inset-0 bg-green-50 border-2 border-green-500 skew-x-[-15deg] rounded-xl shadow-md dark:bg-green-900/20 dark:border-green-600"></div>
+                <div class="relative z-10 text-center px-6 py-3 w-full flex flex-col items-center">
+                    <span class="font-black text-green-700 dark:text-green-400 text-[11px] mb-0.5 block uppercase tracking-wider">Seguridad</span>
+                    <span class="font-bold text-[11px] text-gray-900 dark:text-white block uppercase truncate w-full border-b border-green-200 dark:border-green-700 pb-1 mb-1" title="${stepTitle}">${stepTitle}</span>
+                    ${bodyHtml}
+                </div>
+            </div>`;
+        } else {
+            flowchartHTML += `
+            <div class="bg-white dark:bg-gray-800 border-2 border-blue-600 dark:border-blue-500 rounded-xl p-4 w-64 text-center shadow-md z-10 shrink-0 flex flex-col items-center">
+                <span class="font-black text-blue-800 dark:text-blue-400 text-[11px] mb-1 block uppercase tracking-wider">Paso ${i+1}</span>
+                <span class="font-bold text-[11px] text-gray-900 dark:text-white block uppercase truncate w-full border-b border-gray-200 dark:border-gray-700 pb-1 mb-1" title="${stepTitle}">${stepTitle}</span>
+                ${bodyHtml}
+            </div>`;
+        }
+    });
+    flowchartHTML += `<div class="flex flex-col items-center my-1"><div class="w-1 h-8 bg-gray-400"></div><div class="w-3 h-3 border-b-2 border-r-2 border-gray-400 transform rotate-45 -mt-1.5"></div></div><div class="rounded-full bg-gray-800 text-white px-8 py-3 font-black shadow-md border-4 border-gray-300 z-10 w-48 text-center uppercase tracking-widest text-xs shrink-0">FIN</div></div>`;
         // 2. CONSTRUIR DETALLE DE PASOS (ACORDEÓN)
         stepsHTML = arr.map((s, i) => {
             const bColor = s.type === "PCC" ? "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800" : s.type === "PC" ? "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800" : "bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700";
@@ -1094,8 +1118,10 @@ window.viewPOE = function (id, scrollToFlowchart = false) {
                     <div class="flex items-center gap-3 text-gray-800 dark:text-gray-200 uppercase tracking-widest text-sm"><span class="text-lg">🗺️</span> 3. Flujograma del Proceso</div>
                     <svg class="w-5 h-5 text-gray-400 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                 </summary>
-                <div class="border-t border-gray-100 dark:border-gray-700 mt-2 bg-gray-50/50 dark:bg-gray-900/50 overflow-x-auto rounded-b-2xl scroll-smooth">
-                    ${flowchartHTML}
+                <div class="border-t border-gray-100 dark:border-gray-700 mt-2 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjEiIGZpbGw9IiNlNWU3ZWIiLz48L3N2Zz4=')] dark:bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjEiIGZpbGw9IiMzNzQxNTEiLz48L3N2Zz4=')] rounded-b-2xl overflow-auto max-h-[600px] custom-scrollbar shadow-inner">
+                    <div class="min-w-max p-8 flex justify-center">
+                        ${flowchartHTML}
+                    </div>
                 </div>
             </details>
 
@@ -1139,35 +1165,50 @@ window.exportPOEToWord = function (id) {
     try {
         const arr = JSON.parse(poe.procedure);
         
+        // 1. FLUJOGRAMA PARA MS WORD
         flowWord = `<div style="text-align: center; margin: 30px 0; font-family: Arial, sans-serif;">
-            <div style="display: inline-block; background-color: #1e3a5f; color: #fff; padding: 6px 25px; border-radius: 20px; font-weight: bold; font-size: 12px; margin-bottom: 5px;">INICIO DEL PROCESO</div><br>`;
+            <div style="display: inline-block; background-color: #1e3a5f; color: #fff; padding: 8px 30px; border-radius: 20px; font-weight: bold; font-size: 13px; margin-bottom: 5px;">INICIO DEL PROCESO</div><br>`;
         
         arr.forEach((s, i) => {
-            let fCol = "#aaaaaa"; let fBg = "#ffffff"; let fLbl = "";
-            if (s.type === 'PCC') { 
-                fCol = "#e3342f"; fBg = "#fef2f2"; fLbl = "<strong style='color:#e3342f; font-size: 10px;'>🛑 PUNTO CRÍTICO DE CONTROL</strong><br>"; 
-            } else if (s.type === 'PC') { 
-                fCol = "#f59e0b"; fBg = "#fffbeb"; fLbl = "<strong style='color:#f59e0b; font-size: 10px;'>⚠️ PUNTO DE CONTROL</strong><br>"; 
-            } else if (s.type === 'SEG') { 
-                fCol = "#38c172"; fBg = "#f0fff4"; fLbl = "<strong style='color:#38c172; font-size: 10px;'>🛡️ SEGURIDAD</strong><br>"; 
-            }
+            let fCol = "#888888"; let fBg = "#ffffff"; let fLbl = "";
+            if (s.type === 'PCC') { fCol = "#dc2626"; fBg = "#fef2f2"; fLbl = "<strong style='color:#dc2626; font-size: 11px;'>🛑 PUNTO CRÍTICO DE CONTROL</strong><br>"; }
+            else if (s.type === 'PC') { fCol = "#d97706"; fBg = "#fffbeb"; fLbl = "<strong style='color:#d97706; font-size: 11px;'>⚠️ PUNTO DE CONTROL</strong><br>"; }
+            else if (s.type === 'SEG') { fCol = "#16a34a"; fBg = "#f0fff4"; fLbl = "<strong style='color:#16a34a; font-size: 11px;'>🛡️ SEGURIDAD</strong><br>"; }
             
-            const pText = s.desc.replace(/<[^>]*>?/gm, '').substring(0, 90) + "...";
+            // Parser para MS Word
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = s.desc;
+            let stepTitle = `Paso ${i + 1}`;
+            const h3 = tempDiv.querySelector('h3');
+            const b = tempDiv.querySelector('b');
+            if (h3) { stepTitle = h3.innerText; h3.remove(); }
+            else if (b) { stepTitle = b.innerText; b.remove(); }
+            
+            const listItems = Array.from(tempDiv.querySelectorAll('li')).map(li => `• ${li.innerText}`);
+            tempDiv.querySelectorAll('ul, ol').forEach(list => list.remove());
+            const remainingText = tempDiv.innerText.trim().substring(0, 90) + (tempDiv.innerText.length > 90 ? "..." : "");
+            
+            let bodyText = "";
+            if (listItems.length > 0) bodyText = listItems.slice(0,4).join('<br>');
+            else if (remainingText) bodyText = remainingText;
             
             flowWord += `
-            <div style="margin: 0 auto; width: 2px; height: 18px; background-color: #666;"></div>
-            <div style="margin: 0 auto; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 5px solid #666;"></div>
-            <div style="display: inline-block; border: 2px solid ${fCol}; background-color: ${fBg}; padding: 10px; width: 260px; text-align: center; font-size: 12px; margin-top: 3px; border-radius: 8px; box-shadow: 2px 2px 5px #ddd;">
-                <strong style="display: block; margin-bottom: 5px;">Paso ${i+1}</strong> ${fLbl}${pText}
+            <div style="margin: 0 auto; width: 2px; height: 25px; background-color: #555;"></div>
+            <div style="margin: 0 auto; width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid #555;"></div>
+            <div style="display: inline-block; border: 2px solid ${fCol}; background-color: ${fBg}; padding: 12px; width: 280px; text-align: center; font-size: 12px; margin-top: 3px; border-radius: 8px; box-shadow: 2px 2px 5px #ddd;">
+                ${fLbl}
+                <strong style="display: block; margin-bottom: 5px; border-bottom: 1px solid #ccc; padding-bottom: 5px; color: #111;">${stepTitle}</strong>
+                <div style="font-size: 11px; color: #444; text-align: left; line-height: 1.4;">${bodyText}</div>
             </div><br>`;
         });
         
         flowWord += `
-        <div style="margin: 0 auto; width: 2px; height: 18px; background-color: #666;"></div>
-        <div style="margin: 0 auto; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 5px solid #666;"></div>
-        <div style="display: inline-block; background-color: #1e3a5f; color: #fff; padding: 6px 25px; border-radius: 20px; font-weight: bold; font-size: 12px; margin-top: 3px;">FIN DEL PROCESO</div></div><br><hr>`;
+        <div style="margin: 0 auto; width: 2px; height: 25px; background-color: #555;"></div>
+        <div style="margin: 0 auto; width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid #555;"></div>
+        <div style="display: inline-block; background-color: #1e3a5f; color: #fff; padding: 8px 30px; border-radius: 20px; font-weight: bold; font-size: 13px; margin-top: 3px;">FIN DEL PROCESO</div></div>`;
 
-        stepsHTML = arr.map((s, i) => `<div style="margin-bottom: 20px;"><p><strong>Paso ${i + 1}</strong> <span style="color: #555;">[${s.type}]</span></p><div style="margin-top: 0;">${s.desc}</div>${s.image ? `<img src="${s.image}" width="400" style="border: 1px solid #ccc; margin-top: 10px;">` : ""}</div>`).join("");
+        // 2. DESARROLLO DEL PROCEDIMIENTO
+        stepsHTML = arr.map((s, i) => `<div style="margin-bottom: 25px;"><p><strong>Paso ${i + 1}</strong> <span style="color: #666; font-size: 12px;">[${s.type}]</span></p><div style="margin-top: 5px; line-height: 1.5;">${s.desc}</div>${s.image ? `<img src="${s.image}" width="400" style="border: 1px solid #ccc; margin-top: 10px; border-radius: 8px;">` : ""}</div>`).join("");
     } catch (e) { 
         stepsHTML = `<p>${poe.procedure}</p>`; 
     }
@@ -1177,13 +1218,19 @@ window.exportPOEToWord = function (id) {
     const isPOES = poe.code.startsWith('POES'); 
     const docTitle = isPOES ? 'Procedimiento Operativo Estandarizado de Saneamiento' : 'Procedimiento Operativo Estandarizado';
 
+    // 🧠 INYECCIÓN DE SALTOS DE PÁGINA: <br clear=all style='mso-special-character:line-break;page-break-before:always'>
     const htmlStr = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>${poe.code}</title><style>body { font-family: 'Arial'; color: #000; } table { width: 100%; border-collapse: collapse; margin-bottom: 20px; } th, td { border: 1px solid #000; padding: 8px; text-align: left; vertical-align: top; } th { background-color: #f2f2f2; width: 25%; } h1 { color: #1e3a5f; font-size: 24px; text-transform: uppercase; text-align: center; border-bottom: 2px solid #1e3a5f; padding-bottom: 10px; margin-bottom: 20px; } h2 { color: #2d5a87; font-size: 16px; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-top: 25px; } ul { list-style-type: disc; margin-left: 20px; margin-bottom: 5px; } ol { list-style-type: decimal; margin-left: 20px; margin-bottom: 5px; } a { color: #0000EE; text-decoration: underline; } h3 { color: #1e3a5f; font-size: 14px; margin-top: 15px; margin-bottom: 5px; text-transform: uppercase; }</style></head><body>
         <h1>La Genovesa Agroindustrias S.A.<br><span style="font-size:16px;">${docTitle}</span></h1>
         <table><tr><th>Código:</th><td>${poe.code}</td><th>Versión:</th><td>v${poe.version} - ${poe.status}</td></tr><tr><th>Título:</th><td colspan="3"><strong>${poe.title}</strong></td></tr><tr><th>Área:</th><td>${catName}</td><th>Fecha:</th><td>${new Date(poe.date).toLocaleDateString()}</td></tr></table>
         <h2>1. Contexto Operativo</h2><p><strong>Objetivo:</strong></p> ${poe.objective || "N/A"}<p><strong>Alcance:</strong></p> ${poe.scope || "N/A"}<p><strong>Responsabilidades:</strong></p> ${poe.responsibles || "N/A"}
         <h2>2. Control y Recursos</h2><p><strong>Frecuencia:</strong></p> ${poe.monitoring || poe.frequency || "N/A"}<p><strong>Acciones Correctivas:</strong></p> ${poe.corrective_actions || "N/A"}<p><strong>Equipos y Materiales:</strong></p> ${poe.materials || "N/A"}<p><strong>Definiciones:</strong></p> ${poe.definitions || "N/A"}<p><strong>Registros:</strong></p> ${poe.records || "N/A"} | ${poe.references || ""}
+        
+        <br clear=all style='mso-special-character:line-break;page-break-before:always'>
         <h2>3. Flujograma del Proceso</h2>${flowWord}
+        
+        <br clear=all style='mso-special-character:line-break;page-break-before:always'>
         <h2>4. Desarrollo Detallado</h2><div style="border: 1px solid #000; padding: 15px;">${stepsHTML}</div>
+        
         <table style="border: none; margin-top: 50px;"><tr style="border: none;">
         <td style="border: none; text-align: center; width: 50%;">_________________________<br><strong>Elaborado/Editado por:</strong><br>${poe.lastEditor || poe.author || 'Responsable de Área'}</td>
         <td style="border: none; text-align: center; width: 50%;">_________________________<br><strong>Aprobación Calidad</strong></td></tr></table></body></html>`;
