@@ -297,20 +297,43 @@
               <div class="bg-blue-50/40 dark:bg-gray-900/40 p-5 rounded-xl border border-blue-100 dark:border-gray-700 mb-6 transition-all hover:shadow-md">
                 <div class="mb-5">
                     <label class="block text-[10px] font-bold text-blue-800 dark:text-blue-400 mb-2 uppercase tracking-wider">Instrucción del Paso Operativo</label>
-                    <div id="stepDesc" class="rich-editor w-full border border-blue-200 dark:border-gray-600 rounded-lg p-3.5 text-sm outline-none shadow-inner bg-white dark:bg-gray-700 dark:text-white rich-text-content transition-all" contenteditable="true" data-placeholder="► Instrucción: Describa la acción operativa en modo imperativo.&#10;► Estructura: [Verbo] + [Parámetro/Elemento] + [Condición/Límite].&#10;► Ejemplo: Insertar la sonda del termómetro en el centro térmico asegurando T° < 4°C."></div>
+                    <div id="stepDesc" class="rich-editor w-full border border-blue-200 dark:border-gray-600 rounded-lg p-3.5 text-sm outline-none shadow-inner bg-white dark:bg-gray-700 dark:text-white rich-text-content transition-all" contenteditable="true" 
+                    data-placeholder="► Instrucción: Describa la acción operativa en modo imperativo.&#10;► Estructura: [Verbo] + [Parámetro/Elemento] + [Condición/Límite].&#10;► Ejemplo: Insertar la sonda del termómetro en el centro térmico asegurando T° < 4°C."></div>
                 </div>
                 
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
                   <div class="md:col-span-4 lg:col-span-3">
                     <label class="block text-[10px] font-bold text-blue-800 dark:text-blue-400 mb-1.5 uppercase tracking-wider">Tipo de Control</label>
-                    <select id="stepType" class="w-full px-3 py-2.5 border border-blue-200 dark:border-gray-600 rounded-lg text-sm font-bold shadow-sm outline-none bg-white dark:bg-gray-700 dark:text-white cursor-pointer hover:border-blue-400 transition-colors"><option value="INFO">📝 Inst. Operativa</option><option value="PC">⚠️ Control (PC)</option><option value="PCC" class="text-red-600 dark:text-red-400">🛑 Crítico (PCC)</option><option value="SEG">🛡️ Seguridad</option></select>
+                    <select id="stepType" onchange="window.toggleDeviationFields()" class="w-full px-3 py-2.5 border border-blue-200 dark:border-gray-600 rounded-lg text-sm font-bold shadow-sm outline-none bg-white dark:bg-gray-700 dark:text-white cursor-pointer hover:border-blue-400 transition-colors">
+                      <option value="INFO">📝 Inst. Operativa</option>
+                      <option value="PC">⚠️ Control (PC)</option>
+                      <option value="PCC" class="text-red-600 dark:text-red-400">🛑 Crítico (PCC)</option>
+                      <option value="SEG">🛡️ Seguridad</option>
+                    </select>
                   </div>
                   
                   <div class="md:col-span-4 lg:col-span-6 relative">
                     <label class="block text-[10px] font-bold text-blue-800 dark:text-blue-400 mb-1.5 uppercase tracking-wider">Evidencia Visual</label>
                     <input type="file" id="stepImage" accept="image/*" capture="environment" onchange="window.updateFileText(this)" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 mt-5">
-                    <div class="bg-white dark:bg-gray-700 border border-dashed border-blue-300 dark:border-gray-500 hover:border-blue-500 hover:bg-blue-50 rounded-lg py-2.5 px-4 text-center cursor-pointer shadow-sm flex items-center justify-center"><span id="fileNameDisplay" class="text-xs font-semibold text-blue-700 dark:text-blue-400 truncate">Foto Cámara o Archivo...</span></div>
+                    <div class="bg-white dark:bg-gray-700 border border-dashed border-blue-300 dark:border-gray-500 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-gray-600 rounded-lg py-2.5 px-4 text-center cursor-pointer shadow-sm flex items-center justify-center"><span id="fileNameDisplay" class="text-xs font-semibold text-blue-700 dark:text-blue-400 truncate">Foto Cámara o Archivo...</span></div>
                   </div>
+
+                  <div class="md:col-span-4 lg:col-span-3">
+                    <button type="button" id="btnAddStep" onclick="window.addAdvancedStep()" class="w-full bg-blue-600 hover:bg-blue-800 text-white px-4 py-2.5 rounded-lg font-bold text-sm shadow-md transition transform hover:-translate-y-0.5 flex items-center justify-center"><span id="btnAddStepText">Añadir Paso</span></button>
+                  </div>
+                </div>
+
+                <div id="deviationContainer" class="hidden grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-blue-200 dark:border-gray-600">
+                    <div>
+                        <label class="block text-[10px] font-bold text-red-600 dark:text-red-400 mb-1.5 uppercase tracking-wider">⚡ Acción Correctiva (Desviación)</label>
+                        <input type="text" id="stepDeviationAction" placeholder="Ej: Detener línea y aislar lote" class="w-full px-3 py-2.5 border border-red-300 dark:border-red-800/50 rounded-lg text-sm shadow-sm outline-none bg-red-50 dark:bg-red-900/10 text-red-900 dark:text-red-100 focus:ring-2 focus:ring-red-400 transition-colors">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-red-600 dark:text-red-400 mb-1.5 uppercase tracking-wider">🔄 Direccionamiento (Ruta)</label>
+                        <input type="text" id="stepDeviationRoute" placeholder="Ej: Reportar a Calidad y volver a Paso 2" class="w-full px-3 py-2.5 border border-red-300 dark:border-red-800/50 rounded-lg text-sm shadow-sm outline-none bg-red-50 dark:bg-red-900/10 text-red-900 dark:text-red-100 focus:ring-2 focus:ring-red-400 transition-colors">
+                    </div>
+                </div>
+              </div>
 
                   <div class="md:col-span-4 lg:col-span-3">
                     <button type="button" id="btnAddStep" onclick="window.addAdvancedStep()" class="w-full bg-blue-600 hover:bg-blue-800 text-white px-4 py-2.5 rounded-lg font-bold text-sm shadow-md transition transform hover:-translate-y-0.5 flex items-center justify-center"><span id="btnAddStepText">Añadir Paso</span></button>
