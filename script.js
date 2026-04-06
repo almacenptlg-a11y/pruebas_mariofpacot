@@ -162,29 +162,26 @@ window.insertLink = function() {
 // NAVEGACIÓN Y MENÚ
 // ==========================================
 window.switchTab = function(tabId) {
-    // 1. Actualizar Nav Buttons
     document.querySelectorAll('.nav-btn').forEach(btn => {
         btn.classList.remove('bg-red-50', 'text-red-700', 'dark:bg-red-900/30', 'dark:text-red-400');
         btn.classList.add('text-gray-600', 'dark:text-gray-400');
     });
+    
     const activeBtn = document.getElementById(`nav-${tabId}`);
     if (activeBtn) {
         activeBtn.classList.remove('text-gray-600', 'dark:text-gray-400');
         activeBtn.classList.add('bg-red-50', 'text-red-700', 'dark:bg-red-900/30', 'dark:text-red-400');
     }
     
-    // 2. Ocultar todas las secciones
     document.querySelectorAll('.view-section').forEach(sec => {
         sec.classList.remove('active');
     });
     
-    // 3. Mostrar sección activa
     const activeView = document.getElementById(`view-${tabId}`);
     if (activeView) {
         activeView.classList.add('active');
     }
 
-    // 4. Lógica de Títulos y Botones en Topbar
     const topTitle = document.getElementById('topbar-title');
     const topSub = document.getElementById('topbar-subtitle');
     const btnNuevo = document.getElementById('btn-nuevo-poe');
@@ -364,7 +361,6 @@ window.refreshUI = async function () {
     const allPoes = await POEDB.getAll("poes");
     const permisos = window.getPermisos();
 
-    // Filtro general de visibilidad
     state.poes = allPoes.filter((p) => {
         const s = String(p.status || "").trim().toUpperCase();
         if (!["ACT", "REV", "ACTIVO", "EN REVISION", "EN REVISIÓN"].includes(s)) return false;
@@ -957,7 +953,6 @@ window.drawFlowchartArrows = function(steps) {
 
     const canvasRect = canvas.getBoundingClientRect();
     
-    // Definimos las cabezas de flecha (Markers)
     let svgContent = `
         <defs>
             <marker id="arrowhead-red" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
@@ -982,28 +977,23 @@ window.drawFlowchartArrows = function(steps) {
             const targetNode = document.getElementById(targetNodeId);
 
             if (devBox && targetNode) {
-                // Seleccionamos la caja visual interna de la alerta de desviación
                 const devBoxContent = devBox.lastElementChild;
                 
                 if (devBoxContent) {
                     const devRect = devBoxContent.getBoundingClientRect();
                     const targetRect = targetNode.getBoundingClientRect();
 
-                    // Coordenada Inicial: Borde derecho de la desviación
                     const startX = devRect.right - canvasRect.left;
                     const startY = devRect.top + (devRect.height / 2) - canvasRect.top;
 
-                    // Coordenada Final: Borde derecho del nodo de destino
                     const endX = targetRect.right - canvasRect.left;
                     const endY = targetRect.top + (targetRect.height / 2) - canvasRect.top;
 
                     const color = step.type === 'PCC' ? '#dc2626' : '#d97706';
                     const marker = step.type === 'PCC' ? 'url(#arrowhead-red)' : 'url(#arrowhead-amber)';
 
-                    // Calculamos el "codo" de la flecha (40px a la derecha del punto más lejano)
                     const elbowX = Math.max(startX, endX) + 40; 
                     
-                    // Trazamos la línea: -> Derecha, -> Arriba/Abajo, -> Izquierda
                     const path = `M ${startX},${startY} L ${elbowX},${startY} L ${elbowX},${endY} L ${endX + 5},${endY}`;
 
                     svgContent += `<path d="${path}" fill="none" stroke="${color}" stroke-width="2.5" stroke-dasharray="5,5" marker-end="${marker}" class="animate-[fadeIn_1s_ease-in-out]" />`;
@@ -1033,7 +1023,6 @@ window.viewPOE = function (id, scrollToFlowchart = false) {
     
     let stepsHTML = "";
     
-    // Contenedor principal del Canvas del Flujograma
     let flowchartHTML = `
         <div id="flowchart-canvas" class="relative flex flex-col items-center py-6 font-sans w-full min-w-max">
             <div class="bg-blue-900 text-white px-8 py-3 rounded-[50px] font-black text-xs shadow-md border-4 border-blue-200 z-10 w-48 text-center uppercase tracking-widest shrink-0">
@@ -1044,11 +1033,7 @@ window.viewPOE = function (id, scrollToFlowchart = false) {
     try {
         const arr = JSON.parse(poe.procedure);
         
-        // ----------------------------------------------------
-        // 1. CONSTRUIR AUTO-FLUJOGRAMA WEB
-        // ----------------------------------------------------
         arr.forEach((step, i) => {
-            // Parser del DOM para extraer texto limpio
             const tempDiv = document.createElement('div'); 
             tempDiv.innerHTML = step.desc;
             
@@ -1082,7 +1067,6 @@ window.viewPOE = function (id, scrollToFlowchart = false) {
                 bodyHtml = `<p class="text-[10px] font-medium text-gray-700 dark:text-gray-300 leading-tight line-clamp-3 mt-1.5">${remainingText}</p>`;
             }
 
-            // Flecha vertical de conexión entre pasos
             flowchartHTML += `
                 <div class="flex flex-col items-center my-1">
                     <div class="w-1 h-8 bg-gray-400"></div>
@@ -1095,7 +1079,6 @@ window.viewPOE = function (id, scrollToFlowchart = false) {
                 const label = step.type === 'PCC' ? 'PCC' : 'PC';
                 const devActionText = step.devAction || "Acción Correctiva";
                 
-                // Traductor de ID de Ruta a Nombre de Paso
                 let routeName = step.devRoute;
                 if (step.devRoute === "FIN") {
                     routeName = "Fin / Desecho";
@@ -1154,7 +1137,6 @@ window.viewPOE = function (id, scrollToFlowchart = false) {
             }
         });
         
-        // Cierre del Flujograma y Capa SVG
         flowchartHTML += `
                 <div class="flex flex-col items-center my-1">
                     <div class="w-1 h-8 bg-gray-400"></div>
@@ -1168,9 +1150,6 @@ window.viewPOE = function (id, scrollToFlowchart = false) {
             </div>
         `;
 
-        // ----------------------------------------------------
-        // 2. CONSTRUIR DETALLE DE PASOS (ACORDEÓN WEB)
-        // ----------------------------------------------------
         stepsHTML = arr.map((step, i) => {
             const bColor = step.type === "PCC" ? "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800" : step.type === "PC" ? "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800" : "bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700";
             const img = step.image ? `<img src="${step.image}" class="mt-4 max-h-64 object-cover rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">` : "";
@@ -1333,70 +1312,88 @@ window.exportPOEToWord = function (id) {
     let flowWord = "";
   
     try {
-    const arr = JSON.parse(poe.procedure);
-    
-    // 1. FLUJOGRAMA PARA MS WORD
-    flowWord = `<div style="text-align: center; margin: 30px 0; font-family: Arial, sans-serif;">
-      <div style="display: inline-block; background-color: #1e3a5f; color: #fff; padding: 8px 30px; border-radius: 20px; font-weight: bold; font-size: 13px; margin-bottom: 5px;">INICIO DEL PROCESO</div><br>`;
-    
-    arr.forEach((s, i) => {
-        let fCol = "#888888"; let fBg = "#ffffff"; let fLbl = "";
-        let devHtmlWord = "";
-        if (s.type === 'PCC') { fCol = "#dc2626"; fBg = "#fef2f2"; fLbl = "<strong style='color:#dc2626; font-size: 11px;'>🛑 PUNTO CRÍTICO DE CONTROL</strong><br>"; }
-        else if (s.type === 'PC') { fCol = "#d97706"; fBg = "#fffbeb"; fLbl = "<strong style='color:#d97706; font-size: 11px;'>⚠️ PUNTO DE CONTROL</strong><br>"; }
-        else if (s.type === 'SEG') { fCol = "#16a34a"; fBg = "#f0fff4"; fLbl = "<strong style='color:#16a34a; font-size: 11px;'>🛡️ SEGURIDAD</strong><br>"; }
+        const arr = JSON.parse(poe.procedure);
         
-        if ((s.type === 'PC' || s.type === 'PCC') && (s.devAction || s.devRoute)) {
-            devHtmlWord = `<br><div style="margin-top: 8px; font-size: 10px; color: #991b1b; background-color: #fee2e2; padding: 5px; border-radius: 4px; text-align: left;">
-                <strong>Medidas ante Desviación:</strong><br>
-                ${s.devAction ? `• Acción: ${s.devAction}<br>` : ''}
-                ${s.devRoute ? `• Ruta: ${s.devRoute}` : ''}
-            </div>`;
-        }
+        // 1. FLUJOGRAMA PARA MS WORD
+        flowWord = `<div style="text-align: center; margin: 30px 0; font-family: Arial, sans-serif;">
+            <div style="display: inline-block; background-color: #1e3a5f; color: #fff; padding: 8px 30px; border-radius: 20px; font-weight: bold; font-size: 13px; margin-bottom: 5px;">INICIO DEL PROCESO</div><br>`;
+        
+        arr.forEach((s, i) => {
+            let fCol = "#888888"; let fBg = "#ffffff"; let fLbl = "";
+            let devHtmlWord = "";
+            if (s.type === 'PCC') { fCol = "#dc2626"; fBg = "#fef2f2"; fLbl = "<strong style='color:#dc2626; font-size: 11px;'>🛑 PUNTO CRÍTICO DE CONTROL</strong><br>"; }
+            else if (s.type === 'PC') { fCol = "#d97706"; fBg = "#fffbeb"; fLbl = "<strong style='color:#d97706; font-size: 11px;'>⚠️ PUNTO DE CONTROL</strong><br>"; }
+            else if (s.type === 'SEG') { fCol = "#16a34a"; fBg = "#f0fff4"; fLbl = "<strong style='color:#16a34a; font-size: 11px;'>🛡️ SEGURIDAD</strong><br>"; }
+            
+            if ((s.type === 'PC' || s.type === 'PCC') && (s.devAction || s.devRoute)) {
+                let routeName = s.devRoute;
+                if (s.devRoute === "FIN") {
+                    routeName = "Fin / Desecho";
+                } else if (s.devRoute) {
+                    const targetIdx = arr.findIndex(x => String(x.id) === String(s.devRoute));
+                    if (targetIdx > -1) routeName = `Paso ${targetIdx + 1}`;
+                }
+                
+                devHtmlWord = `<br><div style="margin-top: 8px; font-size: 10px; color: #991b1b; background-color: #fee2e2; padding: 5px; border-radius: 4px; text-align: left;">
+                    <strong>Medidas ante Desviación:</strong><br>
+                    ${s.devLimit ? `• Límite: ${s.devLimit}<br>` : ''}
+                    ${s.devAction ? `• Acción: ${s.devAction}<br>` : ''}
+                    ${routeName ? `• Ruta: ${routeName}` : ''}
+                </div>`;
+            }
 
-        const tempDiv = document.createElement('div'); tempDiv.innerHTML = s.desc;
-        let stepTitle = `Paso ${i + 1}`;
-        const h3 = tempDiv.querySelector('h3'); const b = tempDiv.querySelector('b');
-        if (h3) { stepTitle = h3.innerText; h3.remove(); } else if (b) { stepTitle = b.innerText; b.remove(); }
-        
-        const listItems = Array.from(tempDiv.querySelectorAll('li')).map(li => `• ${li.innerText}`);
-        tempDiv.querySelectorAll('ul, ol').forEach(list => list.remove());
-        const remainingText = tempDiv.innerText.trim().substring(0, 90) + (tempDiv.innerText.length > 90 ? "..." : "");
-        
-        let bodyText = "";
-        if (listItems.length > 0) bodyText = listItems.slice(0,4).join('<br>');
-        else if (remainingText) bodyText = remainingText;
+            const tempDiv = document.createElement('div'); tempDiv.innerHTML = s.desc;
+            let stepTitle = `Paso ${i + 1}`;
+            const h3 = tempDiv.querySelector('h3'); const b = tempDiv.querySelector('b');
+            if (h3) { stepTitle = h3.innerText; h3.remove(); } else if (b) { stepTitle = b.innerText; b.remove(); }
+            
+            const listItems = Array.from(tempDiv.querySelectorAll('li')).map(li => `• ${li.innerText}`);
+            tempDiv.querySelectorAll('ul, ol').forEach(list => list.remove());
+            const remainingText = tempDiv.innerText.trim().substring(0, 90) + (tempDiv.innerText.length > 90 ? "..." : "");
+            
+            let bodyText = "";
+            if (listItems.length > 0) bodyText = listItems.slice(0,4).join('<br>');
+            else if (remainingText) bodyText = remainingText;
+            
+            flowWord += `
+            <div style="margin: 0 auto; width: 2px; height: 25px; background-color: #555;"></div>
+            <div style="margin: 0 auto; width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid #555;"></div>
+            <div style="display: inline-block; border: 2px solid ${fCol}; background-color: ${fBg}; padding: 12px; width: 280px; text-align: center; font-size: 12px; margin-top: 3px; border-radius: 8px; box-shadow: 2px 2px 5px #ddd;">
+                ${fLbl}
+                <strong style="display: block; margin-bottom: 5px; border-bottom: 1px solid #ccc; padding-bottom: 5px; color: #111;">${stepTitle}</strong>
+                <div style="font-size: 11px; color: #444; text-align: left; line-height: 1.4;">${bodyText}</div>
+                ${devHtmlWord}
+            </div><br>`;
+        });
         
         flowWord += `
         <div style="margin: 0 auto; width: 2px; height: 25px; background-color: #555;"></div>
         <div style="margin: 0 auto; width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid #555;"></div>
-        <div style="display: inline-block; border: 2px solid ${fCol}; background-color: ${fBg}; padding: 12px; width: 280px; text-align: center; font-size: 12px; margin-top: 3px; border-radius: 8px; box-shadow: 2px 2px 5px #ddd;">
-            ${fLbl}
-            <strong style="display: block; margin-bottom: 5px; border-bottom: 1px solid #ccc; padding-bottom: 5px; color: #111;">${stepTitle}</strong>
-            <div style="font-size: 11px; color: #444; text-align: left; line-height: 1.4;">${bodyText}</div>
-            ${devHtmlWord}
-        </div><br>`;
-    });
-    
-    flowWord += `
-    <div style="margin: 0 auto; width: 2px; height: 25px; background-color: #555;"></div>
-    <div style="margin: 0 auto; width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid #555;"></div>
-    <div style="display: inline-block; background-color: #1e3a5f; color: #fff; padding: 8px 30px; border-radius: 20px; font-weight: bold; font-size: 13px; margin-top: 3px;">FIN DEL PROCESO</div></div>`;
+        <div style="display: inline-block; background-color: #1e3a5f; color: #fff; padding: 8px 30px; border-radius: 20px; font-weight: bold; font-size: 13px; margin-top: 3px;">FIN DEL PROCESO</div></div>`;
 
-    // 2. DESARROLLO DEL PROCEDIMIENTO
-    stepsHTML = arr.map((s, i) => {
-        const devHtmlDoc = (s.type === 'PC' || s.type === 'PCC') && (s.devAction || s.devRoute) ? 
-            `<div style="margin-top: 10px; padding: 10px; background-color: #fef2f2; border: 1px solid #fecaca; font-size: 12px; color: #991b1b;">
-                <strong>MEDIDAS ANTE DESVIACIÓN:</strong><br>
-                ${s.devAction ? `<strong>Acción Correctiva:</strong> ${s.devAction}<br>` : ''}
-                ${s.devRoute ? `<strong>Direccionamiento:</strong> ${s.devRoute}` : ''}
-            </div>` : '';
+        // 2. DESARROLLO DEL PROCEDIMIENTO
+        stepsHTML = arr.map((s, i) => {
+            let routeName = s.devRoute;
+            if (s.devRoute === "FIN") {
+                routeName = "Fin / Desecho";
+            } else if (s.devRoute) {
+                const targetIdx = arr.findIndex(x => String(x.id) === String(s.devRoute));
+                if (targetIdx > -1) routeName = `Paso ${targetIdx + 1}`;
+            }
 
-        return `<div style="margin-bottom: 25px;"><p><strong>Paso ${i + 1}</strong> <span style="color: #666; font-size: 12px;">[${s.type}]</span></p><div style="margin-top: 5px; line-height: 1.5;">${s.desc}</div>${devHtmlDoc}${s.image ? `<img src="${s.image}" width="400" style="border: 1px solid #ccc; margin-top: 10px; border-radius: 8px;">` : ""}</div>`;
-    }).join("");
-  } catch (e) { 
-      stepsHTML = `<p>${poe.procedure}</p>`; 
-  }
+            const devHtmlDoc = (s.type === 'PC' || s.type === 'PCC') && (s.devAction || s.devRoute) ? 
+                `<div style="margin-top: 10px; padding: 10px; background-color: #fef2f2; border: 1px solid #fecaca; font-size: 12px; color: #991b1b;">
+                    <strong>MEDIDAS ANTE DESVIACIÓN:</strong><br>
+                    ${s.devLimit ? `<strong>Límite:</strong> ${s.devLimit}<br>` : ''}
+                    ${s.devAction ? `<strong>Acción Correctiva:</strong> ${s.devAction}<br>` : ''}
+                    ${routeName ? `<strong>Direccionamiento:</strong> ${routeName}` : ''}
+                </div>` : '';
+
+            return `<div style="margin-bottom: 25px;"><p><strong>Paso ${i + 1}</strong> <span style="color: #666; font-size: 12px;">[${s.type}]</span></p><div style="margin-top: 5px; line-height: 1.5;">${s.desc}</div>${devHtmlDoc}${s.image ? `<img src="${s.image}" width="400" style="border: 1px solid #ccc; margin-top: 10px; border-radius: 8px;">` : ""}</div>`;
+        }).join("");
+    } catch (e) { 
+        stepsHTML = `<p>${poe.procedure}</p>`; 
+    }
 
     const catObj = state.areas.find((c) => c.areaAbbr === poe.subCategory); 
     const catName = catObj ? catObj.areaName : poe.subCategory;
