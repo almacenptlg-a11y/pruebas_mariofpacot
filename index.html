@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GenFiler Ecosystem v2.0</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* --- VARIABLES & RESET --- */
+        :root {
+            --brand-color: #C50D23;
+            --brand-dark: #8a0918;
+            --sidebar-width: 260px;
+            --sidebar-collapsed: 70px;
+            --transition-speed: 0.3s;
+            
+            --bg-dark: #121212;
+            --bg-panel: #1e1e1e;
+            --text-main: #ecf0f1;
+            --text-sec: #a0a0a0;
+            --border-color: #333333;
+            --hover-bg: rgba(255,255,255,0.05);
+        }
+
+        body.light-mode {
+            --bg-dark: #f0f2f5;
+            --bg-panel: #ffffff;
+            --text-main: #1a1a1a;
+            --text-sec: #666666;
+            --border-color: #e0e0e0;
+            --hover-bg: rgba(0,0,0,0.05);
+        }
+
+        body { margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; background-color: var(--bg-dark); color: var(--text-main); overflow: hidden; display: flex; height: 100vh; transition: background-color 0.3s, color 0.3s; }
+
+        /* --- PANTALLA DE ESPERA (REEMPLAZA AL LOGIN) --- */
+        #login-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: var(--bg-dark); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: opacity 0.5s ease, visibility 0.5s ease; }
+        .login-box { background: var(--bg-panel); padding: 50px 40px; border-radius: 20px; border: 1px solid var(--border-color); text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.3); width: 90%; max-width: 400px; animation: fadeInDown 0.8s ease; position: relative; }
+        .login-box svg { width: 120px; margin-bottom: 20px; filter: drop-shadow(0 0 10px rgba(197, 13, 35, 0.2)); }
+        .login-box h2 { margin: 0 0 10px 0; color: var(--text-main); font-size: 1.8rem; }
+        .login-box p { color: var(--text-sec); margin-bottom: 30px; font-size: 0.95rem; }
+
+        /* --- SIDEBAR --- */
+        .sidebar { width: var(--sidebar-width); background-color: var(--bg-panel); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; transition: width var(--transition-speed) ease, background-color 0.3s; z-index: 1000; flex-shrink: 0; position: relative; }
+        .sidebar.collapsed { width: var(--sidebar-collapsed); }
+        .sidebar-header { height: 80px; display: flex; align-items: center; padding: 0 15px; border-bottom: 2px solid var(--brand-color); overflow: hidden; white-space: nowrap; background: rgba(0,0,0,0.05); }
+        .sidebar-logo-svg { width: 50px; min-width: 50px; height: auto; transition: all 0.3s; }
+        .logo-text { font-weight: bold; font-size: 1.1rem; margin-left: 15px; opacity: 1; transition: opacity 0.2s; color: var(--text-main); letter-spacing: 0.5px; }
+        .sidebar.collapsed .logo-text { opacity: 0; pointer-events: none; width: 0; }
+        .sidebar.collapsed .sidebar-header { justify-content: center; padding: 0; }
+        .sidebar.collapsed .sidebar-logo-svg { width: 40px; }
+        .menu-items { flex-grow: 1; padding-top: 20px; display: flex; flex-direction: column; }
+        .menu-btn { background: transparent; border: none; color: var(--text-sec); width: 100%; padding: 15px 20px; text-align: left; cursor: pointer; display: flex; align-items: center; font-size: 1rem; transition: all 0.2s; position: relative; }
+        .menu-btn i { width: 30px; text-align: center; font-size: 1.2rem; }
+        .menu-btn span { margin-left: 10px; white-space: nowrap; opacity: 1; transition: opacity 0.2s; }
+        .sidebar.collapsed .menu-btn span { opacity: 0; width: 0; overflow: hidden; }
+        .sidebar.collapsed .menu-btn { justify-content: center; padding: 15px 0; }
+        .menu-btn:hover { background-color: var(--hover-bg); color: var(--text-main); }
+        .menu-btn.active { background-color: rgba(197, 13, 35, 0.1); color: var(--brand-color); border-right: 4px solid var(--brand-color); font-weight: bold; }
+
+        .sidebar.collapsed .menu-btn::after { content: attr(data-tooltip); position: absolute; left: 75px; top: 50%; transform: translateY(-50%); background-color: var(--bg-panel); color: var(--text-main); padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); white-space: nowrap; opacity: 0; visibility: hidden; transition: opacity 0.2s ease, transform 0.2s ease; z-index: 1000; box-shadow: 0 4px 10px rgba(0,0,0,0.2); font-size: 0.9rem; pointer-events: none; }
+        .sidebar.collapsed .menu-btn:hover::after { opacity: 1; visibility: visible; transform: translateY(-50%) translateX(5px); }
+
+        .sidebar-footer { border-top: 1px solid var(--border-color); display: flex; flex-direction: column; }
+        .toggle-btn { background: rgba(0,0,0,0.03); border: none; color: var(--text-sec); padding: 15px; cursor: pointer; text-align: center; transition: all 0.3s; width: 100%; }
+        .toggle-btn:hover { color: var(--text-main); background: var(--hover-bg); }
+
+        /* --- MAIN AREA --- */
+        .main-content { flex-grow: 1; position: relative; background-color: var(--bg-dark); overflow: hidden; transition: background-color 0.3s; }
+        #view-dashboard { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow-y: auto; display: flex; flex-direction: column; align-items: center; padding-top: 40px; background: var(--bg-dark); transition: opacity 0.3s, background-color 0.3s; z-index: 10; }
+        .dashboard-header { text-align: center; margin-bottom: 20px; animation: fadeInDown 0.8s ease; display: flex; flex-direction: column; align-items: center; }
+        .dashboard-logo-svg { width: 180px; height: auto; margin-bottom: 20px; filter: drop-shadow(0 0 10px rgba(197, 13, 35, 0.2)); }
+        .dashboard-header h1 { font-size: 2.5rem; margin: 0; letter-spacing: -1px; color: var(--text-main); }
+        .dashboard-header span { color: var(--brand-color); }
+        .dashboard-subtitle { color: var(--text-sec); font-size: 1.1rem; margin-top: 10px; }
+
+        .greeting-section { text-align: center; margin-bottom: 30px; animation: fadeInDown 1s ease; }
+        .greeting-text { font-size: 1.4rem; color: var(--text-main); margin: 0 0 5px 0; font-weight: 500; }
+        .clock-text { font-size: 1.1rem; color: var(--brand-color); font-family: monospace; letter-spacing: 1px; font-weight: bold; margin: 0; }
+
+        .search-container { width: 90%; max-width: 600px; margin: 0 auto 40px auto; position: relative; animation: fadeInDown 1.2s ease; }
+        .search-container input { width: 100%; padding: 15px 20px 15px 50px; border-radius: 50px; border: 2px solid var(--border-color); background: var(--bg-panel); color: var(--text-main); font-size: 1rem; outline: none; transition: all 0.3s; box-sizing: border-box; }
+        .search-container input:focus { border-color: var(--brand-color); box-shadow: 0 5px 15px rgba(197, 13, 35, 0.1); }
+        .search-container i { position: absolute; left: 22px; top: 50%; transform: translateY(-50%); color: var(--text-sec); font-size: 1.1rem; }
+
+        .apps-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; width: 90%; max-width: 1200px; padding-bottom: 50px; }
+        .app-card { background: var(--bg-panel); border-radius: 20px; padding: 40px 30px; text-align: center; border: 1px solid var(--border-color); transition: transform 0.3s, box-shadow 0.3s, border-color 0.3s, opacity 0.3s; position: relative; cursor: pointer; display: flex; flex-direction: column; justify-content: space-between; height: 280px; }
+        .app-card.hidden-card { display: none; }
+        .app-card:hover { transform: translateY(-10px); box-shadow: 0 15px 30px rgba(197, 13, 35, 0.15); border-color: var(--brand-color); }
+        .card-icon { font-size: 4rem; margin-bottom: 20px; color: var(--text-sec); transition: color 0.3s; }
+        .app-card:hover .card-icon { color: var(--brand-color); }
+        .card-title { font-size: 1.8rem; font-weight: bold; margin-bottom: 10px; color: var(--text-main); }
+        .card-desc { font-size: 0.95rem; color: var(--text-sec); line-height: 1.5; margin-bottom: 20px; }
+        .launch-btn { background: transparent; border: 2px solid var(--text-sec); color: var(--text-sec); padding: 10px 25px; border-radius: 50px; font-weight: bold; text-transform: uppercase; font-size: 0.8rem; transition: all 0.3s; align-self: center; }
+        .app-card:hover .launch-btn { background: var(--brand-color); border-color: var(--brand-color); color: white; }
+
+        .app-frame { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; background: white; visibility: hidden; opacity: 0; z-index: 0; pointer-events: none; }
+        .app-frame.active { visibility: visible; opacity: 1; z-index: 20; pointer-events: auto; }
+        #view-dashboard.hidden { display: none; }
+
+        .loading-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: var(--bg-dark); z-index: 30; display: flex; flex-direction: column; justify-content: center; align-items: center; opacity: 1; transition: opacity 0.3s, background-color 0.3s; }
+        .loading-overlay.hidden { opacity: 0; pointer-events: none; }
+        .spinner { width: 50px; height: 50px; border: 4px solid rgba(197, 13, 35, 0.2); border-top-color: var(--brand-color); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px; }
+        .loading-text { color: var(--text-sec); font-size: 1.1rem; letter-spacing: 1px; }
+        .error-message { display: none; flex-direction: column; align-items: center; text-align: center; }
+        .error-message i { font-size: 3rem; color: var(--brand-color); margin-bottom: 15px; }
+        .error-message h3 { color: var(--text-main); margin: 0 0 10px 0; }
+        .error-message p { color: var(--text-sec); margin: 0 0 20px 0; max-width: 300px; }
+        .retry-btn { background: var(--brand-color); color: white; border: none; padding: 12px 25px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+        .retry-btn:hover { background: var(--brand-dark); }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes fadeInDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <div id="login-screen">
+        <div class="login-box">
+            <svg viewBox="0 0 284 164" xmlns="http://www.w3.org/2000/svg">
+                <path d="m142 7 135 47v56l-135 47-135-47V54z" fill="#C50D23" stroke="#C50D23" stroke-width="10" stroke-linejoin="round"></path>
+                <path d="m142 7 135 47v56l-135 47-135-47V54z" fill="none" stroke="#B08D57" stroke-width="2" stroke-linejoin="round"></path>
+                <text x="142" y="68" font-family="Times, serif" font-size="36" font-weight="bold" text-anchor="middle" fill="#404040">LA</text>
+                <text x="142" y="67" font-family="Times, serif" font-size="36" font-weight="bold" text-anchor="middle" fill="#FFF">LA</text>
+                <text x="142" y="103" font-family="Times, serif" font-size="42" font-weight="bold" text-anchor="middle" fill="#404040">GENOVESA</text>
+                <text x="142" y="102" font-family="Times, serif" font-size="42" font-weight="bold" text-anchor="middle" fill="#FFF">GENOVESA</text>
+            </svg>
+            <h2 id="auth-title">Conectando con GENAPPS...</h2>
+            <p id="auth-desc">Sincronizando credenciales de usuario</p>
+            <div id="auth-spinner" style="margin-top: 20px;">
+                <i class="fas fa-circle-notch fa-spin fa-3x" style="color: var(--brand-color);"></i>
+            </div>
+        </div>
+    </div>
+
+    <nav class="sidebar collapsed" id="sidebar">
+        <div class="sidebar-header">
+            <svg class="sidebar-logo-svg" viewBox="0 0 284 164" xmlns="http://www.w3.org/2000/svg">
+                <path d="m142 7 135 47v56l-135 47-135-47V54z" fill="#C50D23" stroke="#C50D23" stroke-width="10" stroke-linejoin="round"></path>
+                <path d="m142 7 135 47v56l-135 47-135-47V54z" fill="none" stroke="#B08D57" stroke-width="2" stroke-linejoin="round"></path>
+                <text x="142" y="68" font-family="Times, serif" font-size="36" font-weight="bold" text-anchor="middle" fill="#404040">LA</text>
+                <text x="142" y="67" font-family="Times, serif" font-size="36" font-weight="bold" text-anchor="middle" fill="#FFF">LA</text>
+                <text x="142" y="103" font-family="Times, serif" font-size="42" font-weight="bold" text-anchor="middle" fill="#404040">GENOVESA</text>
+                <text x="142" y="102" font-family="Times, serif" font-size="42" font-weight="bold" text-anchor="middle" fill="#FFF">GENOVESA</text>
+            </svg>
+            <span class="logo-text">GenFiler Suite</span>
+        </div>
+
+        <div class="menu-items">
+            <button class="menu-btn active" onclick="goHome()" data-tooltip="Inicio">
+                <i class="fas fa-home"></i> <span>Inicio</span>
+            </button>
+            <button class="menu-btn" onclick="openApp('genfiler')" data-tooltip="GenFiler PDF">
+                <i class="far fa-file-pdf"></i> <span>GenFiler PDF</span>
+            </button>
+            <button class="menu-btn" onclick="openApp('spsa')" data-tooltip="SPSA Filer">
+                <i class="fas fa-chart-pie"></i> <span>SPSA Filer</span>
+            </button>
+            <button class="menu-btn" onclick="openApp('xlsx')" data-tooltip="XLSX Reporter">
+                <i class="fas fa-file-excel"></i> <span>XLSX Reporter</span>
+            </button>
+            <button class="menu-btn" onclick="openApp('holi')" data-tooltip="Holi Filer">
+                <i class="fas fa-folder-open"></i> <span>Holi Filer</span>
+            </button>
+        </div>
+
+        <div class="sidebar-footer">
+            <button class="toggle-btn" onclick="toggleSidebar()">
+                <i class="fas fa-chevron-right" id="toggleIcon"></i>
+            </button>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div id="loading-overlay" class="loading-overlay hidden">
+            <div class="spinner" id="loading-spinner"></div>
+            <div class="loading-text" id="loading-text">Cargando aplicación...</div>
+            <div class="error-message" id="error-message">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h3>Error de Conexión</h3>
+                <p>La herramienta está tardando demasiado en responder. Verifique su red.</p>
+                <button class="retry-btn" id="retry-btn">Reintentar</button>
+            </div>
+        </div>
+
+        <div id="view-dashboard">
+            <div class="dashboard-header">
+                <svg class="dashboard-logo-svg" viewBox="0 0 284 164" xmlns="http://www.w3.org/2000/svg">
+                    <path d="m142 7 135 47v56l-135 47-135-47V54z" fill="#C50D23" stroke="#C50D23" stroke-width="10" stroke-linejoin="round"></path>
+                    <path d="m142 7 135 47v56l-135 47-135-47V54z" fill="none" stroke="#B08D57" stroke-width="2" stroke-linejoin="round"></path>
+                    <text x="142" y="68" font-family="Times, serif" font-size="36" font-weight="bold" text-anchor="middle" fill="#404040">LA</text>
+                    <text x="142" y="67" font-family="Times, serif" font-size="36" font-weight="bold" text-anchor="middle" fill="#FFF">LA</text>
+                    <text x="142" y="103" font-family="Times, serif" font-size="42" font-weight="bold" text-anchor="middle" fill="#404040">GENOVESA</text>
+                    <text x="142" y="102" font-family="Times, serif" font-size="42" font-weight="bold" text-anchor="middle" fill="#FFF">GENOVESA</text>
+                </svg>
+                <h1>GenFiler <span>Ecosystem</span> v2.0</h1>
+                <p class="dashboard-subtitle">Control unificado de procesamiento de datos</p>
+            </div>
+
+            <div class="greeting-section">
+                <p class="greeting-text" id="greetingText">Cargando...</p>
+                <p class="clock-text" id="clockText">--:--:--</p>
+            </div>
+
+            <div class="search-container">
+                <i class="fas fa-search"></i>
+                <input type="text" id="appSearch" placeholder="Buscar herramientas o procesos... (ej. SPSA, Reparto)">
+            </div>
+
+            <div class="apps-grid" id="appsGrid">
+                <div class="app-card" onclick="openApp('genfiler')">
+                    <div>
+                        <div class="card-icon"><i class="far fa-file-pdf"></i></div>
+                        <div class="card-title">GenFiler PDF</div>
+                        <div class="card-desc">Procesar consolidados de Reparto Tacna, extracción de coordenadas y generación de etiquetas.</div>
+                    </div>
+                    <span class="launch-btn">Iniciar App</span>
+                </div>
+                <div class="app-card" onclick="openApp('spsa')">
+                    <div>
+                        <div class="card-icon"><i class="fas fa-chart-pie"></i></div>
+                        <div class="card-title">SPSA Filer</div>
+                        <div class="card-desc">Procesar Ordenes de Compra de SPSA / Makro.</div>
+                    </div>
+                    <span class="launch-btn">Iniciar App</span>
+                </div>
+                <div class="app-card" onclick="openApp('xlsx')">
+                    <div>
+                        <div class="card-icon"><i class="fas fa-file-excel"></i></div>
+                        <div class="card-title">XLSX Reporter</div>
+                        <div class="card-desc">Procesar pedidos en Excel, transformación de datos y reportes automatizados.</div>
+                    </div>
+                    <span class="launch-btn">Iniciar App</span>
+                </div>
+                <div class="app-card" onclick="openApp('holi')">
+                    <div>
+                        <div class="card-icon"><i class="fas fa-folder-open"></i></div>
+                        <div class="card-title">Holi Filer</div>
+                        <div class="card-desc">Herramienta de gestión y procesamiento Holi Filer para organización de datos.</div>
+                    </div>
+                    <span class="launch-btn">Iniciar App</span>
+                </div>
+            </div>
+            
+            <footer style="margin-top: 0px; padding: 30px; color: var(--text-sec); font-size: 0.9rem; text-align: center; width: 100%;">
+                &copy; 2026 GenFiler Systems - MarioFPacoT - Almacén de productos Terminados - La Genovesa Agroindustrias S.A.
+            </footer>
+        </div>
+
+        <iframe id="frame-genfiler" class="app-frame" data-src="https://almacenptlg-a11y.github.io/GenFiler/" sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-popups"></iframe>
+        <iframe id="frame-spsa" class="app-frame" data-src="https://almacenptlg-a11y.github.io/SPSA_Filer/" sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-popups"></iframe>
+        <iframe id="frame-xlsx" class="app-frame" data-src="https://almacenptlg-a11y.github.io/PowerXLSX_Filer/" sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-popups"></iframe>
+        <iframe id="frame-holi" class="app-frame" data-src="https://almacenptlg-a11y.github.io/Holi-Filer/" sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-popups"></iframe>
+
+    </main>
+
+    <script>
+        const API_URL = "https://script.google.com/macros/s/AKfycbxOsYSJn8JcKxCxBIpLqajGAVMr5axdVXCBpWwI7dqFmGlQfahRQghwj8uCkLVw8MwS/exec";
+
+        // ==========================================
+        // 1. ESCUCHAR AL HUB PRINCIPAL (GENAPPS)
+        // ==========================================
+        window.addEventListener('message', (event) => {
+            const { type, user, theme } = event.data || {};
+
+            if (type === 'THEME_UPDATE') {
+                if (theme === 'dark') document.body.classList.remove('light-mode');
+                else document.body.classList.add('light-mode');
+                
+                // Reenviar el tema a las aplicaciones hijas (Si es que escuchan THEME_UPDATE)
+                document.querySelectorAll('.app-frame').forEach(f => {
+                    if(f.contentWindow) f.contentWindow.postMessage({ type: 'THEME_UPDATE', theme }, '*');
+                });
+            }
+
+            if (type === 'SESSION_SYNC' && user) {
+                // Sincronizar Tema
+                if (theme === 'dark') document.body.classList.remove('light-mode');
+                else document.body.classList.add('light-mode');
+
+                // Sincronizar Credenciales (Usamos sessionStorage para no ensuciar el HUB padre)
+                sessionStorage.setItem('isGenFilerAuth', 'true');
+                sessionStorage.setItem('genFilerUserName', user.nombre);
+                sessionStorage.setItem('genFilerUserId', user.usuario);
+
+                // Ocultar pantalla de espera
+                const loginScreen = document.getElementById('login-screen');
+                loginScreen.style.opacity = '0';
+                setTimeout(() => { loginScreen.style.visibility = 'hidden'; }, 500);
+
+                updateClockAndGreeting();
+                
+                // Cargar app directa si la URL lo pide
+                const params = new URLSearchParams(window.location.search);
+                const appToOpen = params.get('app');
+                if (appToOpen && document.getElementById(`frame-${appToOpen}`)) {
+                    openApp(appToOpen, false);
+                }
+                
+                // Reenviar la sesión a las aplicaciones hijas por si la necesitan
+                document.querySelectorAll('.app-frame').forEach(f => {
+                    if(f.contentWindow) f.contentWindow.postMessage({ type: 'SESSION_SYNC', user, theme }, '*');
+                });
+            }
+        });
+
+        // ==========================================
+        // 2. INICIALIZAR Y SALUDAR AL PADRE
+        // ==========================================
+        window.addEventListener('DOMContentLoaded', () => {
+            // Gritar al padre que ya despertamos
+            window.parent.postMessage({ type: 'MODULO_LISTO' }, '*');
+
+            // Bloqueo de seguridad si el padre no responde en 4 segundos
+            setTimeout(() => {
+                if (sessionStorage.getItem('isGenFilerAuth') !== 'true') {
+                    document.getElementById('auth-title').innerText = "Acceso Denegado";
+                    document.getElementById('auth-title').style.color = "#ff4757";
+                    document.getElementById('auth-desc').innerText = "No se recibió autorización del HUB GENAPPS.";
+                    document.getElementById('auth-spinner').innerHTML = '<i class="fas fa-exclamation-triangle fa-3x" style="color: #ff4757;"></i>';
+                }
+            }, 4000);
+        });
+
+
+        // ==========================================
+        // 3. AUDITORÍA (Mantenemos tu Script local para saber qué abren aquí)
+        // ==========================================
+        function logActivity(actionDesc) {
+            const userName = sessionStorage.getItem('genFilerUserName');
+            const userId = sessionStorage.getItem('genFilerUserId');
+            if (!userName || !userId) return; 
+            
+            fetch(API_URL, {
+                method: 'POST',
+                body: JSON.stringify({ actionType: 'log_action', usuario: userId, nombre: userName, actionDesc: actionDesc })
+            }).catch(e => console.error("Error enviando log:", e));
+        }
+
+        // ==========================================
+        // 4. UI Y FUNCIONALIDAD DEL DASHBOARD
+        // ==========================================
+        function updateClockAndGreeting() {
+            const now = new Date();
+            const hours = now.getHours();
+            let greeting = 'Buenos días';
+            if (hours >= 12 && hours < 19) { greeting = 'Buenas tardes'; } else if (hours >= 19) { greeting = 'Buenas noches'; }
+            
+            // Leemos de sessionStorage porque el HUB padre inyectó la sesión ahí
+            const nombreEmpleado = sessionStorage.getItem('genFilerUserName') || 'Equipo';
+          
+            document.getElementById('greetingText').textContent = greeting + ', ' + nombreEmpleado;
+            document.getElementById('clockText').textContent = now.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+        setInterval(updateClockAndGreeting, 1000);
+
+        document.getElementById('appSearch').addEventListener('input', function(e) {
+            const term = e.target.value.toLowerCase();
+            const cards = document.querySelectorAll('.app-card');
+            cards.forEach(card => {
+                const title = card.querySelector('.card-title').textContent.toLowerCase();
+                const desc = card.querySelector('.card-desc').textContent.toLowerCase();
+                if (title.includes(term) || desc.includes(term)) { card.classList.remove('hidden-card'); } else { card.classList.add('hidden-card'); }
+            });
+        });
+
+        let loadTimeout;
+        function openApp(appId, pushState = true) {
+            document.getElementById('appSearch').value = '';
+            document.querySelectorAll('.app-card').forEach(c => c.classList.remove('hidden-card'));
+            document.querySelectorAll('.menu-btn').forEach(btn => btn.classList.remove('active'));
+            const sidebarBtn = document.querySelector(`.menu-btn[onclick*="openApp('${appId}')"]`);
+            if(sidebarBtn) sidebarBtn.classList.add('active');
+
+            document.getElementById('view-dashboard').classList.add('hidden');
+            document.querySelectorAll('.app-frame').forEach(frame => frame.classList.remove('active'));
+
+            const targetFrame = document.getElementById(`frame-${appId}`);
+            if(targetFrame) {
+                targetFrame.classList.add('active');
+                if (!targetFrame.getAttribute('src')) {
+                    
+                    let nombreAppLegible = appId.toUpperCase();
+                    if (appId === 'genfiler') nombreAppLegible = "GenFiler PDF";
+                    if (appId === 'spsa') nombreAppLegible = "SPSA Filer";
+                    if (appId === 'xlsx') nombreAppLegible = "XLSX Reporter";
+                    if (appId === 'holi') nombreAppLegible = "Holi Filer";
+                    
+                    logActivity("Abrió la aplicación: " + nombreAppLegible);
+                    
+                    const overlay = document.getElementById('loading-overlay');
+                    const spinner = document.getElementById('loading-spinner');
+                    const text = document.getElementById('loading-text');
+                    const errorMsg = document.getElementById('error-message');
+                    
+                    spinner.style.display = 'block'; text.style.display = 'block'; errorMsg.style.display = 'none';
+                    overlay.classList.remove('hidden');
+                    
+                    targetFrame.setAttribute('src', targetFrame.getAttribute('data-src'));
+                    
+                    clearTimeout(loadTimeout);
+                    loadTimeout = setTimeout(() => {
+                        spinner.style.display = 'none'; text.style.display = 'none'; errorMsg.style.display = 'flex';
+                    }, 12000);
+
+                    targetFrame.onload = function() {
+                        clearTimeout(loadTimeout); overlay.classList.add('hidden');
+                    };
+
+                    document.getElementById('retry-btn').onclick = function() {
+                        targetFrame.removeAttribute('src'); openApp(appId, false);
+                    };
+                } else {
+                    logActivity("Volvió a la pestaña de: " + appId.toUpperCase());
+                }
+            }
+
+            if (pushState) {
+                const url = new URL(window.location);
+                url.searchParams.set('app', appId);
+                window.history.pushState({}, '', url);
+            }
+        }
+
+        function goHome() {
+            document.querySelectorAll('.menu-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelector('.menu-btn[onclick="goHome()"]').classList.add('active');
+
+            document.getElementById('view-dashboard').classList.remove('hidden');
+            document.querySelectorAll('.app-frame').forEach(frame => frame.classList.remove('active'));
+
+            document.getElementById('appSearch').value = '';
+            document.querySelectorAll('.app-card').forEach(c => c.classList.remove('hidden-card'));
+
+            const url = new URL(window.location);
+            url.searchParams.delete('app');
+            window.history.pushState({}, '', url);
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const icon = document.getElementById('toggleIcon');
+            sidebar.classList.toggle('collapsed');
+            if (sidebar.classList.contains('collapsed')) { icon.classList.remove('fa-chevron-left'); icon.classList.add('fa-chevron-right'); } else { icon.classList.remove('fa-chevron-right'); icon.classList.add('fa-chevron-left'); }
+        }
+
+        window.addEventListener('popstate', () => {
+            if(sessionStorage.getItem('isGenFilerAuth') !== 'true') return;
+            const params = new URLSearchParams(window.location.search);
+            const appToOpen = params.get('app');
+            if (appToOpen) { openApp(appToOpen, false); } else { goHome(); }
+        });
+    </script>
+</body>
+</html>
