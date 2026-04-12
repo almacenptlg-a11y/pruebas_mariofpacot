@@ -1347,7 +1347,7 @@ window.exportPOEToWord = async function (id) {
     }
 
     let stepsHTML = "";
-    let flowchartImageTags = ""; 
+    let flowchartImageTags = ""; // Ahora puede contener múltiples etiquetas <img>
 
     try {
         const arr = JSON.parse(poe.procedure);
@@ -1356,77 +1356,16 @@ window.exportPOEToWord = async function (id) {
         const flowchartContainer = document.querySelector("#flowchart-canvas");
         
         if (flowchartContainer) {
-            // Guardamos el estado original del contenedor
-            const originalStyles = {
-                width: flowchartContainer.style.width,
-                minWidth: flowchartContainer.style.minWidth,
-                transform: flowchartContainer.style.transform
-            };
-
-            // Preparamos el contenedor temporalmente para captura de Word
-            // Expandimos las cajas y quitamos el truncamiento de texto
-            const tempNodes = Array.from(flowchartContainer.querySelectorAll('[id^="node-"]'));
-            const originalNodeStyles = tempNodes.map(node => {
-                const textContainers = node.querySelectorAll('.truncate, .line-clamp-3');
-                const origTextStyles = Array.from(textContainers).map(tc => ({
-                    el: tc,
-                    whiteSpace: tc.style.whiteSpace,
-                    overflow: tc.style.overflow,
-                    textOverflow: tc.style.textOverflow,
-                    display: tc.style.display,
-                    webkitLineClamp: tc.style.webkitLineClamp,
-                    webkitBoxOrient: tc.style.webkitBoxOrient
-                }));
-
-                // Expandimos el texto para la captura
-                textContainers.forEach(tc => {
-                    tc.classList.remove('truncate', 'line-clamp-3');
-                    tc.style.whiteSpace = 'normal';
-                    tc.style.overflow = 'visible';
-                    tc.style.textOverflow = 'clip';
-                    tc.style.display = 'block';
-                    tc.style.webkitLineClamp = 'unset';
-                });
-
-                return origTextStyles;
-            });
-
-            // Ajustamos el ancho del contenedor para simular el papel A4
-            flowchartContainer.style.width = '800px'; 
-            flowchartContainer.style.minWidth = '800px';
-            flowchartContainer.style.transform = 'none';
-
-            // Damos un respiro al navegador para aplicar los estilos antes de capturar
-            await new Promise(resolve => setTimeout(resolve, 100));
-
             // Capturamos el elemento completo con html2canvas
             const fullCanvas = await html2canvas(flowchartContainer, {
                 scale: 2, // Alta resolución
                 useCORS: true,
                 backgroundColor: "#ffffff",
-                logging: false,
-                windowWidth: 800 // Forzamos el ancho de la ventana virtual
+                logging: false
             });
-
-            // --- RESTAURAMOS ESTILOS ORIGINALES INMEDIATAMENTE ---
-            flowchartContainer.style.width = originalStyles.width;
-            flowchartContainer.style.minWidth = originalStyles.minWidth;
-            flowchartContainer.style.transform = originalStyles.transform;
-
-            originalNodeStyles.forEach(nodeStyles => {
-                nodeStyles.forEach(st => {
-                    st.el.classList.add('truncate', 'line-clamp-3');
-                    st.el.style.whiteSpace = st.whiteSpace;
-                    st.el.style.overflow = st.overflow;
-                    st.el.style.textOverflow = st.textOverflow;
-                    st.el.style.display = st.display;
-                    st.el.style.webkitLineClamp = st.webkitLineClamp;
-                });
-            });
-
 
             // Lógica de "Tijera" para dividir la imagen si es muy alta
-            const MAX_HEIGHT_PX = 2000; // Alto máximo por página (Ajustado para A4 en Word)
+            const MAX_HEIGHT_PX = 2500; // Alto máximo por página (Ajustado para A4 en Word)
             const imgWidth = fullCanvas.width;
             const imgHeight = fullCanvas.height;
 
@@ -1442,21 +1381,25 @@ window.exportPOEToWord = async function (id) {
                 let pageNum = 1;
                 
                 while (currentY < imgHeight) {
+                    // Calculamos la altura de este "corte"
                     const sliceHeight = Math.min(MAX_HEIGHT_PX, imgHeight - currentY);
                     
+                    // Creamos un canvas temporal para el trozo
                     const sliceCanvas = document.createElement("canvas");
                     sliceCanvas.width = imgWidth;
                     sliceCanvas.height = sliceHeight;
                     const ctx = sliceCanvas.getContext("2d");
                     
+                    // Copiamos la porción correspondiente de la imagen original
                     ctx.drawImage(
                         fullCanvas, 
-                        0, currentY, imgWidth, sliceHeight, 
-                        0, 0, imgWidth, sliceHeight         
+                        0, currentY, imgWidth, sliceHeight, // Origen (x, y, w, h)
+                        0, 0, imgWidth, sliceHeight         // Destino (x, y, w, h)
                     );
                     
                     const sliceData = sliceCanvas.toDataURL("image/png");
                     
+                    // Agregamos el trozo al HTML, forzando un salto de página si no es el último
                     flowchartImageTags += `
                         <div style="text-align:center; margin:20px 0; page-break-inside: avoid;">
                             <p style="text-align:right; font-size:9px; color:#666;">Flujograma - Parte ${pageNum}</p>
