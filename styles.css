@@ -1,0 +1,82 @@
+/* ==========================================
+ * HOJA DE ESTILOS PERSONALIZADA (POE GEN)
+ * Extensión de Tailwind CSS para componentes específicos
+ * ========================================== */
+
+:root {
+  font-family: "Inter", sans-serif;
+}
+
+/* Fondos y Efectos */
+.gradient-bg {
+  background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 50%, #3d7ab0 100%);
+}
+
+.modal-overlay {
+  background-color: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+}
+
+/* Tarjetas (Cards) */
+.card-shadow {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
+
+.card-shadow:hover {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
+    0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Botones */
+.btn-primary {
+  background: linear-gradient(135deg, #2d5a87 0%, #3d7ab0 100%);
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%);
+  transform: translateY(-2px);
+}
+
+/* Estados de Sincronización en Tablas */
+.syncing-row {
+  border-left: 4px solid #f59e0b; /* Amber 500 */
+  background-color: #fffbeb; /* Amber 50 */
+}
+
+.synced-row {
+  border-left: 4px solid transparent;
+}
+
+/* Animaciones de Interfaz */
+.fade-in {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.slide-in {
+  animation: slideIn 0.3s ease-out forwards;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
