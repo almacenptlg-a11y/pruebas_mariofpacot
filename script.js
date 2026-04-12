@@ -1018,6 +1018,52 @@ window.drawFlowchartArrows = function(steps) {
     svgLayer.innerHTML = svgContent;
 };
 
+// ==========================================
+// 🖥️ CONTROL DE PANTALLA COMPLETA (FULLSCREEN)
+// ==========================================
+window.toggleFullscreen = function(elementId, event) {
+    // Evitamos que el acordeón se colapse al hacer clic en el botón
+    if (event) event.stopPropagation(); 
+    
+    const elem = document.getElementById(elementId);
+    if (!elem) return;
+
+    if (!document.fullscreenElement) {
+        elem.requestFullscreen().catch(err => {
+            console.warn(`El navegador bloqueó la pantalla completa: ${err.message}`);
+        });
+    } else {
+        document.exitFullscreen();
+    }
+};
+
+// Listener para ajustar las clases cuando se entra o sale (incluso con la tecla ESC)
+document.addEventListener('fullscreenchange', () => {
+    const elem = document.getElementById('flowchart-wrapper');
+    const exitBtn = document.getElementById("btnExitFullscreen");
+    
+    if (document.fullscreenElement) {
+        // Entrando a Fullscreen: Quitamos el límite de altura
+        if (elem) {
+            elem.classList.remove("max-h-[600px]", "rounded-b-2xl");
+            elem.classList.add("h-screen"); 
+        }
+        if (exitBtn) {
+            exitBtn.classList.remove("hidden");
+            exitBtn.classList.add("flex");
+        }
+    } else {
+        // Saliendo de Fullscreen: Restauramos el límite para que quepa en el modal
+        if (elem) {
+            elem.classList.add("max-h-[600px]", "rounded-b-2xl");
+            elem.classList.remove("h-screen");
+        }
+        if (exitBtn) {
+            exitBtn.classList.add("hidden");
+            exitBtn.classList.remove("flex");
+        }
+    }
+});
 
 // ==========================================
 // 👁️ VISOR MODULAR CON AUTO-FLUJOGRAMA
@@ -1285,10 +1331,23 @@ window.viewPOE = function (id, scrollToFlowchart = false) {
             <details id="acc-flowchart" class="group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm mb-6" ${scrollToFlowchart ? 'open' : ''}>
                 <summary class="flex items-center justify-between p-5 font-black cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition rounded-2xl outline-none select-none">
                     <div class="flex items-center gap-3 text-gray-800 dark:text-gray-200 uppercase tracking-widest text-sm"><span class="text-lg">🗺️</span> 3. Flujograma del Proceso</div>
-                    <svg class="w-5 h-5 text-gray-400 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    
+                    <div class="flex items-center gap-3">
+                        <button type="button" onclick="window.toggleFullscreen('flowchart-wrapper', event)" class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors border border-transparent hover:border-blue-200 dark:hover:border-blue-800 flex items-center gap-2 text-xs font-bold uppercase tracking-wider shadow-sm" title="Maximizar Pantalla">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
+                            <span class="hidden sm:inline">Maximizar</span>
+                        </button>
+                        <svg class="w-5 h-5 text-gray-400 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </div>
                 </summary>
-                <div class="border-t border-gray-100 dark:border-gray-700 mt-2 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjEiIGZpbGw9IiNlNWU3ZWIiLz48L3N2Zz4=')] dark:bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjEiIGZpbGw9IiMzNzQxNTEiLz48L3N2Zz4=')] rounded-b-2xl overflow-auto max-h-[600px] custom-scrollbar shadow-inner relative">
-                    <div class="min-w-max px-20 py-8 flex justify-center">
+
+                <div id="flowchart-wrapper" class="border-t border-gray-100 dark:border-gray-700 mt-2 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjEiIGZpbGw9IiNlNWU3ZWIiLz48L3N2Zz4=')] dark:bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjEiIGZpbGw9IiMzNzQxNTEiLz48L3N2Zz4=')] rounded-b-2xl overflow-auto max-h-[600px] custom-scrollbar shadow-inner relative bg-gray-50 dark:bg-gray-900 transition-all">
+                    
+                    <button id="btnExitFullscreen" onclick="window.toggleFullscreen('flowchart-wrapper', event)" class="hidden fixed top-6 right-6 z-[100] px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl shadow-2xl transition-all items-center gap-2 font-black text-xs uppercase tracking-widest border-2 border-red-400 backdrop-blur-md">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg> CERRAR VISUALIZADOR
+                    </button>
+
+                    <div class="min-w-max px-20 py-8 flex justify-center" id="flowchart-canvas">
                         ${flowchartHTML}
                     </div>
                 </div>
