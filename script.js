@@ -162,29 +162,26 @@ window.insertLink = function() {
 // NAVEGACIÓN Y MENÚ
 // ==========================================
 window.switchTab = function(tabId) {
-    // 1. Actualizar Nav Buttons
     document.querySelectorAll('.nav-btn').forEach(btn => {
         btn.classList.remove('bg-red-50', 'text-red-700', 'dark:bg-red-900/30', 'dark:text-red-400');
         btn.classList.add('text-gray-600', 'dark:text-gray-400');
     });
+    
     const activeBtn = document.getElementById(`nav-${tabId}`);
     if (activeBtn) {
         activeBtn.classList.remove('text-gray-600', 'dark:text-gray-400');
         activeBtn.classList.add('bg-red-50', 'text-red-700', 'dark:bg-red-900/30', 'dark:text-red-400');
     }
     
-    // 2. Ocultar todas las secciones
     document.querySelectorAll('.view-section').forEach(sec => {
         sec.classList.remove('active');
     });
     
-    // 3. Mostrar sección activa
     const activeView = document.getElementById(`view-${tabId}`);
     if (activeView) {
         activeView.classList.add('active');
     }
 
-    // 4. Lógica de Títulos y Botones en Topbar
     const topTitle = document.getElementById('topbar-title');
     const topSub = document.getElementById('topbar-subtitle');
     const btnNuevo = document.getElementById('btn-nuevo-poe');
@@ -215,10 +212,7 @@ window.switchTab = function(tabId) {
         if(topTitle) topTitle.textContent = "Áreas de la Planta"; 
         if(topSub) topSub.textContent = "Organización Estructural"; 
         if(btnNuevo) btnNuevo.classList.add('hidden'); 
-        
-        // 🛡️ Verificación de permisos para el botón Nueva Área
         if(btnArea) {
-            const permisos = window.getPermisos();
             if(permisos.canManageAreas) {
                 btnArea.classList.remove('hidden');
             } else {
@@ -316,7 +310,7 @@ const POEDB = {
     save(store, data) { 
         return new Promise((r) => { 
             if (this.useRAM) { 
-                const idx = this.ramDB[store].findIndex((i) => i.id === data.id || i.key === data.key); 
+                const idx = this.ramDB[store].findIndex((i) => String(i.id) === String(data.id) || i.key === data.key); 
                 if (idx > -1) {
                     this.ramDB[store][idx] = data; 
                 } else {
@@ -340,7 +334,7 @@ const POEDB = {
     delete(store, id) { 
         return new Promise((r) => { 
             if (this.useRAM) { 
-                this.ramDB[store] = this.ramDB[store].filter((i) => i.id !== id && i.key !== id); 
+                this.ramDB[store] = this.ramDB[store].filter((i) => String(i.id) !== String(id) && i.key !== id); 
                 return r(); 
             } 
             const tx = this.db.transaction(store, "readwrite"); 
@@ -393,7 +387,7 @@ window.refreshUI = async function () {
     if (state.user) {
         safeSet('userName', state.user.nombre);
         const areaNames = permisos.areas.map(val => { 
-            const a = state.areas.find(x => x.id === val || x.areaAbbr === val); 
+            const a = state.areas.find(x => String(x.id) === String(val) || x.areaAbbr === val); 
             return a ? a.areaName : val; 
         });
         const areasFormat = areaNames.length > 0 ? `<span class="text-gray-400 dark:text-gray-500 font-medium block truncate mt-0.5" title="${areaNames.join(', ')}">📍 ${areaNames.join(', ')}</span>` : '';
@@ -751,7 +745,7 @@ window.handleFormSubmit = async function (e) {
         
         if (!permisos.areas.some(userArea => catStr.includes(userArea))) {
             const areaNamesForAlert = permisos.areas.map(val => { 
-                const a = state.areas.find(x => x.id === val || x.areaAbbr === val); 
+                const a = state.areas.find(x => String(x.id) === String(val) || x.areaAbbr === val); 
                 return a ? a.areaName : val; 
             });
             return await window.sysAlert(`BLOQUEO DE SEGURIDAD:\nNo tiene permisos para crear o modificar procedimientos en el área seleccionada.\n\nÁreas autorizadas:\n📍 ${areaNamesForAlert.join(', ')}`, "error");
@@ -765,7 +759,7 @@ window.handleFormSubmit = async function (e) {
     let ultimoEditor = "";
     
     if (isEditing) { 
-        const existing = state.poes.find((p) => p.id === poeId); 
+        const existing = state.poes.find((p) => String(p.id) === String(poeId)); 
         if (existing) { 
             originalDate = existing.date; 
             autorOriginal = existing.author || autorOriginal; 
@@ -814,7 +808,7 @@ window.deletePOE = async function (id) {
     const confirmed = await window.sysConfirm("¿Está seguro de marcar como obsoleto este procedimiento?\n\nSe ocultará permanentemente de la matriz operativa."); 
     if (!confirmed) return;
     
-    const poe = state.poes.find((p) => p.id === id); 
+    const poe = state.poes.find((p) => String(p.id) === String(id)); 
     if (poe) { 
         poe.status = "OBS"; 
         poe._syncStatus = "pending"; 
@@ -826,8 +820,11 @@ window.deletePOE = async function (id) {
 };
 
 window.editPOE = function (id) {
-    const poe = state.poes.find((p) => p.id === id); 
-    if (!poe) return;
+    const poe = state.poes.find((p) => String(p.id) === String(id)); 
+    if (!poe) {
+        console.warn("Edición abortada: No se encontró el POE con ID", id);
+        return;
+    }
     
     state.form.editingId = poe.id; 
     const modalTitle = document.getElementById("modalTitle");
@@ -889,8 +886,11 @@ window.editPOE = function (id) {
 };
 
 window.clonePOE = function (id) {
-    const poe = state.poes.find((p) => p.id === id); 
-    if (!poe) return;
+    const poe = state.poes.find((p) => String(p.id) === String(id)); 
+    if (!poe) {
+        console.warn("Clonación abortada: No se encontró el POE con ID", id);
+        return;
+    }
     
     state.form.editingId = null; 
     const modalTitle = document.getElementById("modalTitle");
@@ -1023,9 +1023,10 @@ window.drawFlowchartArrows = function(steps) {
 // 👁️ VISOR MODULAR CON AUTO-FLUJOGRAMA
 // ==========================================
 window.viewPOE = function (id, scrollToFlowchart = false) {
-    const poe = state.poes.find((p) => p.id === id); 
+    const poe = state.poes.find((p) => String(p.id) === String(id)); 
     
     if (!poe) {
+        console.warn("Visor abortado: No se encontró el POE con ID", id);
         return;
     }
     
@@ -1060,18 +1061,19 @@ window.viewPOE = function (id, scrollToFlowchart = false) {
             const b = tempDiv.querySelector('b');
             
             if (h3) { 
-                stepTitle = h3.innerText; 
+                stepTitle = h3.innerText || h3.textContent; 
                 h3.remove(); 
             } else if (b) { 
-                stepTitle = b.innerText; 
+                stepTitle = b.innerText || b.textContent; 
                 b.remove(); 
             }
             
-            const listItems = Array.from(tempDiv.querySelectorAll('li')).map(li => `• ${li.innerText}`);
+            const listItems = Array.from(tempDiv.querySelectorAll('li')).map(li => `• ${li.innerText || li.textContent}`);
             
             tempDiv.querySelectorAll('ul, ol').forEach(list => list.remove());
             
-            const remainingText = tempDiv.innerText.trim().substring(0, 95) + (tempDiv.innerText.length > 95 ? "..." : "");
+            const rawText = (tempDiv.innerText || tempDiv.textContent).trim();
+            const remainingText = rawText.substring(0, 95) + (rawText.length > 95 ? "..." : "");
             
             let bodyHtml = "";
             if (listItems.length > 0) {
@@ -1329,8 +1331,11 @@ window.viewPOE = function (id, scrollToFlowchart = false) {
 };
 
 window.exportPOEToWord = function (id) {
-    const poe = state.poes.find((p) => p.id === id); 
-    if (!poe) return;
+    const poe = state.poes.find((p) => String(p.id) === String(id)); 
+    if (!poe) {
+        console.warn("Exportación abortada: No se encontró el POE con ID", id);
+        return;
+    }
     
     let stepsHTML = "";
     let flowWord = "";
@@ -1369,11 +1374,13 @@ window.exportPOEToWord = function (id) {
             const tempDiv = document.createElement('div'); tempDiv.innerHTML = s.desc;
             let stepTitle = `Paso ${i + 1}`;
             const h3 = tempDiv.querySelector('h3'); const b = tempDiv.querySelector('b');
-            if (h3) { stepTitle = h3.innerText; h3.remove(); } else if (b) { stepTitle = b.innerText; b.remove(); }
+            if (h3) { stepTitle = h3.innerText || h3.textContent; h3.remove(); } else if (b) { stepTitle = b.innerText || b.textContent; b.remove(); }
             
-            const listItems = Array.from(tempDiv.querySelectorAll('li')).map(li => `• ${li.innerText}`);
+            const listItems = Array.from(tempDiv.querySelectorAll('li')).map(li => `• ${li.innerText || li.textContent}`);
             tempDiv.querySelectorAll('ul, ol').forEach(list => list.remove());
-            const remainingText = tempDiv.innerText.trim().substring(0, 90) + (tempDiv.innerText.length > 90 ? "..." : "");
+            
+            const rawText = (tempDiv.innerText || tempDiv.textContent).trim();
+            const remainingText = rawText.substring(0, 90) + (rawText.length > 90 ? "..." : "");
             
             let bodyText = "";
             if (listItems.length > 0) bodyText = listItems.slice(0,4).join('<br>');
@@ -1774,10 +1781,10 @@ window.pullSync = async function () {
             const q = await POEDB.getAll("sync_queue"); 
             const localPoes = await POEDB.getAll("poes"); 
             for (let local of localPoes) {
-                if (!q.find((x) => x.id === local.id)) await POEDB.delete("poes", local.id); 
+                if (!q.find((x) => String(x.id) === String(local.id))) await POEDB.delete("poes", local.id); 
             }
             for (let p of jP.data) {
-                if (!q.find((x) => x.id === p.id)) await POEDB.save("poes", p); 
+                if (!q.find((x) => String(x.id) === String(p.id))) await POEDB.save("poes", p); 
             }
         }
         await window.refreshUI();
