@@ -1332,42 +1332,92 @@ window.viewPOE = function (id, scrollToFlowchart = false) {
 
 window.exportPOEToWord = async function (id) {
     const poe = state.poes.find((p) => String(p.id) === String(id)); 
-    if (!poe) return;
+    if (!poe) {
+        console.warn("Exportación abortada: No se encontró el POE con ID", id);
+        return;
+    }
 
-    // Mostrar alerta de procesamiento
+    // Mostrar alerta de procesamiento en el botón
     const btn = document.getElementById("btnExportWord");
-    const originalText = btn.innerText;
-    btn.innerText = "Procesando Imagen...";
-    btn.disabled = true;
+    let originalText = "Exportar .DOC";
+    if (btn) {
+        originalText = btn.innerText;
+        btn.innerText = "Procesando Documento...";
+        btn.disabled = true;
+    }
 
     let stepsHTML = "";
-    let flowchartImageTag = "";
+    let flowchartImageTags = ""; // Ahora puede contener múltiples etiquetas <img>
 
     try {
         const arr = JSON.parse(poe.procedure);
 
-        // --- 1. RENDERIZADO DEL FLUJOGRAMA A IMAGEN ---
-        // Necesitamos que el modal esté abierto y el flujograma visible para capturarlo
+        // --- 1. RENDERIZADO DEL FLUJOGRAMA A IMAGEN (CON PAGINACIÓN) ---
         const flowchartContainer = document.querySelector("#flowchart-canvas");
         
         if (flowchartContainer) {
-            // Capturamos el elemento con html2canvas
-            // scale: 2 mejora la resolución para impresión
-            const canvas = await html2canvas(flowchartContainer, {
-                scale: 2,
+            // Capturamos el elemento completo con html2canvas
+            const fullCanvas = await html2canvas(flowchartContainer, {
+                scale: 2, // Alta resolución
                 useCORS: true,
                 backgroundColor: "#ffffff",
                 logging: false
             });
-            
-            const imgData = canvas.toDataURL("image/png");
-            // width="600" asegura que quepa en el ancho útil de una hoja A4 en Word (aprox 16-17cm)
-            flowchartImageTag = `<div style="text-align:center; margin:20px 0;">
-                <img src="${imgData}" width="600" style="max-width:100%; height:auto; border:1px solid #eee;">
-            </div>`;
+
+            // Lógica de "Tijera" para dividir la imagen si es muy alta
+            const MAX_HEIGHT_PX = 1000; // Alto máximo por página (Ajustado para A4 en Word)
+            const imgWidth = fullCanvas.width;
+            const imgHeight = fullCanvas.height;
+
+            if (imgHeight <= MAX_HEIGHT_PX) {
+                // Cabe en una sola página
+                const imgData = fullCanvas.toDataURL("image/png");
+                flowchartImageTags = `<div style="text-align:center; margin:20px 0; page-break-inside: avoid;">
+                    <img src="${imgData}" width="600" style="max-width:100%; height:auto; border:1px solid #eee;">
+                </div>`;
+            } else {
+                // Necesita dividirse en múltiples páginas
+                let currentY = 0;
+                let pageNum = 1;
+                
+                while (currentY < imgHeight) {
+                    // Calculamos la altura de este "corte"
+                    const sliceHeight = Math.min(MAX_HEIGHT_PX, imgHeight - currentY);
+                    
+                    // Creamos un canvas temporal para el trozo
+                    const sliceCanvas = document.createElement("canvas");
+                    sliceCanvas.width = imgWidth;
+                    sliceCanvas.height = sliceHeight;
+                    const ctx = sliceCanvas.getContext("2d");
+                    
+                    // Copiamos la porción correspondiente de la imagen original
+                    ctx.drawImage(
+                        fullCanvas, 
+                        0, currentY, imgWidth, sliceHeight, // Origen (x, y, w, h)
+                        0, 0, imgWidth, sliceHeight         // Destino (x, y, w, h)
+                    );
+                    
+                    const sliceData = sliceCanvas.toDataURL("image/png");
+                    
+                    // Agregamos el trozo al HTML, forzando un salto de página si no es el último
+                    flowchartImageTags += `
+                        <div style="text-align:center; margin:20px 0; page-break-inside: avoid;">
+                            <p style="text-align:right; font-size:9px; color:#666;">Flujograma - Parte ${pageNum}</p>
+                            <img src="${sliceData}" width="600" style="max-width:100%; height:auto; border:1px solid #eee;">
+                        </div>
+                    `;
+                    
+                    if (currentY + sliceHeight < imgHeight) {
+                         flowchartImageTags += `<br clear=all style='mso-special-character:line-break;page-break-before:always'>`;
+                    }
+                    
+                    currentY += sliceHeight;
+                    pageNum++;
+                }
+            }
         }
 
-        // --- 2. DESARROLLO DETALLADO ---
+        // --- 2. DESARROLLO DETALLADO (TEXTO) ---
         stepsHTML = arr.map((s, i) => {
             let routeName = s.devRoute;
             if (s.devRoute === "FIN") routeName = "Fin / Desecho";
@@ -1394,10 +1444,10 @@ window.exportPOEToWord = async function (id) {
 
     } catch (e) { 
         console.error("Error renderizando flujograma para Word:", e);
-        flowchartImageTag = `<p style="color:red;">Error al generar la imagen del flujograma.</p>`; 
+        flowchartImageTags = `<p style="color:red;">Error al generar la imagen del flujograma.</p>`; 
     }
 
-    // --- 3. ENSAMBLAJE DEL DOCUMENTO ---
+    // --- 3. ENSAMBLAJE DEL DOCUMENTO WORD ---
     const catObj = state.areas.find((c) => c.areaAbbr === poe.subCategory); 
     const catName = catObj ? catObj.areaName : poe.subCategory;
     const isPOES = poe.code.startsWith('POES'); 
@@ -1437,7 +1487,7 @@ window.exportPOEToWord = async function (id) {
 
             <div class="page-break"></div>
             <h2>3. Flujograma del Proceso (Visualización Certificada)</h2>
-            ${flowchartImageTag}
+            ${flowchartImageTags}
 
             <div class="page-break"></div>
             <h2>4. Desarrollo Detallado</h2>
@@ -1445,7 +1495,7 @@ window.exportPOEToWord = async function (id) {
 
             <table style="border: none; margin-top: 50px;">
                 <tr style="border: none;">
-                    <td style="border: none; text-align: center; width: 50%;">_________________________<br><strong>Elaborado por:</strong><br>${poe.lastEditor || poe.author}</td>
+                    <td style="border: none; text-align: center; width: 50%;">_________________________<br><strong>Elaborado por:</strong><br>${poe.lastEditor || poe.author || 'Responsable'}</td>
                     <td style="border: none; text-align: center; width: 50%;">_________________________<br><strong>Aprobación Calidad</strong></td>
                 </tr>
             </table>
@@ -1461,8 +1511,10 @@ window.exportPOEToWord = async function (id) {
     document.body.removeChild(a);
 
     // Restaurar botón
-    btn.innerText = originalText;
-    btn.disabled = false;
+    if (btn) {
+        btn.innerText = originalText;
+        btn.disabled = false;
+    }
 };
 
 // ==========================================
