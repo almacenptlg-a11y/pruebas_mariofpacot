@@ -997,15 +997,26 @@ document.addEventListener('fullscreenchange', () => {
 });
 
 // ==========================================
-// 🎨 MOTOR DE RUTEADO SVG PARA FLUJOGRAMAS
+// 🎨 MOTOR DE RUTEADO SVG PARA FLUJOGRAMAS (RESPONSIVE)
 // ==========================================
+// Variable global temporal para guardar los pasos del POE actual y poder redibujarlos
+window._currentFlowchartSteps = null;
+
 window.drawFlowchartArrows = function(steps) {
+    if (steps) {
+        window._currentFlowchartSteps = steps; // Guardamos los pasos activos
+    } else if (window._currentFlowchartSteps) {
+        steps = window._currentFlowchartSteps; // Usamos los guardados si es un redibujado (resize)
+    } else {
+        return; // No hay nada que dibujar
+    }
+
     const canvas = document.getElementById('flowchart-canvas');
     const svgLayer = document.getElementById('svg-layer');
     
     if (!canvas || !svgLayer) return;
 
-    // Calculamos las coordenadas basándonos en el contenedor principal
+    // 🧠 CRÍTICO: El rectángulo base DEBE ser el contenedor del canvas, no la ventana
     const canvasRect = canvas.getBoundingClientRect();
     
     let svgContent = `
@@ -1027,13 +1038,13 @@ window.drawFlowchartArrows = function(steps) {
             const targetNode = document.getElementById(targetNodeId);
 
             if (devBox && targetNode) {
-                const devBoxContent = devBox.lastElementChild; // La cajita blanca de Desviación
+                const devBoxContent = devBox.lastElementChild;
                 
                 if (devBoxContent) {
                     const devRect = devBoxContent.getBoundingClientRect();
                     const targetRect = targetNode.getBoundingClientRect();
 
-                    // Coordenadas locales dentro del SVG
+                    // Coordenadas relativas EXACTAS al canvas
                     const startX = devRect.right - canvasRect.left;
                     const startY = devRect.top + (devRect.height / 2) - canvasRect.top;
 
@@ -1043,20 +1054,16 @@ window.drawFlowchartArrows = function(steps) {
                     const color = step.type === 'PCC' ? '#dc2626' : '#d97706';
                     const marker = step.type === 'PCC' ? 'url(#arrowhead-red)' : 'url(#arrowhead-amber)';
 
-                    // Calculamos el codo (margen de 40px a la derecha para no chocar con las cajas)
                     const elbowX = Math.max(startX, endX) + 40; 
                     
-                    // Lógica para dibujar curvas suaves (Border Radius de 12px) en las líneas
                     const r = 12; 
                     const yDir = endY > startY ? 1 : -1; 
                     const isSameY = Math.abs(endY - startY) < 5;
                     
                     let path = "";
                     if (isSameY) {
-                        // Línea recta si están al mismo nivel
                         path = `M ${startX},${startY} L ${endX + 9},${endY}`;
                     } else {
-                        // Línea en forma de "C" con esquinas redondeadas matemáticamente
                         path = `M ${startX},${startY} 
                                 L ${elbowX - r},${startY} 
                                 Q ${elbowX},${startY} ${elbowX},${startY + (r * yDir)} 
@@ -1074,11 +1081,20 @@ window.drawFlowchartArrows = function(steps) {
     svgLayer.innerHTML = svgContent;
 };
 
+// 📡 LISTENER: Redibuja el SVG si la ventana cambia de tamaño
+window.addEventListener('resize', () => {
+    // Usamos requestAnimationFrame para asegurar que el DOM ya se reacomodó antes de medir
+    requestAnimationFrame(() => {
+        window.drawFlowchartArrows();
+    });
+});
+
+
 // ==========================================
 // 🖥️ CONTROL DE PANTALLA COMPLETA (FULLSCREEN)
 // ==========================================
 window.toggleFullscreen = function(elementId, event) {
-    if (event) event.stopPropagation(); // Evita que se cierre el acordeón al hacer clic
+    if (event) event.stopPropagation(); 
     
     const elem = document.getElementById(elementId);
     if (!elem) return;
@@ -1115,7 +1131,14 @@ document.addEventListener('fullscreenchange', () => {
             exitBtn.classList.remove("flex");
         }
     }
+
+    // 🚀 CRÍTICO: Redibujar SVG al cambiar el modo Fullscreen
+    // Le damos 50ms para que el navegador termine la animación de expansión
+    setTimeout(() => {
+        window.drawFlowchartArrows();
+    }, 50);
 });
+
 
 // ==========================================
 // 👁️ VISOR MODULAR CON AUTO-FLUJOGRAMA
