@@ -1704,6 +1704,154 @@ window.renderAdvancedSteps = function () {
 };
 
 // ==========================================
+// FORMULARIOS DE ÁREAS (CRUD)
+// ==========================================
+window.toggleNewMacroFields = function() {
+    const val = document.getElementById("cfgAreaMacro").value; 
+    const c = document.getElementById("newMacroContainer"); 
+    const n = document.getElementById("cfgNewMacroName"); 
+    const a = document.getElementById("cfgNewMacroAbbr");
+    if (val === 'NEW') { 
+        c.classList.remove('hidden'); 
+        n.setAttribute('required', 'true'); 
+        a.setAttribute('required', 'true'); 
+        n.focus(); 
+    } else { 
+        c.classList.add('hidden'); 
+        n.removeAttribute('required'); 
+        a.removeAttribute('required'); 
+    }
+};
+
+window.autoCalcPrefix = function() {
+    const macroSel = document.getElementById("cfgAreaMacro").value; 
+    let macroAbbr = "";
+    if (macroSel === 'NEW') {
+        macroAbbr = document.getElementById("cfgNewMacroAbbr").value.trim().toUpperCase(); 
+    } else if (macroSel) {
+        macroAbbr = macroSel.split('|')[0];
+    }
+    const areaAbbr = document.getElementById("cfgAreaAbbr").value.trim().toUpperCase();
+    if (macroAbbr && areaAbbr) {
+        document.getElementById("cfgAreaPrefix").value = `${macroAbbr}-${areaAbbr}`;
+    }
+};
+
+window.openAreaForm = function(id = null) {
+    const m = document.getElementById("areaFormModal"); 
+    const form = document.getElementById("area-config-form"); 
+    if (!m || !form) return;
+    
+    form.reset(); 
+    state.form.editingAreaId = id; 
+    document.getElementById("areaFormTitle").textContent = id ? "Editar Área" : "Registrar Nueva Área";
+    
+    const macroSelect = document.getElementById("cfgAreaMacro"); 
+    const macrosMap = new Map(); 
+    state.areas.forEach(a => macrosMap.set(a.macroAbbr, a.macroName));
+    
+    let options = '<option value="" disabled selected>Seleccione Macro-Área...</option>';
+    for (let [abbr, name] of macrosMap.entries()) {
+        options += `<option value="${abbr}|${name}">${name} (${abbr})</option>`;
+    }
+    options += '<option value="NEW" class="font-bold text-blue-600">✨ CREAR NUEVA MACRO-ÁREA...</option>';
+    macroSelect.innerHTML = options; 
+    window.toggleNewMacroFields(); 
+    
+    if (id) {
+        const area = state.areas.find(a => String(a.id) === String(id));
+        if (area) {
+            const macroVal = `${area.macroAbbr}|${area.macroName}`;
+            if (Array.from(macroSelect.options).some(opt => opt.value === macroVal)) {
+                macroSelect.value = macroVal; 
+            } else { 
+                macroSelect.value = 'NEW'; 
+                window.toggleNewMacroFields(); 
+                document.getElementById("cfgNewMacroName").value = area.macroName; 
+                document.getElementById("cfgNewMacroAbbr").value = area.macroAbbr; 
+            }
+            document.getElementById("cfgAreaName").value = area.areaName; 
+            document.getElementById("cfgAreaAbbr").value = area.areaAbbr; 
+            document.getElementById("cfgAreaPrefix").value = area.poePrefix; 
+            document.getElementById("cfgAreaDesc").value = area.desc; 
+            document.getElementById("cfgAreaStatus").value = area.status || 'ACT';
+        }
+    }
+    m.classList.remove("hidden"); 
+    m.classList.add("flex");
+};
+
+window.closeAreaForm = function() { 
+    const m = document.getElementById("areaFormModal"); 
+    if (m) { 
+        m.classList.add("hidden"); 
+        m.classList.remove("flex"); 
+    } 
+};
+
+window.handleAreaSubmit = async function(e) {
+    e.preventDefault();
+    if (!state.isSessionVerified || !state.user) return await window.sysAlert("Acción bloqueada: Esperando autorización del HUB.", "error");
+    if (!window.getPermisos().canManageAreas) return await window.sysAlert("Acción denegada. Permisos de administrador requeridos.", "error");
+
+    const btn = document.getElementById('btnSaveArea'); 
+    const origHTML = btn.innerHTML; 
+    btn.disabled = true; 
+    btn.innerHTML = `Guardando...`;
+    
+    const id = state.form.editingAreaId ? state.form.editingAreaId : `AREA-${Date.now()}`;
+    let macroName, macroAbbr; 
+    const macroSel = document.getElementById("cfgAreaMacro").value;
+    
+    if (macroSel === 'NEW') { 
+        macroName = document.getElementById("cfgNewMacroName").value.trim(); 
+        macroAbbr = document.getElementById("cfgNewMacroAbbr").value.trim().toUpperCase(); 
+    } else { 
+        const parts = macroSel.split('|'); 
+        macroAbbr = parts[0]; 
+        macroName = parts[1]; 
+    }
+    
+    const payload = { 
+        action: 'save_area', 
+        id: id, 
+        macroName: macroName, 
+        macroAbbr: macroAbbr, 
+        areaName: document.getElementById("cfgAreaName").value.trim(), 
+        areaAbbr: document.getElementById("cfgAreaAbbr").value.trim().toUpperCase(), 
+        poePrefix: document.getElementById("cfgAreaPrefix").value.trim().toUpperCase(), 
+        desc: document.getElementById("cfgAreaDesc").value.trim(), 
+        status: document.getElementById("cfgAreaStatus").value 
+    };
+
+    try {
+        const res = await fetch(GAS_DICT_ENDPOINT, { method: "POST", body: JSON.stringify(payload) }); 
+        const r = await res.json();
+        if (r.status === 'success') {
+            if (payload.status === 'OBS') { 
+                state.areas = state.areas.filter(a => String(a.id) !== String(id)); 
+                await POEDB.delete("areas", id); 
+            } else { 
+                const idx = state.areas.findIndex(a => String(a.id) === String(id)); 
+                if(idx > -1) state.areas[idx] = payload; 
+                else state.areas.push(payload); 
+                await POEDB.save("areas", payload); 
+            }
+            window.closeAreaForm(); 
+            window.refreshUI(); 
+            await window.sysAlert("Área guardada exitosamente.", "success");
+        } else {
+            await window.sysAlert("Error del Servidor: " + r.message, "error");
+        }
+    } catch (err) { 
+        await window.sysAlert("Error de Red al guardar. Revise su conexión.", "error"); 
+    } finally { 
+        btn.disabled = false; 
+        btn.innerHTML = origHTML; 
+    }
+};
+
+// ==========================================
 // RED Y SINCRONIZACIÓN
 // ==========================================
 window.updateNet = function (status) {
