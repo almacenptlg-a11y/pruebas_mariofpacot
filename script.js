@@ -1330,123 +1330,127 @@ window.viewPOE = function (id, scrollToFlowchart = false) {
     }
 };
 
-window.exportPOEToWord = function (id) {
+window.exportPOEToWord = async function (id) {
     const poe = state.poes.find((p) => String(p.id) === String(id)); 
-    if (!poe) {
-        console.warn("Exportación abortada: No se encontró el POE con ID", id);
-        return;
-    }
-    
+    if (!poe) return;
+
+    // Mostrar alerta de procesamiento
+    const btn = document.getElementById("btnExportWord");
+    const originalText = btn.innerText;
+    btn.innerText = "Procesando Imagen...";
+    btn.disabled = true;
+
     let stepsHTML = "";
-    let flowWord = "";
-  
+    let flowchartImageTag = "";
+
     try {
         const arr = JSON.parse(poe.procedure);
-        
-        // 1. FLUJOGRAMA PARA MS WORD
-        flowWord = `<div style="text-align: center; margin: 30px 0; font-family: Arial, sans-serif;">
-            <div style="display: inline-block; background-color: #1e3a5f; color: #fff; padding: 8px 30px; border-radius: 20px; font-weight: bold; font-size: 13px; margin-bottom: 5px;">INICIO DEL PROCESO</div><br>`;
-        
-        arr.forEach((s, i) => {
-            let fCol = "#888888"; let fBg = "#ffffff"; let fLbl = "";
-            let devHtmlWord = "";
-            if (s.type === 'PCC') { fCol = "#dc2626"; fBg = "#fef2f2"; fLbl = "<strong style='color:#dc2626; font-size: 11px;'>🛑 PUNTO CRÍTICO DE CONTROL</strong><br>"; }
-            else if (s.type === 'PC') { fCol = "#d97706"; fBg = "#fffbeb"; fLbl = "<strong style='color:#d97706; font-size: 11px;'>⚠️ PUNTO DE CONTROL</strong><br>"; }
-            else if (s.type === 'SEG') { fCol = "#16a34a"; fBg = "#f0fff4"; fLbl = "<strong style='color:#16a34a; font-size: 11px;'>🛡️ SEGURIDAD</strong><br>"; }
-            
-            if ((s.type === 'PC' || s.type === 'PCC') && (s.devAction || s.devRoute)) {
-                let routeName = s.devRoute;
-                if (s.devRoute === "FIN") {
-                    routeName = "Fin / Desecho";
-                } else if (s.devRoute) {
-                    const targetIdx = arr.findIndex(x => String(x.id) === String(s.devRoute));
-                    if (targetIdx > -1) routeName = `Paso ${targetIdx + 1}`;
-                }
-                
-                devHtmlWord = `<br><div style="margin-top: 8px; font-size: 10px; color: #991b1b; background-color: #fee2e2; padding: 5px; border-radius: 4px; text-align: left;">
-                    <strong>Medidas ante Desviación:</strong><br>
-                    ${s.devLimit ? `• Límite: ${s.devLimit}<br>` : ''}
-                    ${s.devAction ? `• Acción: ${s.devAction}<br>` : ''}
-                    ${routeName ? `• Ruta: ${routeName}` : ''}
-                </div>`;
-            }
 
-            const tempDiv = document.createElement('div'); tempDiv.innerHTML = s.desc;
-            let stepTitle = `Paso ${i + 1}`;
-            const h3 = tempDiv.querySelector('h3'); const b = tempDiv.querySelector('b');
-            if (h3) { stepTitle = h3.innerText || h3.textContent; h3.remove(); } else if (b) { stepTitle = b.innerText || b.textContent; b.remove(); }
-            
-            const listItems = Array.from(tempDiv.querySelectorAll('li')).map(li => `• ${li.innerText || li.textContent}`);
-            tempDiv.querySelectorAll('ul, ol').forEach(list => list.remove());
-            
-            const rawText = (tempDiv.innerText || tempDiv.textContent).trim();
-            const remainingText = rawText.substring(0, 90) + (rawText.length > 90 ? "..." : "");
-            
-            let bodyText = "";
-            if (listItems.length > 0) bodyText = listItems.slice(0,4).join('<br>');
-            else if (remainingText) bodyText = remainingText;
-            
-            flowWord += `
-            <div style="margin: 0 auto; width: 2px; height: 25px; background-color: #555;"></div>
-            <div style="margin: 0 auto; width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid #555;"></div>
-            <div style="display: inline-block; border: 2px solid ${fCol}; background-color: ${fBg}; padding: 12px; width: 280px; text-align: center; font-size: 12px; margin-top: 3px; border-radius: 8px; box-shadow: 2px 2px 5px #ddd;">
-                ${fLbl}
-                <strong style="display: block; margin-bottom: 5px; border-bottom: 1px solid #ccc; padding-bottom: 5px; color: #111;">${stepTitle}</strong>
-                <div style="font-size: 11px; color: #444; text-align: left; line-height: 1.4;">${bodyText}</div>
-                ${devHtmlWord}
-            </div><br>`;
-        });
+        // --- 1. RENDERIZADO DEL FLUJOGRAMA A IMAGEN ---
+        // Necesitamos que el modal esté abierto y el flujograma visible para capturarlo
+        const flowchartContainer = document.querySelector("#flowchart-canvas");
         
-        flowWord += `
-        <div style="margin: 0 auto; width: 2px; height: 25px; background-color: #555;"></div>
-        <div style="margin: 0 auto; width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid #555;"></div>
-        <div style="display: inline-block; background-color: #1e3a5f; color: #fff; padding: 8px 30px; border-radius: 20px; font-weight: bold; font-size: 13px; margin-top: 3px;">FIN DEL PROCESO</div></div>`;
+        if (flowchartContainer) {
+            // Capturamos el elemento con html2canvas
+            // scale: 2 mejora la resolución para impresión
+            const canvas = await html2canvas(flowchartContainer, {
+                scale: 2,
+                useCORS: true,
+                backgroundColor: "#ffffff",
+                logging: false
+            });
+            
+            const imgData = canvas.toDataURL("image/png");
+            // width="600" asegura que quepa en el ancho útil de una hoja A4 en Word (aprox 16-17cm)
+            flowchartImageTag = `<div style="text-align:center; margin:20px 0;">
+                <img src="${imgData}" width="600" style="max-width:100%; height:auto; border:1px solid #eee;">
+            </div>`;
+        }
 
-        // 2. DESARROLLO DEL PROCEDIMIENTO
+        // --- 2. DESARROLLO DETALLADO ---
         stepsHTML = arr.map((s, i) => {
             let routeName = s.devRoute;
-            if (s.devRoute === "FIN") {
-                routeName = "Fin / Desecho";
-            } else if (s.devRoute) {
+            if (s.devRoute === "FIN") routeName = "Fin / Desecho";
+            else if (s.devRoute) {
                 const targetIdx = arr.findIndex(x => String(x.id) === String(s.devRoute));
                 if (targetIdx > -1) routeName = `Paso ${targetIdx + 1}`;
             }
 
             const devHtmlDoc = (s.type === 'PC' || s.type === 'PCC') && (s.devAction || s.devRoute) ? 
-                `<div style="margin-top: 10px; padding: 10px; background-color: #fef2f2; border: 1px solid #fecaca; font-size: 12px; color: #991b1b;">
+                `<div style="margin-top: 10px; padding: 10px; background-color: #fef2f2; border: 1px solid #fecaca; font-size: 11px; color: #991b1b;">
                     <strong>MEDIDAS ANTE DESVIACIÓN:</strong><br>
                     ${s.devLimit ? `<strong>Límite:</strong> ${s.devLimit}<br>` : ''}
                     ${s.devAction ? `<strong>Acción Correctiva:</strong> ${s.devAction}<br>` : ''}
                     ${routeName ? `<strong>Direccionamiento:</strong> ${routeName}` : ''}
                 </div>` : '';
 
-            return `<div style="margin-bottom: 25px;"><p><strong>Paso ${i + 1}</strong> <span style="color: #666; font-size: 12px;">[${s.type}]</span></p><div style="margin-top: 5px; line-height: 1.5;">${s.desc}</div>${devHtmlDoc}${s.image ? `<img src="${s.image}" width="400" style="border: 1px solid #ccc; margin-top: 10px; border-radius: 8px;">` : ""}</div>`;
+            return `<div style="margin-bottom: 25px; page-break-inside: avoid;">
+                <p style="font-size:12px; font-weight:bold; color:#1e3a5f;">Paso ${i + 1} [${s.type}]</p>
+                <div style="margin-top: 5px; font-size:11px; line-height: 1.5;">${s.desc}</div>
+                ${devHtmlDoc}
+                ${s.image ? `<br><img src="${s.image}" width="350" style="border: 1px solid #ccc; border-radius: 8px;">` : ""}
+            </div>`;
         }).join("");
+
     } catch (e) { 
-        stepsHTML = `<p>${poe.procedure}</p>`; 
+        console.error("Error renderizando flujograma para Word:", e);
+        flowchartImageTag = `<p style="color:red;">Error al generar la imagen del flujograma.</p>`; 
     }
 
+    // --- 3. ENSAMBLAJE DEL DOCUMENTO ---
     const catObj = state.areas.find((c) => c.areaAbbr === poe.subCategory); 
     const catName = catObj ? catObj.areaName : poe.subCategory;
     const isPOES = poe.code.startsWith('POES'); 
     const docTitle = isPOES ? 'Procedimiento Operativo Estandarizado de Saneamiento' : 'Procedimiento Operativo Estandarizado';
 
-    // 🧠 INYECCIÓN DE SALTOS DE PÁGINA: <br clear=all style='mso-special-character:line-break;page-break-before:always'>
-    const htmlStr = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>${poe.code}</title><style>body { font-family: 'Arial'; color: #000; } table { width: 100%; border-collapse: collapse; margin-bottom: 20px; } th, td { border: 1px solid #000; padding: 8px; text-align: left; vertical-align: top; } th { background-color: #f2f2f2; width: 25%; } h1 { color: #1e3a5f; font-size: 24px; text-transform: uppercase; text-align: center; border-bottom: 2px solid #1e3a5f; padding-bottom: 10px; margin-bottom: 20px; } h2 { color: #2d5a87; font-size: 16px; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-top: 25px; } ul { list-style-type: disc; margin-left: 20px; margin-bottom: 5px; } ol { list-style-type: decimal; margin-left: 20px; margin-bottom: 5px; } a { color: #0000EE; text-decoration: underline; } h3 { color: #1e3a5f; font-size: 14px; margin-top: 15px; margin-bottom: 5px; text-transform: uppercase; }</style></head><body>
-        <h1>La Genovesa Agroindustrias S.A.<br><span style="font-size:16px;">${docTitle}</span></h1>
-        <table><tr><th>Código:</th><td>${poe.code}</td><th>Versión:</th><td>v${poe.version} - ${poe.status}</td></tr><tr><th>Título:</th><td colspan="3"><strong>${poe.title}</strong></td></tr><tr><th>Área:</th><td>${catName}</td><th>Fecha:</th><td>${new Date(poe.date).toLocaleDateString()}</td></tr></table>
-        <h2>1. Contexto Operativo</h2><p><strong>Objetivo:</strong></p> ${poe.objective || "N/A"}<p><strong>Alcance:</strong></p> ${poe.scope || "N/A"}<p><strong>Responsabilidades:</strong></p> ${poe.responsibles || "N/A"}
-        <h2>2. Control y Recursos</h2><p><strong>Frecuencia:</strong></p> ${poe.monitoring || poe.frequency || "N/A"}<p><strong>Acciones Correctivas:</strong></p> ${poe.corrective_actions || "N/A"}<p><strong>Equipos y Materiales:</strong></p> ${poe.materials || "N/A"}<p><strong>Definiciones:</strong></p> ${poe.definitions || "N/A"}<p><strong>Registros:</strong></p> ${poe.records || "N/A"} | ${poe.references || ""}
-        
-        <br clear=all style='mso-special-character:line-break;page-break-before:always'>
-        <h2>3. Flujograma del Proceso</h2>${flowWord}
-        
-        <br clear=all style='mso-special-character:line-break;page-break-before:always'>
-        <h2>4. Desarrollo Detallado</h2><div style="border: 1px solid #000; padding: 15px;">${stepsHTML}</div>
-        
-        <table style="border: none; margin-top: 50px;"><tr style="border: none;">
-        <td style="border: none; text-align: center; width: 50%;">_________________________<br><strong>Elaborado/Editado por:</strong><br>${poe.lastEditor || poe.author || 'Responsable de Área'}</td>
-        <td style="border: none; text-align: center; width: 50%;">_________________________<br><strong>Aprobación Calidad</strong></td></tr></table></body></html>`;
+    const htmlStr = `
+        <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+        <head><meta charset='utf-8'><title>${poe.code}</title>
+        <style>
+            body { font-family: 'Arial', sans-serif; color: #333; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+            th, td { border: 1px solid #000; padding: 8px; text-align: left; vertical-align: top; font-size: 10px; }
+            th { background-color: #f2f2f2; width: 20%; }
+            h1 { color: #1e3a5f; font-size: 20px; text-transform: uppercase; text-align: center; border-bottom: 2px solid #1e3a5f; padding-bottom: 5px; }
+            h2 { color: #1e3a5f; font-size: 14px; border-bottom: 1px solid #ccc; padding-bottom: 3px; margin-top: 20px; text-transform: uppercase; }
+            .page-break { mso-special-character:line-break; page-break-before:always; }
+        </style>
+        </head>
+        <body>
+            <h1>La Genovesa Agroindustrias S.A.<br><span style="font-size:14px;">${docTitle}</span></h1>
+            <table>
+                <tr><th>Código:</th><td>${poe.code}</td><th>Versión:</th><td>v${poe.version} - ${poe.status}</td></tr>
+                <tr><th>Título:</th><td colspan="3"><strong>${poe.title}</strong></td></tr>
+                <tr><th>Área:</th><td>${catName}</td><th>Fecha:</th><td>${new Date(poe.date).toLocaleDateString()}</td></tr>
+            </table>
+
+            <h2>1. Contexto Operativo</h2>
+            <p><strong>Objetivo:</strong></p> ${poe.objective || "N/A"}
+            <p><strong>Alcance:</strong></p> ${poe.scope || "N/A"}
+            <p><strong>Responsabilidades:</strong></p> ${poe.responsibles || "N/A"}
+
+            <h2>2. Control y Recursos</h2>
+            <p><strong>Frecuencia:</strong></p> ${poe.monitoring || poe.frequency || "N/A"}
+            <p><strong>Acciones Correctivas:</strong></p> ${poe.corrective_actions || "N/A"}
+            <p><strong>Equipos y Materiales:</strong></p> ${poe.materials || "N/A"}
+            <p><strong>Registros:</strong></p> ${poe.records || "N/A"} | ${poe.references || ""}
+
+            <div class="page-break"></div>
+            <h2>3. Flujograma del Proceso (Visualización Certificada)</h2>
+            ${flowchartImageTag}
+
+            <div class="page-break"></div>
+            <h2>4. Desarrollo Detallado</h2>
+            <div style="border: 1px solid #eee; padding: 10px;">${stepsHTML}</div>
+
+            <table style="border: none; margin-top: 50px;">
+                <tr style="border: none;">
+                    <td style="border: none; text-align: center; width: 50%;">_________________________<br><strong>Elaborado por:</strong><br>${poe.lastEditor || poe.author}</td>
+                    <td style="border: none; text-align: center; width: 50%;">_________________________<br><strong>Aprobación Calidad</strong></td>
+                </tr>
+            </table>
+        </body>
+        </html>`;
 
     const blob = new Blob(["\ufeff", htmlStr], { type: "application/msword" }); 
     const a = document.createElement("a"); 
@@ -1455,6 +1459,10 @@ window.exportPOEToWord = function (id) {
     document.body.appendChild(a); 
     a.click(); 
     document.body.removeChild(a);
+
+    // Restaurar botón
+    btn.innerText = originalText;
+    btn.disabled = false;
 };
 
 // ==========================================
