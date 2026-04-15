@@ -215,15 +215,35 @@
       </div>
 
       <div id="emptyState" class="empty-state">
-        <div style="border: 2px dashed var(--border); border-radius: 16px; padding: 60px 40px; max-width: 500px; margin: 40px auto; display: flex; flex-direction: column; align-items: center; background: var(--bg-card); transition: all 0.2s ease;">
-          <div style="background: var(--bg-body); width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 24px;">
-            <i class="ph ph-file-csv" style="font-size: 40px; color: var(--primary);"></i>
+        
+        <div style="margin-bottom: 40px;">
+          <h1 class="font-headline" style="font-size: 42px; font-weight: 800; margin: 0 0 16px 0; letter-spacing: -1px;">
+            Convierte tus datos en <span style="color: var(--primary); font-style: italic;">reportes visuales</span>
+          </h1>
+          <p style="font-size: 16px; color: var(--text-muted); max-width: 600px; margin: 0 auto; line-height: 1.5;">
+            Arrastra y suelta tus archivos Excel o CSV aquí para comenzar a automatizar la limpieza y exportación de tu almacén.
+          </p>
+        </div>
+
+        <div class="dropzone-container" onclick="document.getElementById('fileInput').click()">
+          <div class="dropzone-glow"></div>
+          <div class="dropzone-card">
+            
+            <div class="dropzone-icon-wrapper">
+              <span class="material-symbols-outlined" style="font-size: 48px; font-variation-settings: 'wght' 300;">cloud_upload</span>
+            </div>
+            
+            <h3 class="dropzone-title">Suelta tus archivos de datos</h3>
+            <p class="dropzone-subtitle">Soporta formatos .xlsx, .xls y .csv (Hasta 50MB)</p>
+            
+            <div style="display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;">
+              <button class="btn btn-primary" style="padding: 12px 32px; font-size: 15px; font-weight: 700; border-radius: 12px; box-shadow: var(--shadow-glow);">
+                <span class="material-symbols-outlined" style="font-size: 20px;">upload_file</span>
+                Seleccionar Archivo
+              </button>
+            </div>
+
           </div>
-          <h2 style="font-size: 22px; font-weight: 700; margin: 0 0 10px 0;">Sube tus datos para comenzar</h2>
-          <p style="font-size: 14px; color: var(--text-muted); line-height: 1.5; margin: 0 0 32px 0;">Arrastra y suelta tu archivo Excel (.xlsx) o CSV en esta área, o selecciónalo desde tu equipo.</p>
-          <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()" style="padding: 0 28px; height: 44px; border-radius: 8px;">
-            <i class="ph ph-upload-simple"></i> Seleccionar Archivo
-          </button>
         </div>
       </div>
 
