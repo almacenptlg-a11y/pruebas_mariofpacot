@@ -187,36 +187,78 @@ body {
   display: flex;
 }
 
-/* Modal Overlay */
+/* =========================================
+   3. VENTANAS MODALES ENTERPRISE
+   ========================================= */
 .modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.6);
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4) !important; /* Fondo más oscuro */
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
   z-index: 2000;
   display: none;
   align-items: center;
   justify-content: center;
-  backdrop-filter: blur(2px);
+  padding: 20px;
 }
 
-.modal-overlay.active {
-  display: flex;
-}
+.modal-overlay.active { display: flex; }
 
 .modal-card {
-  background: var(--bg-card);
-  padding: 24px;
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-lg);
-  width: 400px;
-  max-width: 90%;
+  background: var(--bg-card) !important;
+  border-radius: var(--radius-xl) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: var(--shadow-editorial) !important;
+  width: 100%;
+  max-width: 550px;
+  max-height: 90vh;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  animation: fadeUp 0.1s ease;
+  overflow: hidden;
+  animation: fadeUp 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+  padding: 0 !important; /* Reseteamos padding del HTML */
+}
+
+/* Cabecera del Modal */
+.modal-header {
+  padding: 24px 32px !important;
+  border-bottom: 1px solid rgba(0,0,0,0.05) !important;
+  background: var(--bg-card);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+[data-theme="dark"] .modal-header {
+  border-bottom-color: rgba(255,255,255,0.05) !important;
+}
+
+.modal-title {
+  font-family: "Manrope", sans-serif;
+  font-size: 22px !important;
+  font-weight: 800 !important;
+  color: var(--text-main) !important;
+  margin: 0 !important;
+  letter-spacing: -0.5px;
+}
+
+/* Cuerpo del modal (Gris muy suave para contraste) */
+.modal-body {
+  padding: 32px !important;
+  background: var(--surface-container-low) !important;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px !important;
+}
+
+/* Botones estándar redondeados en los modales */
+.modal-body .btn {
+  border-radius: 12px !important;
+  font-weight: 600 !important;
+  padding: 12px 24px !important;
+  height: auto !important;
 }
 
 .sheet-list {
@@ -356,15 +398,14 @@ body {
 }
 
 /* =========================================
-   4. TABLA DE DATOS
+   2. TABLA DE DATOS (Bento Container)
    ========================================= */
 .data-container {
   flex: 1;
   overflow: hidden;
-  position: relative;
   display: flex;
   flex-direction: column;
-  padding: 0 16px 16px 16px;
+  padding: 24px;
 }
 
 .table-wrapper {
@@ -372,30 +413,73 @@ body {
   overflow: auto;
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  border-radius: var(--radius-xl); /* Curva amplia estilo Bento */
+  box-shadow: var(--shadow-editorial);
 }
 
 table {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
+}
+
+/* Cabeceras de Tabla Ultra-Limpias */
+thead th {
+  background: var(--surface-container-low) !important;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  border-bottom: 1px solid rgba(0,0,0,0.05) !important;
+  padding: 16px 20px !important;
+  font-family: "Inter", sans-serif;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  transition: background 0.2s;
+}
+
+[data-theme="dark"] thead th {
+  border-bottom-color: rgba(255,255,255,0.05) !important;
+}
+
+/* Celdas de datos */
+tbody td {
+  padding: 16px 20px !important;
+  border-bottom: 1px solid var(--border);
   font-size: 13px;
+  font-weight: 500;
+  color: var(--text-main);
+  white-space: nowrap;
+  transition: background-color 0.15s;
 }
 
-/* Filas pares con un fondo levísimo para guiar la vista */
-tbody tr:nth-child(even) td {
-  background: rgba(0, 0, 0, 0.015);
-}
+/* Eliminar el cebra tradicional por un hover sutil */
+tbody tr:nth-child(even) td { background: transparent; }
 
-/* Para el modo oscuro, hacemos el cebra inverso con luz */
-[data-theme="dark"] tbody tr:nth-child(even) td {
-  background: rgba(255, 255, 255, 0.02);
-}
-
-/* Tu hover existente se mantiene y sobreescribe el cebra al pasar el mouse */
 tbody tr:hover td {
-  background: var(--row-hover) !important;
+  background-color: var(--surface-container-low) !important;
+}
+
+/* Estado Activo/Seleccionado */
+tbody tr.row-selected td {
+  background-color: var(--primary-container) !important;
+}
+tbody tr.row-selected td:first-child {
+  box-shadow: inset 4px 0 0 0 var(--primary);
+}
+
+/* Totales en Sticky Footer */
+tfoot td {
+  position: sticky;
+  bottom: 0;
+  background: var(--surface-container-low) !important;
+  border-top: 1px solid rgba(0,0,0,0.05) !important;
+  font-weight: 800;
+  color: var(--primary);
+  z-index: 20;
+  padding: 16px 20px !important;
 }
 
 /* =========================================
@@ -976,168 +1060,86 @@ tbody tr.row-selected td:first-child {
   box-shadow: inset 3px 0 0 0 var(--primary);
 }
 
-/* REDISEÑO PREMIUM DE CABECERA (SaaS Style) */
+/* =========================================
+   1. TOPBAR PREMIUM (SaaS Glassmorphism)
+   ========================================= */
 .premium-header {
-  height: 90px;
-  padding: 0 32px;
-  background: var(--bg-card);
-  border-bottom: 1px solid var(--border);
-  position: relative;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  min-height: 80px;
+  height: auto;
+  padding: 16px 32px;
+  background: rgba(255, 255, 255, 0.85) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  box-shadow: 0 4px 20px -10px rgba(0, 0, 0, 0.05);
 }
 
-/* Línea de gradiente superior decorativa */
-.premium-header::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: linear-gradient(90deg, #0ea5e9, #6366f1, #ec4899);
+[data-theme="dark"] .premium-header {
+  background: rgba(15, 23, 42, 0.85) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
 }
 
 .header-left {
   display: flex;
   align-items: center;
   gap: 12px;
-  flex: 1; /* MAGIA: Toma todo el espacio sobrante de la barra */
-  min-width: 0; /* Previene que textos gigantes rompan el flexbox */
-  margin-right: 24px; /* Separación de seguridad con los botones */
+  flex: 1 1 350px;
+  min-width: 0; 
 }
 
 .header-right {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+  flex: 1 1 auto;
+  justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
-/* Título Gigante con Gradiente */
-.report-meta-premium {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  width: 100%;
-}
-
+/* Estilo del Título: Fuerte y limpio (Fuente Manrope) */
 .title-input-premium {
-  font-size: 30px !important;
-  font-weight: 900 !important;
-  letter-spacing: -1.5px;
+  font-family: "Manrope", sans-serif;
+  font-size: 24px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.5px;
   width: 100%;
   padding: 0;
   border: none;
   background: transparent;
-  /* El Gradiente de texto */
-  background-image: linear-gradient(90deg, #0f172a, #3b82f6);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--primary) !important;
   transition: all 0.2s ease;
   text-overflow: ellipsis;
   white-space: nowrap;
   overflow: hidden;
 }
-@media (max-width: 1024px) {
-  .title-input-premium {
-    width: 100% !important;
-    font-size: 24px !important;
-  }
-  .brand-right {
-    display: none;
-  }
-}
 
-[data-theme="dark"] .title-input-premium {
-  background-image: linear-gradient(90deg, #f8fafc, #38bdf8);
-}
-
-/* Cuando haces clic para editar el título, se ve normal */
 .title-input-premium:focus {
-  -webkit-text-fill-color: var(--text-main);
-  background-image: none;
-  background-color: var(--bg-body);
+  background-color: var(--surface-container-low);
   padding: 6px 14px;
   border-radius: 8px;
-  outline: 2px solid #6366f1;
-}
-/* Hacer que el texto de fondo (placeholder) sea más sutil */
-.title-input-premium::placeholder {
-  color: var(--text-muted);
-  opacity: 0.5;
-  -webkit-text-fill-color: rgba(
-    100,
-    116,
-    139,
-    0.5
-  ); /* Sobrescribe el gradiente para el placeholder */
+  outline: 2px solid var(--primary);
 }
 
-[data-theme="dark"] .title-input-premium::placeholder {
-  -webkit-text-fill-color: rgba(148, 163, 184, 0.3);
-}
-/* Autor Sutil */
 .author-wrapper-premium {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-muted);
-  margin-left: 4px;
-}
-
-.author-wrapper-premium i {
-  color: #6366f1;
-}
-
-.author-input-premium {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--text-muted);
-  background: transparent;
-  border: none;
-  border-bottom: 1px dashed var(--border);
-  padding: 2px 4px;
-  width: 180px;
-  transition: all 0.2s;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
-.author-input-premium:focus {
-  border-bottom-style: solid;
-  border-bottom-color: #6366f1;
-  outline: none;
-  color: var(--text-main);
-}
-
-/* Botones y Controles Rediseñados */
-.search-premium {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-.search-premium i {
-  position: absolute;
-  left: 14px;
-  color: var(--text-muted);
-  font-size: 16px;
-}
-.search-premium .search-input {
-  padding: 10px 16px 10px 38px;
-  border-radius: 24px;
-  border: 1px solid var(--border);
-  background: var(--bg-body);
-  width: 180px;
-  transition: all 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28);
-}
-.search-premium .search-input:focus {
-  width: 280px; /* Se expande suavemente al hacer clic */
-  border-color: #6366f1;
-  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
-  background: var(--bg-card);
-}
-
+/* Rediseño de Botones en Topbar */
 .btn-ghost {
   background: transparent;
   border: 1px solid transparent;
@@ -1149,21 +1151,16 @@ tbody tr.row-selected td:first-child {
   align-items: center;
   justify-content: center;
   font-size: 20px;
-}
-.btn-ghost:hover {
-  background: var(--bg-body);
-  border-color: var(--border);
-  color: var(--primary);
-}
-.danger-hover:hover {
-  color: var(--danger);
-  background: rgba(239, 68, 68, 0.1);
-  border-color: rgba(239, 68, 68, 0.2);
+  transition: all 0.2s ease;
 }
 
-/* Botón Exportar con Gradiente Fuerte */
+.btn-ghost:hover {
+  background: var(--surface-container-low) !important;
+  color: var(--primary) !important;
+}
+
 .btn-gradient {
-  background: linear-gradient(135deg, #0ea5e9, #6366f1);
+  background: var(--primary) !important;
   border: none;
   color: white !important;
   height: 42px;
@@ -1171,47 +1168,17 @@ tbody tr.row-selected td:first-child {
   border-radius: 12px;
   font-weight: 700;
   letter-spacing: 0.5px;
-  box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+  box-shadow: var(--shadow-glow) !important;
   display: flex;
   align-items: center;
   gap: 8px;
-  transition: all 0.2s ease;
+  transition: transform 0.2s, box-shadow 0.2s;
   cursor: pointer;
 }
-.btn-gradient i {
-  font-size: 16px;
-}
+
 .btn-gradient:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(99, 102, 241, 0.4);
-}
-
-/* El Logo Solicitado a la Derecha */
-.brand-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-left: 12px;
-  padding-left: 24px;
-  border-left: 2px solid var(--border);
-  font-size: 24px;
-  font-weight: 900;
-  letter-spacing: -1px;
-  /* Gradiente especial para el Logo */
-  background: linear-gradient(135deg, #10b981, #0ea5e9);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  user-select: none;
-}
-
-@media (max-width: 1024px) {
-  .title-input-premium {
-    width: 300px;
-    font-size: 24px !important;
-  }
-  .brand-right {
-    display: none;
-  } /* Ocultar el logo en tablets para dar espacio */
+  filter: brightness(1.1);
 }
 
 /* ==============================================================
