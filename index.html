@@ -26,8 +26,8 @@
 
   <div class="drag-overlay" id="dragOverlay">
     <div style="text-align: center;">
-      <i class="ph ph-file-arrow-up" style="font-size: 48px;"></i>
-      <p>Suelta el archivo aquí para abrirlo</p>
+      <i class="ph ph-file-arrow-up" style="font-size: 56px;"></i>
+      <p style="margin-top: 16px;">Suelta el archivo aquí</p>
     </div>
   </div>
 
@@ -35,37 +35,42 @@
 
   <div class="modal-overlay" id="sheetModal">
     <div class="modal-card">
-      <h3 style="margin:0; font-size:16px;">Seleccionar Hoja</h3>
-      <p style="margin:0; font-size:13px; color:var(--text-muted);">El archivo contiene varias hojas. Selecciona cuál
-        deseas cargar:</p>
-      <div class="sheet-list" id="sheetList"></div>
-      <button class="btn" style="align-self: flex-end;" id="btnCloseSheetModal">Cancelar</button>
+      <div class="modal-header">
+        <h3 class="modal-title">Seleccionar Hoja</h3>
+      </div>
+      <div class="modal-body" style="padding: 20px;">
+        <p style="font-size:13px; color:var(--text-muted); margin-bottom: 16px;">El archivo contiene varias hojas. Selecciona cuál deseas cargar:</p>
+        <div class="sheet-list" id="sheetList"></div>
+        <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
+          <button class="btn" id="btnCloseSheetModal">Cancelar</button>
+        </div>
+      </div>
     </div>
   </div>
 
   <div class="modal-overlay" id="exportModal">
     <div class="modal-card">
-      <h3 style="margin:0; font-size:16px;">Confirmar Datos del Reporte</h3>
-      <p style="margin:0; font-size:13px; color:var(--text-muted);">Verifica la información antes de generar el archivo.
-      </p>
-
-      <div style="display:flex; flex-direction:column; gap:12px; margin-top:10px;">
-        <div>
-          <label style="font-size:11px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:4px; text-transform:uppercase;">Título
-            del Documento</label>
-          <input type="text" class="form-input" id="confirmTitle" placeholder="Título del reporte">
-        </div>
-        <div>
-          <label style="font-size:11px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:4px; text-transform:uppercase;">Autor</label>
-          <input type="text" class="form-input" id="confirmAuthor" placeholder="Nombre del autor">
-        </div>
+      <div class="modal-header">
+        <h3 class="modal-title">Confirmar Exportación</h3>
       </div>
-
-      <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:20px;">
-        <button class="btn" id="btnCancelExport">Cancelar</button>
-        <button class="btn btn-primary" id="btnConfirmExport">
-          <i class="ph ph-check"></i> Confirmar y Exportar
-        </button>
+      <div class="modal-body" style="padding: 20px;">
+        <p style="font-size:13px; color:var(--text-muted); margin-bottom: 20px;">Verifica la información antes de generar el documento.</p>
+        <div style="display:flex; flex-direction:column; gap:16px;">
+          <div>
+            <label style="font-size:11px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:6px; text-transform:uppercase;">Título del Documento</label>
+            <input type="text" class="form-input" id="confirmTitle" placeholder="Ej: Reporte Mensual">
+          </div>
+          <div>
+            <label style="font-size:11px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:6px; text-transform:uppercase;">Autor</label>
+            <input type="text" class="form-input" id="confirmAuthor" placeholder="Nombre del autor">
+          </div>
+        </div>
+        <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:24px;">
+          <button class="btn" id="btnCancelExport">Cancelar</button>
+          <button class="btn btn-primary" id="btnConfirmExport">
+            <i class="ph ph-download-simple"></i> Generar Archivo
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -73,31 +78,29 @@
   <div class="modal-overlay" id="structureModal">
     <div class="modal-card" style="width: 800px; max-width: 95%;">
       <div class="modal-header">
-        <h3 class="modal-title">Definir Estructura de Datos</h3>
+        <h3 class="modal-title">Definir Estructura</h3>
       </div>
-      <div class="modal-body" style="padding: 16px;">
-        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">
-          1. Haz <strong>clic en la fila</strong> que contiene los títulos de las columnas (Encabezado).<br>
-          2. (Opcional) Indica cuántas filas ignorar al final (totales, notas al pie).
+      <div class="modal-body" style="padding: 20px;">
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
+          1. Haz <strong>clic en la fila</strong> que contiene los encabezados.<br>
+          2. Indica cuántas filas ignorar al final del documento.
         </p>
 
-        <div style="border: 1px solid var(--border); border-radius: 6px; overflow: auto; max-height: 400px; margin-bottom: 16px; background: var(--bg-body);">
-          <table id="previewTable" style="width: 100%; border-collapse: collapse;">
-          </table>
+        <div style="border: 1px solid var(--border); border-radius: 8px; overflow: auto; max-height: 350px; margin-bottom: 20px; background: var(--bg-body);">
+          <table id="previewTable" style="width: 100%; border-collapse: collapse;"></table>
         </div>
 
-        <div style="display: flex; gap: 16px; align-items: flex-end; justify-content: space-between; border-top: 1px solid var(--border); padding-top: 16px;">
-          <div style="display: flex; gap: 10px; align-items: center;">
+        <div style="display: flex; gap: 16px; align-items: center; justify-content: space-between; padding-top: 16px; border-top: 1px solid var(--border);">
+          <div style="display: flex; gap: 12px; align-items: center;">
             <div>
-              <label style="font-size: 11px; font-weight: 700; display: block; margin-bottom: 4px;">FILAS A OMITIR AL FINAL</label>
-              <input type="number" id="footerSkipCount" class="form-input" value="0" min="0" style="width: 80px;">
+              <label style="font-size: 11px; font-weight: 700; color:var(--text-muted); display: block; margin-bottom: 4px;">FILAS A OMITIR AL FINAL</label>
+              <input type="number" id="footerSkipCount" class="form-input" value="0" min="0" style="width: 90px; text-align: center;">
             </div>
-            <div style="font-size: 12px; color: var(--text-muted);">
-              Fila Encabezado: <strong id="selectedHeaderIndexDisplay" style="color: var(--primary);">Auto (1)</strong>
+            <div style="font-size: 13px; color: var(--text-muted); padding-left: 12px; border-left: 1px solid var(--border);">
+              Encabezado en fila: <strong id="selectedHeaderIndexDisplay" style="color: var(--primary);">Auto (1)</strong>
             </div>
           </div>
-
-          <div style="display: flex; gap: 8px;">
+          <div style="display: flex; gap: 10px;">
             <button class="btn" id="btnCancelStructure">Cancelar</button>
             <button class="btn btn-primary" id="btnConfirmStructure">
               <i class="ph ph-check"></i> Procesar Datos
@@ -150,50 +153,47 @@
           </div>
         </div>
 
-        <div class="input-group" style="width: 140px;">
-  <i class="ph ph-rows"></i>
-  <select id="densitySelect" class="form-select" style="padding-left: 32px; font-weight: 600; cursor: pointer;">
-    <option value="normal">Normal</option>
-    <option value="compact">Compacta</option>
-    <option value="relaxed">Relajada</option>
-  </select>
-</div>
+        <div class="input-group" style="width: 140px;" title="Densidad visual">
+          <i class="ph ph-rows"></i>
+          <select id="densitySelect" class="form-select" style="padding-left: 32px; font-weight: 600; cursor: pointer; border: none; background: transparent; box-shadow: none;">
+            <option value="normal">Normal</option>
+            <option value="compact">Compacta</option>
+            <option value="relaxed">Relajada</option>
+          </select>
+        </div>
 
-<button class="btn btn-ghost" onclick="app.undo()" title="Deshacer última edición (Ctrl+Z)">
+        <button class="btn btn-ghost" onclick="app.undo()" title="Deshacer edición (Ctrl+Z)">
           <i class="ph ph-arrow-u-up-left"></i>
         </button>
 
-
-        <button class="btn btn-ghost" onclick="app.toggleTheme()" title="Cambiar Tema Dark/Light">
+        <button class="btn btn-ghost" onclick="app.toggleTheme()" title="Cambiar Tema">
           <i class="ph ph-moon" id="themeIcon"></i>
         </button>
 
-       <div style="position:relative">
-  <button class="btn btn-gradient" id="btnExport" onclick="app.toggleMenu('exportMenu')">
-    <span>Exportar</span> <i class="ph ph-caret-down"></i>
-  </button>
-  <div id="exportMenu" class="dropdown" style="right:0; top:55px; width:200px; padding:8px;">
-    <div class="dropdown-item" onclick="app.exportTo('xlsx')">
-      <i class="ph ph-file-xls" style="color:var(--success)"></i> Excel (.xlsx)
-    </div>
-    
-    <div class="dropdown-item" onclick="app.exportTo('csv')">
-      <i class="ph ph-file-text" style="color:var(--text-muted)"></i> CSV (Datos puros)
-    </div>
+        <div style="position:relative">
+          <button class="btn btn-gradient" id="btnExport" onclick="app.toggleMenu('exportMenu')" title="Opciones de Exportación">
+            <span>Exportar</span> <i class="ph ph-caret-down"></i>
+          </button>
+          <div id="exportMenu" class="dropdown" style="right:0; top:55px; width:220px; padding:8px;">
+            <div class="dropdown-item" onclick="app.exportTo('xlsx')">
+              <i class="ph ph-file-xls" style="color:var(--success)"></i> Excel (.xlsx)
+            </div>
+            <div class="dropdown-item" onclick="app.exportTo('csv')">
+              <i class="ph ph-file-text" style="color:var(--text-muted)"></i> CSV (Datos puros)
+            </div>
+            <div class="dropdown-item" onclick="app.openCsvMapper()">
+              <i class="ph ph-file-csv" style="color:#f59e0b"></i> CSV AlmacénPT
+            </div>
+            <div class="dropdown-item" onclick="app.exportTo('html')">
+              <i class="ph ph-browser" style="color:var(--primary)"></i> HTML Interactivo
+            </div>
+            <div class="dropdown-item" onclick="app.exportTo('pdf')">
+              <i class="ph ph-file-pdf" style="color:var(--danger)"></i> PDF Estático
+            </div>
+          </div>
+        </div>
 
-    <div class="dropdown-item" onclick="app.openCsvMapper()">
-      <i class="ph ph-file-csv" style="color:#f59e0b"></i> CSV AlmacenPT
-    </div>
-    <div class="dropdown-item" onclick="app.exportTo('html')">
-      <i class="ph ph-browser" style="color:var(--primary)"></i> HTML Interactivo
-    </div>
-    <div class="dropdown-item" onclick="app.exportTo('pdf')">
-      <i class="ph ph-file-pdf" style="color:var(--danger)"></i> PDF Estático
-    </div>
-  </div>
-</div>
-
-        <button class="btn btn-ghost danger-hover" id="btnResetPrefs" title="Restaurar configuración visual">
+        <button class="btn btn-ghost danger-hover" id="btnResetPrefs" title="Restaurar de fábrica">
           <i class="ph ph-arrow-counter-clockwise"></i>
         </button>
 
@@ -211,18 +211,20 @@
 
       <div id="loadingState" class="empty-state hidden">
         <div class="loader"></div>
-        <p style="margin-top: 15px;">Procesando archivo...</p>
+        <p style="margin-top: 16px; font-weight: 500;">Procesando información...</p>
       </div>
 
       <div id="emptyState" class="empty-state">
-        <div style="background: linear-gradient(135deg, rgba(16,185,129,0.1), rgba(14,165,233,0.1)); padding: 24px; border-radius: 50%; margin-bottom: 24px;">
-          <i class="ph ph-file-csv empty-icon" style="margin: 0; background: linear-gradient(135deg, #10b981, #0ea5e9); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 72px;"></i>
+        <div style="border: 2px dashed var(--border); border-radius: 16px; padding: 60px 40px; max-width: 500px; margin: 40px auto; display: flex; flex-direction: column; align-items: center; background: var(--bg-card); transition: all 0.2s ease;">
+          <div style="background: var(--bg-body); width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 24px;">
+            <i class="ph ph-file-csv" style="font-size: 40px; color: var(--primary);"></i>
+          </div>
+          <h2 style="font-size: 22px; font-weight: 700; margin: 0 0 10px 0;">Sube tus datos para comenzar</h2>
+          <p style="font-size: 14px; color: var(--text-muted); line-height: 1.5; margin: 0 0 32px 0;">Arrastra y suelta tu archivo Excel (.xlsx) o CSV en esta área, o selecciónalo desde tu equipo.</p>
+          <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()" style="padding: 0 28px; height: 44px; border-radius: 8px;">
+            <i class="ph ph-upload-simple"></i> Seleccionar Archivo
+          </button>
         </div>
-        <h2 style="font-size: 24px; font-weight: 800; margin-bottom: 8px; color: var(--text-main);">Bienvenido a XLSX Filer</h2>
-        <p style="max-width: 400px; line-height: 1.5; margin-bottom: 24px;">Arrastra y suelta tu archivo Excel (.xlsx) o CSV aquí, o haz click al boton para seleccionar en el explorador de archivos.</p>
-        <button class="btn btn-gradient" onclick="document.getElementById('fileInput').click()" style="padding: 0 30px; height: 48px; font-size: 15px;">
-          <i class="ph ph-upload-simple"></i> Cargar Archivo
-        </button>
       </div>
 
       <div id="tableWrapper" class="table-wrapper hidden">
@@ -236,12 +238,12 @@
     </main>
 
     <footer class="footer-bar hidden" id="appFooter">
-      <div id="statusMsg">0 registros</div>
+      <div id="statusMsg" style="font-weight: 600;">0 registros</div>
       <div class="pagination">
-        <span class="page-info">Página <strong id="currPage">1</strong> de <strong id="totalPages">1</strong></span>
+        <span class="page-info">Página <strong id="currPage" style="color:var(--primary)">1</strong> de <strong id="totalPages">1</strong></span>
         <button class="btn btn-icon" id="btnPrev" disabled><i class="ph ph-caret-left"></i></button>
         <button class="btn btn-icon" id="btnNext" disabled><i class="ph ph-caret-right"></i></button>
-        <select id="pageSize" class="form-input" style="width: auto; padding: 4px 8px;">
+        <select id="pageSize" class="form-input" style="width: auto; padding: 4px 10px; margin-left: 8px;">
           <option value="100">100 / pág</option>
           <option value="500">500 / pág</option>
           <option value="1000">1000 / pág</option>
@@ -251,63 +253,62 @@
   </div>
 
   <div class="modal-overlay" id="csvMapModal">
-    <div class="modal-card" style="width: 500px;">
+    <div class="modal-card" style="width: 520px;">
       <div class="modal-header">
-        <h3 class="modal-title">CSV AlmacenPT</h3>
+        <h3 class="modal-title">Exportar: CSV AlmacénPT</h3>
       </div>
-      <div class="modal-body" style="padding: 20px; gap: 16px;">
-        <p style="font-size:13px; color:var(--text-muted);">Asigna las columnas de tu archivo a los campos requeridos.</p>
+      <div class="modal-body" style="padding: 20px; gap: 12px;">
+        <p style="font-size:13px; color:var(--text-muted); margin-bottom: 8px;">Asigna las columnas de tu archivo a los campos requeridos por el sistema de almacén.</p>
 
-        <div class="mapping-row">
+        <div class="mapping-row" style="background: transparent; border: 1px solid var(--border); padding: 16px; border-radius: 8px;">
           <label class="mapping-label">1. LOCALIDAD</label>
-          <div style="display:flex; flex-direction:column; gap:6px;">
+          <div style="display:flex; flex-direction:column; gap:8px;">
             <select id="mapLocalidad" class="form-select"></select>
-            <div style="display:flex; align-items:center; gap:8px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-top: 4px;">
               <input type="checkbox" id="chkManualLocalidad" onchange="app.toggleLocalidadInput()">
-              <label for="chkManualLocalidad" style="font-size:12px; cursor:pointer">No existe en archivo (Usar valor fijo)</label>
+              <label for="chkManualLocalidad" style="font-size:12px; color:var(--text-muted); cursor:pointer;">No existe en el archivo (Escribir valor fijo)</label>
             </div>
-            <input type="text" id="inputManualLocalidad" class="form-input hidden" placeholder="Escribe la localidad (ej: LIMA)">
+            <input type="text" id="inputManualLocalidad" class="form-input hidden" placeholder="Ej: LIMA">
           </div>
         </div>
 
-        <div class="mapping-row">
+        <div class="mapping-row" style="background: transparent; border: 1px solid var(--border); padding: 16px; border-radius: 8px;">
           <label class="mapping-label">2. SCAN_CODE</label>
           <select id="mapScanCode" class="form-select"></select>
         </div>
 
-        <div class="mapping-row">
+        <div class="mapping-row" style="background: transparent; border: 1px solid var(--border); padding: 16px; border-radius: 8px;">
           <label class="mapping-label">3. PRODUCTO X</label>
           <select id="mapProducto" class="form-select"></select>
         </div>
 
-        <div class="mapping-row">
+        <div class="mapping-row" style="background: transparent; border: 1px solid var(--border); padding: 16px; border-radius: 8px;">
           <label class="mapping-label">4. PEDIDO</label>
           <select id="mapPedido" class="form-select"></select>
         </div>
 
-        <div class="mapping-row">
+        <div class="mapping-row" style="background: transparent; border: 1px solid var(--border); padding: 16px; border-radius: 8px;">
           <label class="mapping-label">5. ORDEN DE COMPRA</label>
-          <div style="display:flex; flex-direction:column; gap:6px;">
+          <div style="display:flex; flex-direction:column; gap:8px;">
             <select id="mapOrdenCompra" class="form-select"></select>
-
-            <div style="display:flex; align-items:center; gap:8px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-top: 4px;">
               <input type="checkbox" id="chkAutoOC" onchange="app.toggleAutoOC()">
-              <label for="chkAutoOC" style="font-size:12px; cursor:pointer">Generar ID Automático (Fecha_Hora)</label>
+              <label for="chkAutoOC" style="font-size:12px; color:var(--text-muted); cursor:pointer;">Generar ID Automático (Fecha_Hora)</label>
             </div>
-
-            <input type="text" id="previewAutoOC" class="form-input hidden" disabled style="background:var(--bg-body); color:var(--text-muted); font-family:monospace;">
+            <input type="text" id="previewAutoOC" class="form-input hidden" disabled style="background:var(--bg-body); font-family:monospace;">
           </div>
-
-          <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:10px;">
-            <button class="btn" onclick="document.getElementById('csvMapModal').classList.remove('active')">Cancelar</button>
-            <button class="btn btn-primary" onclick="app.generateCustomCSV()">
-              <i class="ph ph-download-simple"></i> Descargar CSV
-            </button>
-          </div>
+        </div>
+        
+        <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:24px; padding-top: 16px; border-top: 1px solid var(--border);">
+          <button class="btn" onclick="document.getElementById('csvMapModal').classList.remove('active')">Cancelar</button>
+          <button class="btn btn-primary" onclick="app.generateCustomCSV()">
+            <i class="ph ph-download-simple"></i> Descargar CSV
+          </button>
         </div>
       </div>
     </div>
   </div>
+
   <script src="script.js"></script>
 
 </body>
