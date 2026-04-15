@@ -1121,7 +1121,6 @@ renderMenuContent(col, container) {
        const select = document.createElement("select");
        select.id = "searchColumn";
        select.className = "modern-search-select"; 
-       select.style.maxWidth = "220px"; // Ancho máximo
        
        wrapper.insertBefore(select, this.els.globalSearch);
        this.els.searchColumn = select;
@@ -1134,14 +1133,14 @@ renderMenuContent(col, container) {
 
     const currentVal = this.els.searchColumn.value;
     
-    // Texto exacto como en tu captura de pantalla
+    // Texto exacto y limpio
     this.els.searchColumn.innerHTML = '<option value="all">Todas</option>';
     
     const visibleCols = this.columns.filter(c => !this.colSettings[c].hidden);
     visibleCols.forEach(c => {
        const opt = document.createElement('option');
        opt.value = c;
-       opt.innerText = c; // Quitamos el prefijo "En:" para que luzca limpio
+       opt.innerText = c; 
        this.els.searchColumn.appendChild(opt);
     });
     
@@ -2026,10 +2025,68 @@ showToast(msg, type = "info") {
   }
 }
 
+// =================================================================
+// 🚀 INICIALIZACIÓN Y CONFIGURACIÓN MÓVIL
+// =================================================================
 document.addEventListener("DOMContentLoaded", () => {
     try {
         window.app = new DataViewerApp();
     } catch (e) {
         alert("Error crítico iniciando la app: " + e.message);
+    }
+
+    // 📱 CONFIGURACIÓN DEL MENÚ LATERAL MÓVIL PREMIUM
+    const headerRight = document.querySelector('.header-right');
+    const premiumHeader = document.querySelector('.premium-header');
+
+    // Limpiamos elementos viejos para evitar duplicados en recargas
+    document.querySelectorAll('.mobile-menu-overlay, .action-buttons-wrapper, .mobile-menu-btn').forEach(e => e.remove());
+
+    if (headerRight && premiumHeader) {
+        // 1. Crear el envoltorio inteligente (Lo enviaremos al BODY)
+        const wrapper = document.createElement('div');
+        wrapper.className = 'action-buttons-wrapper';
+
+        // 2. Cabecera del menú lateral (Solo visible en móvil)
+        wrapper.innerHTML = `
+           <div class="mobile-sidebar-header">
+               <span class="mobile-sidebar-title">Configuración</span>
+               <button class="close-sidebar-btn"><i class="ph ph-x" style="font-size: 24px;"></i></button>
+           </div>
+        `;
+
+        // 3. Extraer SOLO los botones (Dejamos el buscador quieto)
+        const childrenToMove = Array.from(headerRight.children).filter(el => 
+            !el.classList.contains('search-premium') && 
+            !el.classList.contains('search-unified-wrapper') &&
+            !el.classList.contains('brand-right') &&
+            !el.classList.contains('mobile-menu-btn')
+        );
+
+        childrenToMove.forEach(child => wrapper.appendChild(child));
+        
+        // 🚀 Adjuntamos el menú al BODY
+        document.body.appendChild(wrapper); 
+
+        // 4. Crear el botón hamburguesa
+        const hamburger = document.createElement('button');
+        hamburger.className = 'mobile-menu-btn';
+        hamburger.innerHTML = `<i class="ph ph-list" style="font-size: 24px;"></i>`;
+        headerRight.appendChild(hamburger);
+
+        // 5. Crear la cortina oscura de fondo
+        const overlay = document.createElement('div');
+        overlay.className = 'mobile-menu-overlay';
+        document.body.appendChild(overlay);
+
+        // 6. Lógica de apertura/cierre
+        const toggleMenu = () => {
+            wrapper.classList.toggle('open');
+            overlay.classList.toggle('active');
+        };
+        
+        hamburger.addEventListener('click', toggleMenu);
+        overlay.addEventListener('click', toggleMenu);
+        wrapper.querySelector('.close-sidebar-btn').addEventListener('click', toggleMenu);
     }
 });
