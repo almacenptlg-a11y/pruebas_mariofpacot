@@ -2026,7 +2026,7 @@ showToast(msg, type = "info") {
 }
 
 // =================================================================
-// 🚀 INICIALIZACIÓN Y CONFIGURACIÓN MÓVIL
+// 🚀 INICIALIZACIÓN Y CONFIGURACIÓN MÓVIL (CORREGIDO)
 // =================================================================
 document.addEventListener("DOMContentLoaded", () => {
     try {
@@ -2043,11 +2043,12 @@ document.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll('.mobile-menu-overlay, .action-buttons-wrapper, .mobile-menu-btn').forEach(e => e.remove());
 
     if (headerRight && premiumHeader) {
-        // 1. Crear el envoltorio inteligente (Lo enviaremos al BODY)
+
+        // 1. Crear el envoltorio
         const wrapper = document.createElement('div');
         wrapper.className = 'action-buttons-wrapper';
 
-        // 2. Cabecera del menú lateral (Solo visible en móvil)
+        // 2. Cabecera del menú lateral (Solo visible en móviles)
         wrapper.innerHTML = `
            <div class="mobile-sidebar-header">
                <span class="mobile-sidebar-title">Configuración</span>
@@ -2065,8 +2066,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         childrenToMove.forEach(child => wrapper.appendChild(child));
         
-        // 🚀 Adjuntamos el menú al BODY
-        document.body.appendChild(wrapper); 
+        // 🚀 CORRECCIÓN: Adjuntamos los botones de vuelta a la cabecera para que se vean en PC
+        headerRight.appendChild(wrapper); 
 
         // 4. Crear el botón hamburguesa
         const hamburger = document.createElement('button');
@@ -2079,10 +2080,13 @@ document.addEventListener("DOMContentLoaded", () => {
         overlay.className = 'mobile-menu-overlay';
         document.body.appendChild(overlay);
 
-        // 6. Lógica de apertura/cierre
+        // 6. Lógica de apertura/cierre inteligente
         const toggleMenu = () => {
-            wrapper.classList.toggle('open');
+            const isOpen = wrapper.classList.toggle('open');
             overlay.classList.toggle('active');
+            
+            // MAGIA: Elevamos la cabecera (y sus botones) por encima de la cortina oscura
+            premiumHeader.style.zIndex = isOpen ? '9999' : '50';
         };
         
         hamburger.addEventListener('click', toggleMenu);
