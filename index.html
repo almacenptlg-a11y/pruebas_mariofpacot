@@ -22,6 +22,7 @@
   <link rel="stylesheet" href="styles.css">
 
   <style>
+    /* Oculta la antigua línea morada superior */
     .premium-header::before {
       display: none !important;
     }
@@ -32,6 +33,7 @@
 
   <div class="drag-overlay" id="dragOverlay">
     <div style="text-align: center;">
+      <i class="ph ph-file-arrow-down" style="font-size: 80px; color: var(--primary); margin-bottom: 16px; display: block;"></i>
       <p style="margin: 0; font-family: 'Manrope', sans-serif; font-size: 32px; font-weight: 700; color: var(--primary);">Suelta el archivo aquí</p>
     </div>
   </div>
@@ -235,13 +237,13 @@
           <div class="dropzone-glow"></div>
           <div class="dropzone-card">
             <div class="dropzone-icon-wrapper">
-              <span class="material-symbols-outlined" style="font-size: 48px; font-variation-settings: 'wght' 300;">cloud_upload</span>
+              <i class="ph ph-cloud-arrow-up" style="font-size: 48px;"></i>
             </div>
             <h3 class="dropzone-title">Suelta tus archivos de datos</h3>
             <p class="dropzone-subtitle">Soporta formatos .xlsx, .xls y .csv (Hasta 50MB)</p>
             <div style="display: flex; justify-content: center;">
               <button class="btn btn-primary" style="padding: 12px 32px; font-size: 15px; font-weight: 700; border-radius: 12px; box-shadow: var(--shadow-glow);">
-                <span class="material-symbols-outlined" style="font-size: 20px;">upload_file</span>
+                <i class="ph ph-file-arrow-up" style="font-size: 20px; margin-right: 8px;"></i>
                 Seleccionar Archivo
               </button>
             </div>
