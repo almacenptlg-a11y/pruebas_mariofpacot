@@ -1,2096 +1,1157 @@
-// --- DETECTOR GLOBAL DE ERRORES --- //
-window.onerror = function(msg, url, lineNo, columnNo, error) {
-  alert("Error interno detectado:\n" + msg + "\nLínea: " + lineNo);
-  return false;
+// ==========================================
+// CONFIGURACIÓN DE GOOGLE APPS SCRIPT
+// ==========================================
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzYcfPzxhhlU4WOC0g8UvOUTQtypRNTvPYGGGpcMPPw9PuJPxsKirGPrg2G1csBDVdH/exec';
+
+// ==========================================
+// 0. RECUPERACIÓN INMEDIATA DEL TEMA (Anti-FOUC)
+// ==========================================
+// Ejecutamos esto inmediatamente para evitar el parpadeo blanco al recargar
+const savedTheme = sessionStorage.getItem('moduloResiduosTheme');
+if (savedTheme === 'dark') {
+    document.documentElement.classList.add('dark');
+}
+// ==========================================
+// CONFIGURACIÓN DE PROCESAMIENTO DE IMÁGENES (HACCP OPTIMIZED)
+// ==========================================
+const MAX_IMAGE_WIDTH = 1024; // Ancho máximo en px (Suficiente para ver detalles)
+const IMAGE_QUALITY = 0.7;    // Calidad de compresión JPEG (0.0 a 1.0)
+
+// ==========================================
+// 1. ESTADO CENTRALIZADO Y COMUNICACIÓN HUB
+// ==========================================
+const AppState = {
+  user: null,
+  isSessionVerified: false
 };
 
-class DataViewerApp {
-  constructor() {
-    this.rawData = [];
-    this.visibleData = [];
-    this.columns = [];
-    this.colSettings = {};
-    
-    // Pagination params
-    this.pageSize = 100;
-    this.currentPage = 1;
+let chartAreaInstancia = null;
+let chartTipoInstancia = null;
+let datosCargados = false; 
+let isFetchingDashboard = false;
+let todosLosRegistros = []; 
+let registrosFiltradosActuales = []; 
 
-    // Sort/Filter state
-    this.sortCol = null;
-    this.sortAsc = true;
-    this.searchQuery = "";
-    this.activeMenuCol = null;
-
-    // Control del Web Worker y Vistas Previas
-    this.worker = null;
-    this.tempPreviewMatrix = [];
-    this.tempTotalRows = 0;
-    this.tempHeaderIdx = 0;
-
-    // Historial Ctrl+Z
-    this.undoStack = [];
-
-    this.initElements();
-    this.initEvents();
+// ESCUCHADOR DE MENSAJES (WINDOW.PARENT)
+window.addEventListener('message', (event) => {
+  const { type, user, theme } = event.data || {};
+  
+  if (type === 'THEME_UPDATE') {
+      document.documentElement.classList.toggle('dark', theme === 'dark');
+      sessionStorage.setItem('moduloResiduosTheme', theme); // Persistimos el tema
   }
 
-  initElements() {
-    this.filterSummary = document.getElementById("filterSummaryBar");
-    this.els = {
-      fileInput: document.getElementById("fileInput"),
-      emptyState: document.getElementById("emptyState"),
-      loadingState: document.getElementById("loadingState"),
-      tableWrapper: document.getElementById("tableWrapper"),
-      footer: document.getElementById("appFooter"),
-      tbody: document.getElementById("tBody"),
-      thead: document.getElementById("tHead"),
-      tfoot: document.getElementById("tFoot"),
-      colMenu: document.getElementById("colMenu"),
-      exportMenu: document.getElementById("exportMenu"),
-      globalSearch: document.getElementById("globalSearch"),
-      densitySelect: document.getElementById("densitySelect"),
-      dragOverlay: document.getElementById("dragOverlay"),
-      ctxMenu: document.getElementById("columnContextMenu"),
-      colListContainer: document.getElementById("colListContainer"),
-      reportTitle: document.getElementById("reportTitle"),
-      reportAuthor: document.getElementById("reportAuthor"),
-      sheetModal: document.getElementById("sheetModal"),
-      sheetList: document.getElementById("sheetList"),
-      exportModal: document.getElementById("exportModal"),
-      confirmTitle: document.getElementById("confirmTitle"),
-      confirmAuthor: document.getElementById("confirmAuthor"),
-      btnConfirmExport: document.getElementById("btnConfirmExport"),
-      btnCancelExport: document.getElementById("btnCancelExport"),
-
-      structureModal: document.getElementById("structureModal"),
-      previewTable: document.getElementById("previewTable"),
-      footerSkipCount: document.getElementById("footerSkipCount"),
-      selectedHeaderDisplay: document.getElementById("selectedHeaderIndexDisplay"),
-      btnConfirmStructure: document.getElementById("btnConfirmStructure"),
-      btnCancelStructure: document.getElementById("btnCancelStructure"),
-      csvMapModal: document.getElementById("csvMapModal"),
-      mapLocalidad: document.getElementById("mapLocalidad"),
-      mapScanCode: document.getElementById("mapScanCode"),
-      mapProducto: document.getElementById("mapProducto"),
-      mapPedido: document.getElementById("mapPedido"),
-      mapOrdenCompra: document.getElementById("mapOrdenCompra"),
-      chkAutoOC: document.getElementById("chkAutoOC"),
-      previewAutoOC: document.getElementById("previewAutoOC"),
-      chkManualLocalidad: document.getElementById("chkManualLocalidad"),
-      inputManualLocalidad: document.getElementById("inputManualLocalidad")
-    };
-  }
-
-  initEvents() {
-    if(this.els.fileInput) {
-      this.els.fileInput.addEventListener('change', (e) => {
-        if (e.target.files && e.target.files.length > 0) {
-          this.handleFiles(e.target.files);
-        }
-      });
-      this.els.fileInput.addEventListener('click', (e) => {
-        e.target.value = null; 
-      });
-    }
-
-    const btnReset = document.getElementById("btnResetPrefs");
-    if(btnReset) btnReset.addEventListener("click", () => this.resetPreferences());
-
-    window.addEventListener('dragover', (e) => { e.preventDefault(); this.els.dragOverlay.classList.add('active'); });
-    window.addEventListener('dragleave', (e) => { if (e.target === this.els.dragOverlay) this.els.dragOverlay.classList.remove('active'); });
-    window.addEventListener('drop', (e) => {
-      e.preventDefault();
-      this.els.dragOverlay.classList.remove('active');
-      if (e.dataTransfer.files.length) this.handleFiles(e.dataTransfer.files);
-    });
-
-    document.getElementById("btnPrev").addEventListener("click", () => this.changePage(-1));
-    document.getElementById("btnNext").addEventListener("click", () => this.changePage(1));
-    document.getElementById("pageSize").addEventListener("change", (e) => {
-      this.pageSize = parseInt(e.target.value);
-      this.currentPage = 1;
-      this.savePreferences();
-      this.render();
-    });
-
-   // =================================================================
-    // 🚀 BUSCADOR OPTIMIZADO (DEBOUNCE)
-    // =================================================================
-    let searchTimeout;
-    this.els.globalSearch.addEventListener("input", (e) => {
-      // 1. Cancelamos la búsqueda anterior si el usuario sigue tecleando
-      clearTimeout(searchTimeout);
+  if (type === 'SESSION_SYNC' && user) {
+      document.documentElement.classList.toggle('dark', theme === 'dark');
+      if (theme) sessionStorage.setItem('moduloResiduosTheme', theme); // Persistimos el tema
       
-      // 2. Mostramos el ícono de carga para darle feedback visual inmediato
-      this.setLoading(true);
-      const loadingText = this.els.loadingState.querySelector("p");
-      if(loadingText) loadingText.innerText = "Buscando coincidencias...";
-
-      // 3. Esperamos 350 milisegundos después de que deje de teclear
-      searchTimeout = setTimeout(() => {
-        this.searchQuery = e.target.value.toLowerCase();
-        this.currentPage = 1;
-        
-        // Usamos un pequeñísimo retardo (10ms) para permitir que el navegador 
-        // dibuje la pantalla de carga antes de congelarse procesando los datos
-        setTimeout(() => {
-            this.processData();
-            this.setLoading(false);
-        }, 10);
-      }, 350); 
-    });
-
-    document.getElementById("btnCloseSheetModal").addEventListener("click", () => {
-        this.els.sheetModal.classList.remove("active");
-        this.setLoading(false);
-        this.resetState();
-    });
-
-    this.els.btnCancelExport.addEventListener("click", () => {
-      this.els.exportModal.classList.remove("active");
-      this.pendingExportFormat = null;
-    });
-
-    this.els.btnConfirmExport.addEventListener("click", () => {
-      this.els.reportTitle.value = this.els.confirmTitle.value;
-      this.els.reportAuthor.value = this.els.confirmAuthor.value;
-      this.executeExport(this.pendingExportFormat);
-      this.els.exportModal.classList.remove("active");
-      this.pendingExportFormat = null;
-    });
-
-    this.els.btnCancelStructure.addEventListener("click", () => {
-      this.els.structureModal.classList.remove("active");
-      this.resetState();
-    });
-
-    this.els.btnConfirmStructure.addEventListener("click", () => {
-      this.applyStructureAndLoad();
-    });
-
-    this.els.footerSkipCount.addEventListener("input", () => {
-      this.renderPreviewTableRows();
-    });
-
-    document.addEventListener("click", (e) => {
-      if (!e.target.closest("#btnColumns") && !e.target.closest("#colMenu"))
-        this.els.colMenu.classList.remove("show");
-      if (!e.target.closest("#btnExport") && !e.target.closest("#exportMenu"))
-        this.els.exportMenu.classList.remove("show");
-      if (!e.target.closest("#columnContextMenu") && !e.target.closest(".btn-col-menu"))
-        this.els.ctxMenu.classList.remove("show");
-    });
-
-    document.addEventListener("keydown", (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return; 
-        e.preventDefault(); 
-        this.undo();        
-      }
-    });
-    // Evento para cambiar la densidad de la tabla
-    if(this.els.densitySelect) {
-      this.els.densitySelect.addEventListener("change", (e) => {
-        this.changeDensity(e.target.value);
-      });
-    }
-
-// =================================================================
-    // 🚀 NUEVO: PEGADO MÁGICO DESDE EL PORTAPAPELES (CTRL+V)
-    // =================================================================
-    window.addEventListener('paste', (e) => {
-      // 1. REGLA DE SEGURIDAD: Si el usuario está escribiendo en un cuadro de texto 
-      // (ej. el buscador o editando una celda), NO interrumpimos su pegado normal.
-      const activeTag = document.activeElement ? document.activeElement.tagName : '';
-      if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT') {
-          return;
-      }
-
-      // 2. Capturar el texto crudo del portapapeles
-      const pastedText = (e.clipboardData || window.clipboardData).getData('text');
+      AppState.user = user;
+      AppState.isSessionVerified = true;
+      sessionStorage.setItem('moduloResiduosUser', JSON.stringify(user));
       
-      if (!pastedText) return;
+      mostrarAplicacion();
+  }
+});
 
-      // 3. ¿Es una tabla? (Si tiene saltos de línea y tabulaciones o punto y coma)
-      const isTable = pastedText.includes('\n') && (pastedText.includes('\t') || pastedText.includes(';') || pastedText.includes(','));
+document.addEventListener('DOMContentLoaded', () => {
+  actualizarTimestamp();
+  inicializarFiltrosFechas();
 
-      if (isTable) {
-          e.preventDefault(); // Evitamos cualquier comportamiento raro del navegador
-          
-          this.showToast("Tabla detectada en el portapapeles. Procesando...", "success");
-          
-          // 4. Transformar el texto fantasma en un "Archivo Físico Virtual"
-          const blob = new Blob([pastedText], { type: 'text/csv;charset=utf-8;' });
-          
-          // Le damos un nombre para que el reporte sepa de dónde vino
-          const file = new File([blob], "Tabla_Pegada_Correo.csv", { type: "text/csv" });
-          
-          // 5. Se lo inyectamos al mismo motor masivo que ya construimos
-          this.handleFiles([file]);
-      }
-    });
-    
+  const savedUser = sessionStorage.getItem('moduloResiduosUser');
+  if (savedUser) {
+      AppState.user = JSON.parse(savedUser);
+      AppState.isSessionVerified = true;
+      mostrarAplicacion();
   }
 
-  // --- MOTOR WEB WORKER (Limpio para Servidor / GitHub Pages) --- //
-  initWorker() {
-    if (this.worker) this.worker.terminate();
-    
-    // Simplemente llamamos al archivo externo (ideal para GitHub Pages)
-    this.worker = new Worker('./worker.js');
-    
-    this.worker.onmessage = (e) => {
-      const res = e.data;
+  // Avisar al Hub que estamos listos para recibir credenciales
+  window.parent.postMessage({ type: 'MODULO_LISTO' }, '*');
 
-      if (res.type === 'progress') {
-        const loadingText = this.els.loadingState.querySelector("p");
-        if(loadingText) loadingText.innerText = res.msg;
-      } 
-      else if (res.type === 'error') {
-        this.showToast(res.msg, 'error');
-        this.setLoading(false);
+  setTimeout(() => {
+      if (!AppState.isSessionVerified) {
+          const statusTxt = document.getElementById('txt-usuario-activo');
+          if (statusTxt) statusTxt.innerHTML = '<i class="ph ph-warning text-red-500"></i> Esperando autorización del Hub...';
       }
-      else if (res.type === 'fileAnalyzed') {
-        this.els.reportTitle.value = res.fileName.replace(/\.[^/.]+$/, "");
-        this.els.reportAuthor.value = res.author;
-        
-        if (res.sheets.length > 1) {
-          this.showSheetSelection(res.sheets);
-          this.setLoading(false);
-        } else {
-          this.worker.postMessage({ action: 'loadSheet', sheetName: res.sheets[0] });
-        }
-      }
-      else if (res.type === 'sheetLoaded') {
-        this.tempPreviewMatrix = res.preview;
-        this.tempTotalRows = res.totalRows;
-        
-        const likelyHeader = this.tempPreviewMatrix.findIndex((row) => row && row.filter((c) => c).length > 1);
-        this.tempHeaderIdx = likelyHeader >= 0 ? likelyHeader : 0;
-        this.els.footerSkipCount.value = 0;
-        
-        this.setLoading(false);
-        this.els.sheetModal.classList.remove("active");
-        this.els.structureModal.classList.add("active");
-        this.renderPreviewTableRows();
-      }
-      else if (res.type === 'singleDone') {
-        this.els.structureModal.classList.remove("active");
-        const loadingText = this.els.loadingState.querySelector("p");
-        if(loadingText) loadingText.innerText = "Construyendo tabla interactiva...";
-        
-        if (res.data.length === 0) {
-          this.showToast("No se encontraron datos.", "error");
-          this.setLoading(false);
-          return;
-        }
+  }, 4000);
+  
+  SyncManager.updateBadge();
+});
 
-        this.initData(res.data, res.columns);
-        this.setLoading(false);
-        this.showToast(`¡Estructura aplicada! ${res.data.length.toLocaleString()} filas cargadas ultra rápido.`, "success");
+function mostrarAplicacion() {
+  const appContainer = document.getElementById('appContainer');
+  if (appContainer) appContainer.classList.remove('hidden');
+  
+  if (AppState.user) {
+      const nombreMostrar = AppState.user.nombre || AppState.user.usuario || 'Usuario';
+      const rolMostrar = AppState.user.rol || AppState.user.area || 'Supervisor';
+      
+      const txtUsuario = document.getElementById('txt-usuario-activo');
+      if (txtUsuario) {
+          txtUsuario.innerHTML = `<i class="ph ph-user-check"></i> ${nombreMostrar} | ${rolMostrar}`;
       }
-      else if (res.type === 'multipleDone') {
-        if (res.data.length === 0) {
-          this.showToast("No se encontraron datos válidos.", "error");
-          this.setLoading(false);
-          return;
-        }
-        this.els.reportTitle.value = "Reporte_Combinado";
-        const loadingText = this.els.loadingState.querySelector("p");
-        if(loadingText) loadingText.innerText = "Construyendo tabla interactiva...";
-        
-        this.initData(res.data, res.columns);
-        this.setLoading(false);
-
-        if (res.structureMismatch) {
-            this.showToast(`Carga masiva: ${res.data.length.toLocaleString()} filas. NOTA: Las columnas variaban.`, 'warning');
-        } else {
-            this.showToast(`¡Completado! ${res.data.length.toLocaleString()} filas combinadas de ${res.filesProcessed} archivos.`, 'success');
-        }
-      }
-    };
-    
-    this.worker.onerror = (err) => {
-      console.error("Worker error:", err);
-      this.showToast("Error en procesamiento de hardware (Worker).", "error");
-      this.setLoading(false);
-    };
+      
+      // FIX: Uso de Optional Chaining para evitar el TypeError
+      const displayRole = document.getElementById('displayUserRole');
+      if (displayRole) displayRole.textContent = rolMostrar; 
   }
 
-  async handleFiles(fileList) {
-    try {
-      if (!fileList || fileList.length === 0) return;
-      const files = Array.from(fileList);
-      
-      this.resetState();
-      this.initWorker();
-
-      this.setLoading(true);
-
-      if (files.length === 1) {
-        this.worker.postMessage({ action: 'analyzeFile', file: files[0] });
+  // REGLA: Ocultar Dashboard a roles operativos puros
+  const rolesPrivilegiados = ['JEFE', 'GERENTE', 'ADMINISTRADOR', 'CALIDAD'];
+  const rolUser = (AppState.user?.rol || '').toUpperCase();
+  const tabDash = document.getElementById('tabDashboard');
+  
+  if (tabDash) {
+      if (rolesPrivilegiados.includes(rolUser)) {
+          tabDash.classList.remove('hidden');
       } else {
-        this.worker.postMessage({ action: 'processMultiple', files: files });
+          tabDash.classList.add('hidden'); 
       }
-    } catch (err) {
-      alert("Error en handleFiles: " + err.message);
-    }
   }
 
-  resetState() {
-    this.rawData = [];
-    this.visibleData = [];
-    this.columns = [];
-    this.sortCol = null;
-    this.searchQuery = "";
-    this.undoStack = [];
-    this.tempPreviewMatrix = [];
-    this.tempTotalRows = 0;
-    
-    if(this.els.globalSearch) this.els.globalSearch.value = "";
-    if(this.els.tableWrapper) this.els.tableWrapper.classList.add("hidden");
-    if(this.els.footer) this.els.footer.classList.add("hidden");
-    if(this.filterSummary) this.filterSummary.classList.add("hidden");
-    if(this.els.emptyState) this.els.emptyState.classList.remove("hidden");
-    if(this.els.thead) this.els.thead.innerHTML = "";
-    if(this.els.tbody) this.els.tbody.innerHTML = "";
-    if(this.els.tfoot) this.els.tfoot.innerHTML = "";
-  }
-
-  changeDensity(mode) {
-    const wrapper = this.els.tableWrapper;
-    if (!wrapper) return;
-
-    // 1. Limpiamos cualquier clase de densidad anterior
-    wrapper.classList.remove("density-compact", "density-relaxed");
-
-    // 2. Aplicamos la nueva densidad elegida
-    if (mode === "compact") {
-      wrapper.classList.add("density-compact");
-    } else if (mode === "relaxed") {
-      wrapper.classList.add("density-relaxed");
-    }
-
-    // 3. Guardamos la preferencia en el navegador
-    this.densityMode = mode;
-    this.savePreferences();
-    
-    // Mostramos un pequeño feedback visual
-    this.showToast(`Vista cambiada a: ${mode}`, "info");
-  }
-
-  showSheetSelection(sheets) {
-    const list = this.els.sheetList;
-    list.innerHTML = "";
-    sheets.forEach((sheet) => {
-      const btn = document.createElement("div");
-      btn.className = "sheet-btn";
-      btn.innerHTML = `<span style="font-weight:600">${sheet}</span> <i class="ph ph-caret-right"></i>`;
-      btn.onclick = () => {
-        this.els.sheetModal.classList.remove("active");
-        this.setLoading(true);
-        this.worker.postMessage({ action: 'loadSheet', sheetName: sheet });
-      };
-      list.appendChild(btn);
-    });
-    this.els.sheetModal.classList.add("active");
-  }
-
-  renderPreviewTableRows() {
-    const table = this.els.previewTable;
-    table.innerHTML = "";
-    const footerSkip = parseInt(this.els.footerSkipCount.value) || 0;
-    const totalRows = this.tempTotalRows;
-
-    this.els.selectedHeaderDisplay.innerText = `Fila ${this.tempHeaderIdx + 1}`;
-    const limit = Math.min(this.tempPreviewMatrix.length, 50);
-
-    for (let i = 0; i < limit; i++) {
-      this.buildPreviewRow(table, i, totalRows, footerSkip);
-    }
-
-    if (totalRows > limit) {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `<td colspan="100" style="text-align:center; padding:8px; font-weight:bold; color:var(--accent); background: rgba(14, 165, 233, 0.05)">... y ${(totalRows - limit).toLocaleString()} filas más se procesarán a máxima velocidad ...</td>`;
-      table.appendChild(tr);
-    }
-  }
-
-  buildPreviewRow(table, index, totalRows, footerSkip) {
-    const rowData = this.tempPreviewMatrix[index];
-    if (!rowData) return;
-
-    const tr = document.createElement("tr");
-    const isHeader = index === this.tempHeaderIdx;
-    const isIgnoredTop = index < this.tempHeaderIdx;
-
-    if (isHeader) tr.className = "preview-header";
-    else if (isIgnoredTop) tr.className = "preview-ignored";
-
-    tr.onclick = () => {
-      this.tempHeaderIdx = index;
-      this.renderPreviewTableRows();
-    };
-
-    const tdNum = document.createElement("td");
-    tdNum.className = "preview-row-num";
-    tdNum.innerText = index + 1;
-    tr.appendChild(tdNum);
-
-    const colLimit = Math.min(rowData.length, 8);
-    for (let j = 0; j < colLimit; j++) {
-      const td = document.createElement("td");
-      td.innerText = rowData[j] !== undefined ? rowData[j] : "";
-      tr.appendChild(td);
-    }
-
-    if (rowData.length > colLimit) {
-      const td = document.createElement("td");
-      td.innerText = "...";
-      tr.appendChild(td);
-    }
-    table.appendChild(tr);
-  }
-
-  applyStructureAndLoad() {
-    this.els.structureModal.classList.remove("active");
-    this.setLoading(true);
-    
-    const footerSkip = parseInt(this.els.footerSkipCount.value) || 0;
-    
-    this.worker.postMessage({ 
-        action: 'processSingle', 
-        headerIdx: this.tempHeaderIdx, 
-        footerSkip: footerSkip 
-    });
-  }
-
-  initData(data, customColumns = null) {
-    this.rawData = data;
-    this.columns = customColumns || Object.keys(data[0]);
-
-    const prefs = this.loadPreferences();
-    if (prefs && prefs.pageSize) {
-        this.pageSize = prefs.pageSize;
-        const pageSizeSelect = document.getElementById('pageSize');
-        if(pageSizeSelect) pageSizeSelect.value = this.pageSize;
-    }
-    if (prefs && prefs.density) {
-        this.densityMode = prefs.density;
-        if(this.els.densitySelect) this.els.densitySelect.value = prefs.density;
-        this.changeDensity(prefs.density);
-    }
-
-    this.colSettings = {};
-    this.columns.forEach((col) => {
-      this.colSettings[col] = {
-        hidden: false,
-        type: this.inferType(col, data),
-        activeFilters: null,
-        decimals: 2,
-        dateStyle: "short",
-        currency: "PEN",
-        align: "auto",
-        textStyle: "none",
-        padZeros: 0,
-        linkMode: "url", 
-        linkText: "Abrir Enlace",
-        linkCol: ""
-      };
-
-      if (prefs && prefs.colSettings && prefs.colSettings[col]) {
-        const saved = prefs.colSettings[col];
-        this.colSettings[col].hidden = saved.hidden !== undefined ? saved.hidden : this.colSettings[col].hidden;
-        this.colSettings[col].type = saved.type || this.colSettings[col].type;
-        this.colSettings[col].decimals = saved.decimals !== undefined ? saved.decimals : this.colSettings[col].decimals;
-        this.colSettings[col].currency = saved.currency || this.colSettings[col].currency;
-        this.colSettings[col].dateStyle = saved.dateStyle || this.colSettings[col].dateStyle;
-        this.colSettings[col].align = saved.align || this.colSettings[col].align;
-        this.colSettings[col].textStyle = saved.textStyle || this.colSettings[col].textStyle;
-        this.colSettings[col].padZeros = saved.padZeros !== undefined ? saved.padZeros : 0;
-        this.colSettings[col].linkMode = saved.linkMode || "url";
-        this.colSettings[col].linkText = saved.linkText || "Abrir Enlace";
-        this.colSettings[col].linkCol = saved.linkCol || "";
-      }
-    });
-
-    this.els.globalSearch.disabled = false;
-    this.buildColumnPicker();
-    this.processData();
-
-    this.els.emptyState.classList.add("hidden");
-    this.els.tableWrapper.classList.remove("hidden");
-    this.els.footer.classList.remove("hidden");
-  }
-
-  inferType(colName, data) {
-    const lower = colName.toLowerCase();
-    if (lower.match(/^(id|cod|sku|isbn|ean|item|ref|dni|ruc)/i)) return "text";
-    if (lower.match(/(código|codigo|identificador)/i)) return "text";
-
-    const sample = data.slice(0, 100).find((row) => row[colName] !== "");
-    if (!sample) return "text";
-    const val = sample[colName];
-
-    if (val instanceof Date) return "date";
-    if (typeof val === "number") {
-      if (lower.match(/(precio|costo|total|valor|importe|venta|compra)/)) return "currency";
-      if (Number.isInteger(val)) return "integer";
-      return "number";
-    }
-    if (String(val).startsWith("http")) return "link";
-    return "text";
-  }
-
-  processData() {
-    let processed = this.rawData.filter((row) => {
-      return this.columns.every((col) => {
-        const settings = this.colSettings[col];
-        if (!settings.activeFilters) return true;
-        return settings.activeFilters.has(String(row[col]));
-      });
-    });
-
-// --- BUSCADOR GLOBAL ULTRARRÁPIDO Y PRECISO ---
-    if (this.searchQuery) {
-      const visibleCols = this.columns.filter(col => !this.colSettings[col].hidden);
-      const query = this.searchQuery;
-      const searchTarget = this.els.searchColumn ? this.els.searchColumn.value : "all";
-
-      processed = processed.filter((row) => {
-        // Opción A: Búsqueda específica en una sola columna
-        if (searchTarget !== "all") {
-            const val = row[searchTarget];
-            if (val !== null && val !== undefined && val !== "") {
-               if (String(val).toLowerCase().includes(query)) return true;
-            }
-            return false;
-        } else {
-            // Opción B: Búsqueda tradicional en todas las visibles
-            for (let i = 0; i < visibleCols.length; i++) {
-              const val = row[visibleCols[i]];
-              if (val !== null && val !== undefined && val !== "") {
-                 if (String(val).toLowerCase().includes(query)) return true;
-              }
-            }
-            return false;
-        }
-      });
-    }
-
-    if (this.sortCol) {
-      processed.sort((a, b) => {
-        let va = a[this.sortCol], vb = b[this.sortCol];
-        if (typeof va === "string") va = va.toLowerCase();
-        if (typeof vb === "string") vb = vb.toLowerCase();
-        if (va < vb) return this.sortAsc ? -1 : 1;
-        if (va > vb) return this.sortAsc ? 1 : -1;
-        return 0;
-      });
-    }
-
-    this.visibleData = processed;
-    this.updatePaginationInfo();
-    this.renderHeaders();
-    this.render();
-    this.renderFooterTotals();
-    this.renderFilterSummary();
-  }
-
-  renderFilterSummary() {
-    const bar = this.filterSummary;
-    bar.innerHTML = "";
-    const activeCols = this.columns.filter((c) => this.colSettings[c].activeFilters !== null);
-
-    if (activeCols.length === 0) {
-      bar.classList.add("hidden");
-      return;
-    }
-
-    bar.classList.remove("hidden");
-    bar.innerHTML = `<span style="font-size:12px; font-weight:600; color:var(--text-muted)">Filtros activos:</span>`;
-
-    activeCols.forEach((col) => {
-      const chip = document.createElement("div");
-      chip.className = "filter-chip";
-      chip.innerHTML = `<span>${col}</span> <i class="ph ph-x" onclick="app.clearColFilter('${col}')"></i>`;
-      bar.appendChild(chip);
-    });
-
-    if (activeCols.length > 1) {
-      const clearAll = document.createElement("span");
-      clearAll.className = "clear-filters-btn";
-      clearAll.innerText = "Limpiar Todo";
-      clearAll.onclick = () => {
-        activeCols.forEach((c) => (this.colSettings[c].activeFilters = null));
-        this.processData();
-      };
-      bar.appendChild(clearAll);
-    }
-  }
-
- renderHeaders() {
-    this.els.thead.innerHTML = "";
-    const tr = document.createElement("tr");
-
-    this.columns.forEach((col) => {
-      if (!this.colSettings[col] || this.colSettings[col].hidden) return;
-
-      const th = document.createElement("th");
-      const settings = this.colSettings[col];
-      const alignClass = this.getAlignClass(settings.type);
-      const isSorted = this.sortCol === col;
-      const hasFilter = settings.activeFilters !== null;
-      const iconClass = isSorted ? (this.sortAsc ? "ph-arrow-up" : "ph-arrow-down") : "";
-      const safeCol = String(col).replace(/'/g, "\\'");
-
-      // HTML del Encabezado con el nuevo botón btn-col-hide
-      th.innerHTML = `
-        <div class="th-content ${alignClass}">
-          <div class="btn-col-menu ${hasFilter ? "active" : ""}" onclick="app.openColumnMenu(event, '${safeCol}')" title="Formato y Filtros">
-             <i class="ph ${hasFilter ? "ph-funnel ph-fill" : "ph-dots-three-vertical"}"></i>
-          </div>
-          
-          <div class="th-title" onclick="app.sortBy('${safeCol}')" style="flex-grow: 1; display: flex; justify-content: ${alignClass === 'text-right' ? 'flex-end' : alignClass === 'text-center' ? 'center' : 'flex-start'};">
-            <span>${col}</span>
-            ${isSorted ? `<i class="ph ${iconClass} sort-icon"></i>` : ""}
-          </div>
-          
-          <div class="btn-col-hide" onclick="app.hideColumn(event, '${safeCol}')" title="Ocultar esta columna">
-             <i class="ph ph-eye-slash"></i>
-          </div>
-        </div>
-      `;
-      tr.appendChild(th);
-    });
-    this.els.thead.appendChild(tr);
-  }
-
-// 🚀 NUEVA FUNCIÓN: Oculta la columna al instante
-  hideColumn(e, col) {
-    e.stopPropagation(); // Evita que la tabla se ordene al hacer clic
-    
-    // 1. Apagamos la columna
-    this.colSettings[col].hidden = true;
-    
-    // 2. Guardamos la preferencia
-    this.savePreferences();
-    
-    // 3. Actualizamos el selector de columnas (el menú principal)
-    this.buildColumnPicker();
-    
-    // 4. Redibujamos la tabla sin esa columna
-    this.processData();
-    
-    // 5. Feedback visual amigable
-    this.showToast(`Columna "${col}" ocultada.`, "info");
-  }
-  
-  render() {
-    this.els.tbody.innerHTML = "";
-    const start = (this.currentPage - 1) * this.pageSize;
-    const end = start + this.pageSize;
-    const pageData = this.visibleData.slice(start, end);
-    const fragment = document.createDocumentFragment();
-
-    pageData.forEach((row) => {
-      const tr = document.createElement("tr");
-      
-      tr.addEventListener("click", (e) => {
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'A') return;
-        const currentlySelected = this.els.tbody.querySelector('.row-selected');
-        if (currentlySelected && currentlySelected !== tr) currentlySelected.classList.remove('row-selected');
-        tr.classList.toggle("row-selected");
-      });
-
-      this.columns.forEach((col) => {
-        if (this.colSettings[col].hidden) return;
-        const td = document.createElement("td");
-        const config = this.colSettings[col];
-        
-        td.className = this.getAlignClass(config.type);
-        td.innerHTML = this.formatValue(row[col], config, row);
-        
-        if (config.align && config.align !== "auto") td.style.textAlign = config.align;
-        if (config.textStyle && config.textStyle !== "none") td.style.textTransform = config.textStyle;
-
-        td.addEventListener("dblclick", () => this.enableEditing(td, row, col));
-        tr.appendChild(td);
-      });
-      fragment.appendChild(tr);
-    });
-    this.els.tbody.appendChild(fragment);
-    this.updateFooterUI();
-  }
-
-  renderFooterTotals() {
-    this.els.tfoot.innerHTML = "";
-    let hasTotals = false;
-    const tr = document.createElement("tr");
-
-    this.columns.forEach((col, idx) => {
-      if (this.colSettings[col].hidden) return;
-      const td = document.createElement("td");
-      const config = this.colSettings[col];
-      const type = config.type;
-
-      if (["number", "currency", "integer", "percent"].includes(type)) {
-        const sum = this.visibleData.reduce((acc, r) => acc + (parseFloat(r[col]) || 0), 0);
-        if (sum !== 0 && type !== "percent") {
-          hasTotals = true;
-          td.className = "text-right";
-          td.innerHTML = this.formatValue(sum, config);
-        }
-      }
-      if (idx === 0 && !hasTotals) td.innerText = "Totales";
-      tr.appendChild(td);
-    });
-    if (hasTotals) this.els.tfoot.appendChild(tr);
-  }
-
-  sortBy(col) {
-    if (this.sortCol === col) this.sortAsc = !this.sortAsc;
-    else { this.sortCol = col; this.sortAsc = true; }
-    this.processData();
-  }
-
-  changePage(delta) {
-    const maxPages = Math.ceil(this.visibleData.length / this.pageSize);
-    const newPage = this.currentPage + delta;
-    if (newPage >= 1 && newPage <= maxPages) {
-      this.currentPage = newPage;
-      this.render();
-      this.els.tableWrapper.scrollTop = 0;
-    }
-  }
-
-  updatePaginationInfo() {
-    const total = this.visibleData.length;
-    document.getElementById("statusMsg").innerText = `${total.toLocaleString()} registros encontrados`;
-    this.updateFooterUI();
-  }
-
-  updateFooterUI() {
-    const maxPages = Math.ceil(this.visibleData.length / this.pageSize) || 1;
-    document.getElementById("currPage").innerText = this.currentPage;
-    document.getElementById("totalPages").innerText = maxPages;
-    document.getElementById("btnPrev").disabled = this.currentPage <= 1;
-    document.getElementById("btnNext").disabled = this.currentPage >= maxPages;
-  }
-
-  openColumnMenu(e, col) {
-    e.stopPropagation();
-    this.activeMenuCol = col;
-    const menu = this.els.ctxMenu;
-
-    const rect = e.currentTarget.getBoundingClientRect();
-    let top = rect.bottom + 5;
-    let left = rect.left;
-    if (left + 280 > window.innerWidth) left = window.innerWidth - 290;
-    if (left < 0) left = 10;
-
-    menu.style.top = top + "px";
-    menu.style.left = left + "px";
-
-    this.renderMenuContent(col, menu);
-    menu.classList.add("show");
-
-    const menuRect = menu.getBoundingClientRect();
-    if (menuRect.bottom > window.innerHeight) {
-      menu.style.top = "auto";
-      menu.style.bottom = "10px";
-    }
-  }
-
-renderMenuContent(col, container) {
-    const settings = this.colSettings[col];
-    const relevantRows = this.rawData.filter((row) => {
-      return this.columns.every((c) => {
-        if (c === col) return true;
-        const s = this.colSettings[c];
-        if (!s.activeFilters) return true;
-        return s.activeFilters.has(String(row[c]));
-      });
-    });
-    const uniqueVals = [...new Set(relevantRows.map((r) => String(r[col])))].sort();
-
-    let extraControls = "";
-
-    // 1. DECIMALES (Solo para números, monedas y porcentajes)
-    if (["number", "currency", "percent"].includes(settings.type)) {
-      extraControls += `
-        <div style="margin-top:8px; display:flex; align-items:center; justify-content:space-between;">
-          <label class="col-menu-label" style="margin:0">Decimales</label>
-          <input type="number" min="0" max="6" class="form-input form-input-sm" style="width:60px" value="${settings.decimals}" onchange="app.changeColDecimal('${col}', this.value)">
-        </div>`;
-    }
-
-    // 2. SÍMBOLO (Solo para monedas)
-    if (settings.type === "currency") {
-      extraControls += `
-        <div style="margin-top:8px">
-          <label class="col-menu-label" style="margin-bottom:2px">Símbolo</label>
-          <select class="form-select" onchange="app.changeColCurrency('${col}', this.value)">
-            <option value="PEN" ${settings.currency === "PEN" ? "selected" : ""}>S/ (PEN)</option>
-            <option value="USD" ${settings.currency === "USD" ? "selected" : ""}>$ (USD)</option>
-            <option value="EUR" ${settings.currency === "EUR" ? "selected" : ""}>€ (EUR)</option>
-          </select>
-        </div>`;
-    }
-
-    // 3. ESTILOS DE FECHA (Solo para fechas)
-    if (["date", "datetime"].includes(settings.type)) {
-      extraControls += `
-        <div style="margin-top:8px">
-          <label class="col-menu-label" style="margin-bottom:2px">Estilo</label>
-          <select class="form-select" onchange="app.changeColDateStyle('${col}', this.value)">
-            <option value="short" ${settings.dateStyle === "short" ? "selected" : ""}>Corto (DD/MM/YYYY)</option>
-            <option value="medium" ${settings.dateStyle === "medium" ? "selected" : ""}>Medio (04 ene 2026)</option>
-            <option value="long" ${settings.dateStyle === "long" ? "selected" : ""}>Largo (4 de enero...)</option>
-            <option value="full" ${settings.dateStyle === "full" ? "selected" : ""}>Texto (Miércoles...)</option>
-          </select>
-        </div>`;
-    }
-
-    // 4. COMPLETAR CEROS (Únicamente para formato "Código")
-    if (settings.type === "code") {
-      extraControls += `
-        <div style="margin-top:8px; padding-top:8px; border-top:1px dashed var(--border);">
-          <div style="display:flex; align-items:center; justify-content:space-between;">
-              <label class="col-menu-label" style="margin:0; color:var(--primary);">Completar Ceros</label>
-              <input type="number" min="0" max="20" class="form-input form-input-sm" style="width:60px" placeholder="Ej: 8" value="${settings.padZeros || 0}" onchange="app.changeColPadZeros('${col}', this.value)">
-          </div>
-        </div>`;
-    }
-
-    // 5. ALINEACIÓN VISUAL (Aplica para todo)
-    extraControls += `
-      <div style="margin-top:8px; padding-top:8px; border-top:1px dashed var(--border);">
-        <label class="col-menu-label" style="margin-bottom:2px">Alineación</label>
-        <select class="form-select" onchange="app.changeColAlign('${col}', this.value)">
-           <option value="auto" ${settings.align === "auto" || !settings.align ? "selected" : ""}>Automática</option>
-           <option value="left" ${settings.align === "left" ? "selected" : ""}>Izquierda</option>
-           <option value="center" ${settings.align === "center" ? "selected" : ""}>Centro</option>
-           <option value="right" ${settings.align === "right" ? "selected" : ""}>Derecha</option>
-        </select>
-      </div>`;
-
-    // 6. MAYÚSCULAS Y MINÚSCULAS (Solo textos, códigos, enlaces y fechas)
-    if (["text", "date", "link"].includes(settings.type)) {
-        extraControls += `
-          <div style="margin-top:8px">
-            <label class="col-menu-label" style="margin-bottom:2px">Mayús / Minús</label>
-            <select class="form-select" onchange="app.changeColTextStyle('${col}', this.value)">
-               <option value="none" ${settings.textStyle === "none" || !settings.textStyle ? "selected" : ""}>Normal</option>
-               <option value="uppercase" ${settings.textStyle === "uppercase" ? "selected" : ""}>MAYÚSCULAS</option>
-               <option value="lowercase" ${settings.textStyle === "lowercase" ? "selected" : ""}>minúsculas</option>
-               <option value="capitalize" ${settings.textStyle === "capitalize" ? "selected" : ""}>Capitalizar</option>
-            </select>
-          </div>`;
-    }
-
-  // 7. ENMASCARAMIENTO DE ENLACES (Solo si el formato es Enlace)
-    if (settings.type === "link") {
-      const colOptions = this.columns.filter(c => !this.colSettings[c].hidden).map(c => `<option value="${c}" ${settings.linkCol === c ? "selected" : ""}>${c}</option>`).join('');
-
-      extraControls += `
-        <div style="margin-top:8px; padding-top:8px; border-top:1px dashed var(--border);">
-          <label class="col-menu-label" style="margin-bottom:2px">Mostrar enlace como:</label>
-          <select class="form-select" onchange="app.changeLinkMode('${col}', this.value)">
-             <option value="url" ${settings.linkMode === "url" || !settings.linkMode ? "selected" : ""}>URL Completa</option>
-             <option value="fixed" ${settings.linkMode === "fixed" ? "selected" : ""}>Texto Fijo</option>
-             <option value="column" ${settings.linkMode === "column" ? "selected" : ""}>Valor de Columna</option>
-          </select>
-        </div>
-      `;
-
-      if (settings.linkMode === "fixed") {
-          extraControls += `
-            <div style="margin-top:4px">
-              <input type="text" class="form-input form-input-sm" placeholder="Ej: Abrir PDF..." value="${settings.linkText || ''}" onchange="app.changeLinkText('${col}', this.value)">
-            </div>
-          `;
-      } else if (settings.linkMode === "column") {
-          extraControls += `
-            <div style="margin-top:4px">
-              <select class="form-select form-input-sm" onchange="app.changeLinkCol('${col}', this.value)">
-                <option value="">-- Seleccionar columna --</option>
-                ${colOptions}
-              </select>
-            </div>
-          `;
-      }
-    }
-
-    // ENSAMBLAJE FINAL DEL MENÚ
-    container.innerHTML = `
-        <div class="col-menu-section">
-          <label class="col-menu-label">Formato</label>
-          <select class="form-select" onchange="app.changeColFormat('${col}', this.value)">
-            <option value="auto" ${settings.type === "auto" ? "selected" : ""}>Automático</option>
-            <option value="text" ${settings.type === "text" ? "selected" : ""}>Texto</option>
-            <option value="code" ${settings.type === "code" ? "selected" : ""}>Código (SKU/EAN)</option>
-            <option value="number" ${settings.type === "number" ? "selected" : ""}>Número</option>
-            <option value="integer" ${settings.type === "integer" ? "selected" : ""}>Entero</option>
-            <option value="currency" ${settings.type === "currency" ? "selected" : ""}>Moneda</option>
-            <option value="percent" ${settings.type === "percent" ? "selected" : ""}>Porcentaje (%)</option>
-            <option value="date" ${settings.type === "date" ? "selected" : ""}>Fecha</option>
-            <option value="datetime" ${settings.type === "datetime" ? "selected" : ""}>Fecha y Hora</option>
-            <option value="time" ${settings.type === "time" ? "selected" : ""}>Hora</option>
-            <option value="link" ${settings.type === "link" ? "selected" : ""}>Enlace (URL)</option>
-          </select>
-          ${extraControls}
-        </div>
-        <div class="col-menu-section">
-          <label class="col-menu-label">Filtrar (${uniqueVals.length})</label>
-          <input type="text" class="form-input form-input-sm" placeholder="Buscar..." oninput="app.filterMenuSearch(this.value)">
-          <div class="filter-list" id="filterListContainer"></div>
-          <div style="display:flex; justify-content:space-between; margin-top:8px;">
-             <button class="btn btn-sm" onclick="app.clearColFilter('${col}')">Limpiar</button>
-             <button class="btn btn-sm btn-primary" onclick="app.applyColFilter('${col}')">Aplicar</button>
-          </div>
-        </div>
-      `;
-
-    // LÓGICA DE FILTRADO (Se mantiene igual, inyectando las casillas)
-    const filterContainer = container.querySelector("#filterListContainer");
-    const allDiv = document.createElement("div");
-    allDiv.className = "filter-item";
-    allDiv.innerHTML = `<input type="checkbox" id="chkAllFilters" ${settings.activeFilters === null ? "checked" : ""}> <span>(Seleccionar Todo)</span>`;
-    allDiv.onclick = (ev) => {
-      if (ev.target.tagName !== "INPUT") { const chk = allDiv.querySelector("input"); chk.checked = !chk.checked; }
-      const state = allDiv.querySelector("input").checked;
-      filterContainer.querySelectorAll(".val-chk").forEach((c) => (c.checked = state));
-    };
-    filterContainer.appendChild(allDiv);
-
-    const maxItems = 2000;
-    const isLimited = uniqueVals.length > maxItems;
-    const valsToShow = isLimited ? uniqueVals.slice(0, maxItems) : uniqueVals;
-
-    valsToShow.forEach((val) => {
-      const div = document.createElement("div");
-      div.className = "filter-item val-item";
-      div.setAttribute("data-val", val.toLowerCase());
-      const displayVal = val === "" ? "(Vacío)" : this.escapeHTML(val);
-      const isChecked = settings.activeFilters === null ? true : settings.activeFilters.has(val);
-      div.innerHTML = `<input type="checkbox" class="val-chk" value="${this.escapeHTML(val)}" ${isChecked ? "checked" : ""}> <span>${displayVal}</span>`;
-      div.onclick = (ev) => {
-        if (ev.target.tagName !== "INPUT") { const chk = div.querySelector("input"); chk.checked = !chk.checked; }
-        if (!div.querySelector("input").checked) { const ac = container.querySelector("#chkAllFilters"); if (ac) ac.checked = false; }
-      };
-      filterContainer.appendChild(div);
-    });
-  }
-
-  filterMenuSearch(term) {
-    term = term.toLowerCase();
-    const items = document.querySelectorAll("#filterListContainer .val-item");
-    items.forEach((el) => { el.style.display = el.getAttribute("data-val").includes(term) ? "flex" : "none"; });
-  }
-
-  applyColFilter(col) {
-    const inputs = document.querySelectorAll("#filterListContainer .val-chk");
-    const allChk = document.getElementById("chkAllFilters");
-
-    if (allChk && allChk.checked) {
-      this.colSettings[col].activeFilters = null;
-    } else {
-      const selected = new Set();
-      inputs.forEach((inp) => { if (inp.checked) selected.add(inp.value); });
-      this.colSettings[col].activeFilters = selected;
-    }
-    this.els.ctxMenu.classList.remove("show");
-    this.currentPage = 1;
-    this.processData();
-  }
-
-  clearColFilter(col) {
-    this.colSettings[col].activeFilters = null;
-    this.els.ctxMenu.classList.remove("show");
-    this.processData();
-  }
-
-  changeColFormat(col, type) { this.colSettings[col].type = type; this.updateAndKeepMenu(col); }
-  changeColDecimal(col, val) { this.colSettings[col].decimals = parseInt(val) || 0; this.updateAndKeepMenu(col); }
-  changeColDateStyle(col, val) { this.colSettings[col].dateStyle = val; this.updateAndKeepMenu(col); }
-  changeColCurrency(col, val) { this.colSettings[col].currency = val; this.updateAndKeepMenu(col); }
-  changeColAlign(col, val) { this.colSettings[col].align = val; this.updateAndKeepMenu(col); }
-  changeLinkMode(col, val) { this.colSettings[col].linkMode = val; this.updateAndKeepMenu(col); }
-  changeLinkText(col, val) { this.colSettings[col].linkText = val; this.updateAndKeepMenu(col); }
-  changeLinkCol(col, val) { this.colSettings[col].linkCol = val; this.updateAndKeepMenu(col); }
-  changeColPadZeros(col, val) { 
-      this.colSettings[col].padZeros = parseInt(val) || 0; 
-      this.updateAndKeepMenu(col); 
-  }
-  changeColTextStyle(col, val) { this.colSettings[col].textStyle = val; this.updateAndKeepMenu(col); }
-
-  updateAndKeepMenu(col) {
-    this.savePreferences(); this.render(); this.renderHeaders(); this.renderFooterTotals(); this.renderMenuContent(col, this.els.ctxMenu);
-  }
-
-  enableEditing(td, row, col) {
-    if (td.querySelector("input")) return;
-    const currentVal = row[col];
-    const config = this.colSettings[col];
-    const type = config.type;
-    const originalHtml = td.innerHTML;
-
-    td.classList.add("cell-editing");
-    td.innerHTML = "";
-    const input = document.createElement("input");
-    input.className = "table-input";
-
-    if (["number", "currency", "integer", "percent"].includes(type)) {
-      input.type = "number"; input.step = "any"; input.value = currentVal;
-    } else if (type === "date" || type === "datetime") {
-      input.type = type === "datetime" ? "datetime-local" : "date";
-      try { 
-        if(currentVal instanceof Date) {
-            input.value = type === "datetime" ? currentVal.toISOString().slice(0,16) : currentVal.toISOString().split("T")[0];
-        } else if(currentVal) {
-            const d = new Date(currentVal);
-            input.value = type === "datetime" ? d.toISOString().slice(0,16) : d.toISOString().split("T")[0];
-        }
-      } catch (e) { input.value = ""; }
-    } else {
-      input.type = "text"; input.value = currentVal !== undefined ? currentVal : "";
-    }
-
-    input.addEventListener("blur", () => this.saveEdit(td, row, col, input.value));
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") input.blur();
-      else if (e.key === "Escape") { td.classList.remove("cell-editing"); td.innerHTML = originalHtml; }
-    });
-    td.appendChild(input);
-    input.focus();
-  }
-
-  saveEdit(td, row, col, newVal) {
-    const config = this.colSettings[col];
-    const type = config.type;
-    let finalVal = newVal;
-
-    if (["number", "currency", "percent"].includes(type)) finalVal = newVal === "" ? 0 : parseFloat(newVal);
-    else if (type === "integer") finalVal = newVal === "" ? 0 : parseInt(newVal);
-    else if (type === "date" || type === "datetime") {
-      if (newVal) { finalVal = new Date(newVal); } else { finalVal = ""; }
-    }
-
-    const oldVal = row[col];
-    if (oldVal !== finalVal) {
-      this.undoStack.push({ row: row, col: col, oldVal: oldVal });
-      if (this.undoStack.length > 50) this.undoStack.shift(); 
-    }
-
-    row[col] = finalVal;
-    td.classList.remove("cell-editing");
-    td.innerHTML = this.formatValue(finalVal, config, row);
-    
-    if (config.align && config.align !== "auto") td.style.textAlign = config.align;
-    if (config.textStyle && config.textStyle !== "none") td.style.textTransform = config.textStyle;
-
-    this.renderFooterTotals();
-    td.style.backgroundColor = "rgba(16, 185, 129, 0.1)"; 
-    setTimeout(() => (td.style.backgroundColor = ""), 500);
-  }
-
-  undo() {
-    if (this.undoStack.length === 0) return; 
-    const lastAction = this.undoStack.pop();
-    lastAction.row[lastAction.col] = lastAction.oldVal;
-    this.render();
-    this.renderFooterTotals();
-    this.showToast("Edición deshecha", "info");
-  }
-
-  buildColumnPicker() { this.renderColumnList(this.columns); 
-                        this.updateSearchDropdown();
-                      }
-
-// 🚀 ACTUALIZADO: Diseño Unificado (Input Group)
-  updateSearchDropdown() {
-    if (!this.els.globalSearch) return;
-    
-    // Convertimos el contenedor padre en una caja unificada
-    const wrapper = this.els.globalSearch.parentNode;
-    wrapper.classList.add("search-unified-wrapper");
-
-    // Si el selector no existe, lo creamos
-    if (!this.els.searchColumn) {
-       const select = document.createElement("select");
-       select.id = "searchColumn";
-       select.className = "modern-search-select"; 
-       
-       wrapper.insertBefore(select, this.els.globalSearch);
-       this.els.searchColumn = select;
-       
-       select.addEventListener("change", () => {
-           this.currentPage = 1;
-           this.processData();
-       });
-    }
-
-    const currentVal = this.els.searchColumn.value;
-    
-    // Texto exacto y limpio
-    this.els.searchColumn.innerHTML = '<option value="all">Todas</option>';
-    
-    const visibleCols = this.columns.filter(c => !this.colSettings[c].hidden);
-    visibleCols.forEach(c => {
-       const opt = document.createElement('option');
-       opt.value = c;
-       opt.innerText = c; 
-       this.els.searchColumn.appendChild(opt);
-    });
-    
-    if (visibleCols.includes(currentVal)) {
-        this.els.searchColumn.value = currentVal;
-    } else {
-        this.els.searchColumn.value = "all";
-    }
-  }
-  
-  renderColumnList(cols) {
-    this.els.colListContainer.innerHTML = "";
-    cols.forEach((col) => {
-      const item = document.createElement("div");
-      item.className = "dropdown-item";
-      item.innerHTML = `<input type="checkbox" ${!this.colSettings[col].hidden ? "checked" : ""}><span>${col}</span>`;
-      item.onclick = (e) => {
-        const chk = item.querySelector("input");
-        if (e.target !== chk) chk.checked = !chk.checked;
-        this.colSettings[col].hidden = !chk.checked;
-        this.savePreferences(); this.processData();
-      };
-      this.els.colListContainer.appendChild(item);
-    });
-  }
-  filterColumnList(term) { this.renderColumnList(this.columns.filter((c) => c.toLowerCase().includes(term.toLowerCase()))); }
-  toggleAllColumns(show) { this.columns.forEach((col) => (this.colSettings[col].hidden = !show)); this.savePreferences(); this.buildColumnPicker(); this.processData(); }
-
-  exportTo(format) {
-    this.els.exportMenu.classList.remove("show");
-    if (!this.visibleData.length) return this.showToast("No hay datos", "error");
-    this.pendingExportFormat = format;
-    this.els.confirmTitle.value = this.els.reportTitle.value;
-    this.els.confirmAuthor.value = this.els.reportAuthor.value;
-    this.els.exportModal.classList.add("active");
-  }
-
- executeExport(format) {
-    let fname = this.els.reportTitle.value.trim() || "Reporte";
-    fname = fname.replace(/[^a-z0-9_\-\sáéíóúñ]/gi, "_");
-    const author = this.els.reportAuthor.value.trim();
-    const timestamp = new Date().toLocaleString("es-PE");
-
-    // 1. PREPARACIÓN DE DATOS BASE
-    const exportData = this.visibleData.map((row) => {
-      const newRow = {};
-      this.columns.forEach((col) => {
-        if (this.colSettings[col].hidden) return;
-        const val = row[col];
-        const config = this.colSettings[col];
-        
-        if (format === "xlsx") {
-           // EXCEL: Resuelve enlaces enmascarados
-           if (config.type === "link") {
-               let displayTxt = val;
-               if (config.linkMode === 'fixed' && config.linkText) {
-                   displayTxt = config.linkText;
-               } else if (config.linkMode === 'column' && config.linkCol && row[config.linkCol] !== undefined) {
-                   displayTxt = row[config.linkCol];
-               }
-               newRow[col] = displayTxt;
-           } else {
-               newRow[col] = config.type === "text" ? String(val) : val;
-           }
-        } else {
-          // PDF / HTML: Aplica formatos visuales (monedas, fechas, mayúsculas)
-          const d = document.createElement("div");
-          d.innerHTML = this.formatValue(val, config, row);
-          newRow[col] = d.textContent.trim();
-        }
-      });
-      return newRow;
-    });
-
-    // ==========================================
-    // 📊 EXPORTACIÓN A EXCEL (.xlsx)
-    // ==========================================
-    if (format === "xlsx") {
-      const ws = XLSX.utils.json_to_sheet(exportData);
-      
-      // MAGIA EXCEL: Re-conectar las URLs ocultas para que sean clickeables
-      let rowIndex = 1; // Fila 0 son encabezados
-      this.visibleData.forEach((row) => {
-         let colIndex = 0;
-         this.columns.forEach((col) => {
-            if (this.colSettings[col].hidden) return;
-            const config = this.colSettings[col];
-            if (config.type === "link" && row[col]) {
-                const cellRef = XLSX.utils.encode_cell({r: rowIndex, c: colIndex});
-                if (ws[cellRef]) ws[cellRef].l = { Target: row[col] };
-            }
-            colIndex++;
-         });
-         rowIndex++;
-      });
-
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Data");
-      XLSX.writeFile(wb, `${fname}.xlsx`);
-      
-    // ==========================================
-    // 📄 EXPORTACIÓN A PDF (.pdf)
-    // ==========================================
-    } else if (format === "pdf") {
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-      const pageWidth = doc.internal.pageSize.width;
-      const pageHeight = doc.internal.pageSize.height;
-
-      // Cabecera Editorial
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(18);
-      doc.setTextColor(15, 23, 42); 
-      doc.text(fname, 14, 20);
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      doc.setTextColor(100, 116, 139); 
-      doc.text(`Generado por: ${author}`, 14, 27);
-      doc.text(`Fecha: ${timestamp}`, 14, 32);
-      
-      doc.setFont("helvetica", "bolditalic");
-      doc.setFontSize(12);
-      doc.setTextColor(14, 165, 233); 
-      doc.text("GenFiler ONE", pageWidth - 14, 20, { align: "right" });
-      
-      doc.setDrawColor(226, 232, 240); 
-      doc.setLineWidth(0.5);
-      doc.line(14, 36, pageWidth - 14, 36);
-
-      // Calcular Totales específicos para el PDF
-      const pdfTotalsMap = {};
-      let pdfHasTotals = false;
-      this.columns.forEach((col) => {
-        if (this.colSettings[col].hidden) return;
-        if (["number", "currency", "integer", "percent"].includes(this.colSettings[col].type)) {
-          pdfTotalsMap[col] = 0;
-          pdfHasTotals = true;
-        }
-      });
-
-      if (pdfHasTotals) {
-        this.visibleData.forEach((row) => {
-          this.columns.forEach((col) => {
-            if (!this.colSettings[col].hidden && pdfTotalsMap[col] !== undefined) {
-              pdfTotalsMap[col] += parseFloat(row[col]) || 0;
-            }
-          });
-        });
-      }
-
-      // Ensamblar la fila visual de Totales para PDF
-      let pdfFoot = [];
-      if (pdfHasTotals) {
-        const footRow = [];
-        let firstCol = true;
-        this.columns.forEach((col) => {
-          if (this.colSettings[col].hidden) return;
-          if (firstCol) {
-            footRow.push("TOTALES");
-            firstCol = false;
-          } else if (pdfTotalsMap[col] !== undefined) {
-             const config = this.colSettings[col];
-             const d = document.createElement("div");
-             d.innerHTML = this.formatValue(pdfTotalsMap[col], config);
-             footRow.push(d.textContent.trim());
-          } else {
-            footRow.push("");
-          }
-        });
-        pdfFoot.push(footRow);
-      }
-
-      // Configurar Alineación Dinámica
-      const columnStylesConfig = {};
-      let visibleColIndex = 0;
-      this.columns.forEach((col) => {
-          if (this.colSettings[col].hidden) return;
-          const config = this.colSettings[col];
-          const isNum = ["number", "currency", "integer", "percent"].includes(config.type);
-          let align = isNum ? "right" : "left";
-          if (config.align && config.align !== "auto") align = config.align;
-          
-          columnStylesConfig[visibleColIndex] = { halign: align };
-          visibleColIndex++;
-      });
-
-      // Renderizar Tabla
-      doc.autoTable({
-        head: [Object.keys(exportData[0])],
-        body: exportData.map(Object.values),
-        foot: pdfFoot,
-        startY: 42, 
-        theme: "grid",
-        columnStyles: columnStylesConfig, 
-        styles: { 
-            font: "helvetica", fontSize: 8, cellPadding: 3,
-            lineColor: [226, 232, 240], lineWidth: 0.1, overflow: "linebreak" 
-        },
-        headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: "bold", halign: "center" },
-        footStyles: { fillColor: [241, 245, 249], textColor: [14, 165, 233], fontStyle: "bold" },
-        alternateRowStyles: { fillColor: [248, 250, 252] },
-        didDrawPage: function (data) {
-            doc.setFontSize(9);
-            doc.setFont("helvetica", "normal");
-            doc.setTextColor(148, 163, 184); 
-            doc.text("Página " + doc.internal.getNumberOfPages(), pageWidth / 2, pageHeight - 10, { align: "center" });
-        }
-      });
-
-      doc.save(`${fname}.pdf`);
-
-      // ==========================================
-    // 📝 EXPORTACIÓN A CSV PURO (Datos Crudos)
-    // ==========================================
-    } else if (format === "csv") {
-      let csvContent = "";
-      const visibleCols = this.columns.filter(c => !this.colSettings[c].hidden);
-      
-      // Encabezados
-      csvContent += visibleCols.map(c => `"${c}"`).join(";") + "\n";
-      
-      // Filas
-      this.visibleData.forEach(row => {
-          const rowData = visibleCols.map(col => {
-              let val = row[col];
-              if (val === null || val === undefined) val = "";
-              
-              const config = this.colSettings[col];
-              if (config && config.type === "link" && val !== "") {
-                  val = String(val); 
-              } else if (config && (config.type === "number" || config.type === "currency" || config.type === "percent")) {
-                  val = String(val); 
-              } else {
-                  val = String(val);
-              }
-
-              let strVal = val.replace(/"/g, '""');
-              return `"${strVal}"`;
-          });
-          csvContent += rowData.join(";") + "\n";
-      });
-      
-      const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' }); 
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${fname}_DatosPuros.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
-
-    // ==========================================
-    // 🌐 EXPORTACIÓN A HTML INTERACTIVO (.html)
-    // ==========================================
-    } else if (format === "html") {
-      let rowsHtmlArray = [];
-      let totalRowHtml = "";
-      const totals = {};
-
-      this.columns.forEach((col) => {
-        const type = this.colSettings[col].type;
-        if (["number", "currency", "integer", "percent"].includes(type) && !this.colSettings[col].hidden) {
-          totals[col] = 0;
-        }
-      });
-
-      this.visibleData.forEach((row) => {
-        let tr = "<tr>";
-        this.columns.forEach((col) => {
-          if (this.colSettings[col].hidden) return;
-          const config = this.colSettings[col];
-          const type = config.type;
-          let val = row[col];
-          let cellHtml = this.formatValue(val, config, row);
-          let alignClass = "text-left";
-          let cssClass = "col-text";
-          let dataAttrs = "";
-
-          if (config.align && config.align !== "auto") alignClass = `text-${config.align}`;
-
-          const isNum = typeof val === "number";
-          if (isNum && !["date", "datetime", "time"].includes(type)) {
-            if(config.align === "auto") alignClass = "text-right";
-            cssClass = "col-num";
-            dataAttrs = ` data-val="${val}"`;
-            if (totals[col] !== undefined) totals[col] += val;
-          }
-
-          let styleAttr = "";
-          if (config.textStyle && config.textStyle !== "none") {
-              styleAttr = ` style="text-transform: ${config.textStyle};"`;
-          }
-
-          tr += `<td class="${cssClass} ${alignClass}"${dataAttrs}${styleAttr}>${cellHtml}</td>`;
-        });
-        tr += "</tr>";
-        rowsHtmlArray.push(tr);
-      });
-      
-      let rowsHtml = rowsHtmlArray.join("");
-      let hasTotals = Object.keys(totals).length > 0;
-      
-      if (hasTotals) {
-        totalRowHtml = '<tr class="row-total">';
-        this.columns.forEach((col, idx) => {
-          if (this.colSettings[col].hidden) return;
-          let td = "";
-          if (idx === 0) td = "<td>TOTAL</td>";
-          else {
-            if (totals[col] !== undefined) {
-              const config = this.colSettings[col];
-              const sum = totals[col];
-              const fmtVal = this.formatValue(sum, config);
-              td = `<td class="text-right" data-sum="1" data-fmt="${this.escapeHTML(config.currency || "")}">${fmtVal}</td>`;
-            } else {
-              td = "<td></td>";
-            }
-          }
-          totalRowHtml += td;
-        });
-        totalRowHtml += "</tr>";
-      }
-
-      let headersHtml = "";
-      let colIndex = 0;
-      let filterOptions = '<option value="all">Todas las columnas</option>';
-      this.columns.forEach((col) => {
-        if (this.colSettings[col].hidden) return;
-        const config = this.colSettings[col];
-        const isNum = ["number", "currency", "integer", "percent"].includes(config.type);
-        let align = isNum ? "text-right" : "text-left";
-        if (config.align && config.align !== "auto") align = `text-${config.align}`;
-
-        headersHtml += `<th class="${align}" onclick="sortGrid(${colIndex})">${this.escapeHTML(col)}</th>`;
-        filterOptions += `<option value="${colIndex}">${this.escapeHTML(col)}</option>`;
-        colIndex++;
-      });
-
-      const fullHtml = `<!DOCTYPE html>
-<html lang='es'>
-<head>
-  <meta charset='UTF-8'>
-  <meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no'>
-  <title>${this.escapeHTML(fname)}</title>
-  <style>
-    :root { --bg-body: #f8fafc; --bg-gradient: linear-gradient(135deg, #f0f9ff 0%, #e0e7ff 100%); --bg-card: #ffffff; --text-main: #0f172a; --text-muted: #64748b; --primary: #0f172a; --accent: #0ea5e9; --border: #e2e8f0; --table-head: #f8fafc; --table-head-text: #334155; --row-hover: #f1f5f9; --shadow-soft: 0 10px 30px -10px rgba(0,0,0,0.08); --shadow-float: 0 20px 25px -5px rgba(0, 0, 0, 0.1); --link-color: #0284c7; }
-    [data-theme='dark'] { --bg-body: #0f172a; --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); --bg-card: #1e293b; --text-main: #f8fafc; --text-muted: #94a3b8; --primary: #818cf8; --accent: #38bdf8; --border: #334155; --table-head: #1e293b; --table-head-text: #cbd5e1; --row-hover: #334155; --shadow-soft: 0 10px 30px -10px rgba(0,0,0,0.5); --link-color: #7dd3fc; }
-    *, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; transition: all 0.2s ease; }
-    html, body { height: 100%; height: 100dvh; margin: 0; padding: 0; overflow: hidden; font-family: 'Inter', system-ui, -apple-system, sans-serif; background: var(--bg-gradient); color: var(--text-main); }
-    a { color: var(--link-color); text-decoration: none; font-weight: 500; }
-    a:hover { text-decoration: underline; }
-    .page { height: 100%; display: flex; flex-direction: column; padding: 24px; max-width: 2000px; margin: 0 auto; gap: 20px; align-items: center; }
-    .header-container { display: flex; flex-direction: column; gap: 20px; flex-shrink: 0; width: 100%; max-width: 100%; }
-    .title-area { text-align: center; }
-    .title-area h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.5px; margin: 0; background: linear-gradient(to right, var(--primary), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .subtitle-area { font-size: 12px; color: var(--text-muted); font-weight: 400; font-style: italic; }
-    .meta-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 0 auto; }
-    .actions-area { display: flex; align-items: center; gap: 12px; }
-    .author-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: rgba(79, 70, 229, 0.1); color: var(--primary); border-radius: 20px; font-size: 11px; font-weight: 600; letter-spacing: 0.5px; }
-    .btn-group { display: flex; gap: 8px; }
-    .btn { display: inline-flex; align-items: center; justify-content: center; height: 36px; border-radius: 99px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-muted); cursor: pointer; padding: 0 14px; font-size: 13px; font-weight: 600; gap: 6px; }
-    .btn:hover { background: var(--bg-body); color: var(--primary); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-color: var(--primary); }
-    .btn-primary { background: var(--bg-card); color: #fff; border: none; }
-    .btn-primary:hover { background: var(--accent); color: #fff; box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3); }
-    .search-floater { width: 100%; max-width: 600px; height: 40px; background: var(--bg-card); border-radius: 16px; padding: 3px; align-items: center; box-shadow: var(--shadow-float); display: flex; gap: 8px; border: 1px solid var(--border); animation: floatUp 0.6s ease-out; }
-    .select-wrapper { position: relative; border-right: 1px solid var(--border); }
-    .filter-select { appearance: none; background: transparent; border: none; padding: 10px 30px 10px 16px; font-size: 13px; font-weight: 600; color: var(--text-main); cursor: pointer; outline: none; height: 100%; }
-    .filter-select option { background-color: var(--bg-card); color: var(--text-main); }
-    .select-arrow { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--text-muted); width: 12px; }
-    .search-input-wrapper { flex-grow: 1; position: relative; }
-    .search-input { width: 100%; border: none; background: transparent; padding: 10px 12px; font-size: 14px; color: var(--text-main); outline: none; }
-    .table-card { width: fit-content; max-width: 100%; background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(10px); border-radius: 20px; box-shadow: var(--shadow-soft); flex-grow: 1; overflow: hidden; border: 1px solid rgba(255,255,255,0.5); display: flex; flex-direction: column; }
-    [data-theme='dark'] .table-card { background: rgba(30, 41, 59, 0.7); border-color: rgba(255,255,255,0.1); }
-    .table-container { overflow: auto; flex-grow: 1; position: relative; width: 100%; }
-    table { width: auto; border-collapse: separate; border-spacing: 0; font-size: 13px; }
-    th, td { white-space: nowrap; }
-    thead th { position: sticky; top: 0; background: var(--bg-card); color: var(--text-muted); padding: 10px 16px; font-weight: 700; text-transform: uppercase; font-size: 14px; letter-spacing: 0.8px; border-bottom: 2px solid var(--border); cursor: pointer; z-index: 20; transition: background 0.2s; }
-    thead th:hover { background: var(--row-hover); color: var(--primary); }
-    thead th::after { content: ''; display: inline-block; margin-left: 8px; vertical-align: middle; border-left: 4px solid transparent; border-right: 4px solid transparent; opacity: 0; transition: opacity 0.2s; }
-    thead th:hover::after { opacity: 0.5; border-top: 4px solid currentColor; }
-    thead th.asc::after { opacity: 1; border-bottom: 4px solid var(--accent); border-top: none; }
-    thead th.desc::after { opacity: 1; border-top: 4px solid var(--accent); border-bottom: none; }
-    .text-left { text-align: left; } .text-right { text-align: right; } .text-center { text-align: center; }
-    td { padding: 8px 16px; border-bottom: 1px solid var(--border); color: var(--text-main); font-weight: 500; height: 38px; }
-    tbody tr:hover { background-color: var(--row-hover); }
-    .row-total td { position: sticky; bottom: 0; background-color: var(--bg-card); border-top: 2px solid var(--primary); color: var(--primary); font-weight: 800; z-index: 30; box-shadow: 0 -4px 20px rgba(0,0,0,0.1); padding: 10px 16px; }
-    
-    .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 9999; opacity: 0; visibility: hidden; transition: all 0.25s ease; display: flex; align-items: center; justify-content: center; padding: 20px; }
-    .modal-overlay.active { opacity: 1; visibility: visible; }
-    .modal-card { background: var(--bg-card); width: 100%; max-width: 450px; max-height: 85vh; border-radius: 12px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); transform: scale(0.95); transition: all 0.25s; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--border); }
-    .modal-overlay.active .modal-card { transform: scale(1); }
-    .modal-header { padding: 16px 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: var(--bg-card); z-index: 10; }
-    .modal-title { font-size: 18px; font-weight: 700; margin:0; color: var(--primary); }
-    .modal-body { padding: 0; overflow-y: auto; display: flex; flex-direction: column; }
-    .detail-item { padding: 16px 24px; border-bottom: 1px dashed var(--border); display: flex; flex-direction: column; gap: 4px; }
-    .detail-item:last-child { border-bottom: none; }
-    .detail-label { font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 600; letter-spacing: 0.5px; }
-    .detail-value { font-size: 15px; color: var(--text-main); font-weight: 500; word-break: break-word; line-height: 1.5; }
-    @keyframes floatUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-    @media print {
-      html, body, .page, .table-card, .table-container { height: auto !important; overflow: visible !important; width: 100% !important; margin: 0 !important; padding: 0 !important; display: block !important; background: #fff !important; color: #000 !important; }
-      .search-floater, .actions-area, .btn, .modal-overlay, .select-wrapper, #filterCol { display: none !important; }
-      table { width: 100% !important; border-collapse: collapse !important; }
-      th, td { white-space: normal !important; border: 1px solid #000 !important; font-size: 10px !important; color: #000 !important; }
-      thead th { background: #eee !important; color: #000 !important; border-bottom: 2px solid #000 !important; }
-      .row-total td { background: #f0f0f0 !important; color: #000 !important; border-top: 2px solid #000 !important; }
-      .header-container { display: block !important; padding-bottom: 20px; border-bottom: 2px solid #000; margin-bottom: 20px; }
-      .title-area h1 { color: #000 !important; -webkit-text-fill-color: initial !important; text-align: left !important; font-size: 18px !important; }
-      .table-card { box-shadow: none !important; border: none !important; }
-      :root { --bg-body: #ffffff !important; --text-main: #000000 !important; --bg-card: #ffffff !important; }
-    }
-  </style>
-  <script>
-    var curSort = { col: -1, dir: 'asc' };
-    function printRpt(){window.print()}
-    function toggleTheme() { var h = document.documentElement; var c = h.getAttribute('data-theme'); var n = c === 'dark' ? 'light' : 'dark'; h.setAttribute('data-theme', n); localStorage.setItem('theme', n); }
-    function updateDatalist() { var colIdx = document.getElementById('filterCol').value; var list = document.getElementById('search-options'); list.innerHTML = ''; var set = new Set(); var rows = document.querySelectorAll('tbody tr:not(.row-total)'); rows.forEach(function(row) { var td; if(colIdx === 'all') {} else { td = row.children[parseInt(colIdx)]; if(td) { var txt = td.innerText.trim(); if(txt && txt.length > 1 && txt.length < 50) set.add(txt); } } }); var arr = Array.from(set).sort().slice(0, 500); arr.forEach(function(val) { var opt = document.createElement('option'); opt.value = val; list.appendChild(opt); }); }
-    function onSelectorChange() { document.getElementById('search').value = ''; filterTbl(); updateDatalist(); }
-    function filterTbl(){ var term = document.getElementById('search').value.toLowerCase(); var colIdx = document.getElementById('filterCol').value; var tbody = document.querySelector('tbody'); var rows = tbody.querySelectorAll('tr:not(.row-total)'); var totalRow = tbody.querySelector('.row-total'); var sums = []; rows.forEach(function(row) { var visible = false; var tds = row.querySelectorAll('td'); if(colIdx === 'all') { for(var i=0; i<tds.length; i++) { if(tds[i].innerText.toLowerCase().indexOf(term) > -1) { visible = true; break; } } } else { var targetTd = tds[colIdx]; if(targetTd && targetTd.innerText.toLowerCase().indexOf(term) > -1) visible = true; } row.style.display = visible ? '' : 'none'; if(visible) { tds.forEach(function(td, idx) { var val = parseFloat(td.getAttribute('data-val')); if(!isNaN(val)) { if(!sums[idx]) sums[idx] = 0; sums[idx] += val; } }); } }); if(totalRow) { totalRow.querySelectorAll('td').forEach(function(td, n) { if(td.hasAttribute('data-sum')) { var fmt = td.getAttribute('data-fmt')||''; var isPct = fmt.includes('%'); var sum = sums[n] || 0; var txt = ''; if(isPct) txt = (sum * 100).toFixed(2) + '%'; else txt = sum.toLocaleString('es-PE', {minimumFractionDigits:2, maximumFractionDigits:2}); if(fmt && !isPct) txt = fmt + ' ' + txt; td.innerText = txt; } }); } }
-    function sortGrid(idx) { var tbody = document.querySelector('tbody'); var rows = Array.from(tbody.querySelectorAll('tr:not(.row-total)')); var totalRow = tbody.querySelector('.row-total'); if (curSort.col === idx) { curSort.dir = curSort.dir === 'asc' ? 'desc' : 'asc'; } else { curSort.col = idx; curSort.dir = 'asc'; } document.querySelectorAll('thead th').forEach(function(th) { th.className = th.className.replace(/ asc| desc/g, ''); }); document.querySelectorAll('thead th')[idx].className += ' ' + curSort.dir; rows.sort(function(a, b) { var cellA = a.children[idx]; var cellB = b.children[idx]; var valA = cellA.hasAttribute('data-val') ? parseFloat(cellA.getAttribute('data-val')) : null; var valB = cellB.hasAttribute('data-val') ? parseFloat(cellB.getAttribute('data-val')) : null; if (valA !== null && valB !== null) return curSort.dir === 'asc' ? valA - valB : valB - valA; var txtA = cellA.innerText.trim().toLowerCase(); var txtB = cellB.innerText.trim().toLowerCase(); return curSort.dir === 'asc' ? txtA.localeCompare(txtB) : txtB.localeCompare(txtA); }); rows.forEach(function(r) { tbody.appendChild(r); }); if(totalRow) tbody.appendChild(totalRow); }
-    function dlXLS() { var rows = document.querySelectorAll('table tr'); var csv = []; rows.forEach(function(row) { if(row.style.display !== 'none') { var cols = []; row.querySelectorAll('th, td').forEach(function(cell) { cols.push('"' + cell.innerText.replace(/"/g, '""') + '"'); }); csv.push(cols.join(';')); } }); var blob = new Blob(['\\uFEFF' + csv.join('\\r\\n')], { type: 'text/csv;charset=utf-8;' }); var url = URL.createObjectURL(blob); var a = document.createElement('a'); a.href = url; a.download = 'reporte.csv'; a.click(); }
-    document.addEventListener('DOMContentLoaded', function() { updateDatalist(); var saved = localStorage.getItem('theme') || 'light'; document.documentElement.setAttribute('data-theme', saved); var rows = document.querySelectorAll('tbody tr:not(.row-total)'); var modal = document.getElementById('detailModal'); var modalBody = modal.querySelector('.modal-body'); var modalTitle = modal.querySelector('.modal-title'); var headers = Array.from(document.querySelectorAll('thead th')).map(function(th) { return th.innerText; }); function showModal(row) { modalBody.innerHTML = ''; var cells = row.querySelectorAll('td'); modalTitle.innerText = cells[0].innerText || 'Detalle'; cells.forEach(function(cell, index) { var val = cell.innerText; if (cell.querySelector('a')) val = cell.innerHTML; var item = document.createElement('div'); item.className = 'detail-item'; item.innerHTML = '<div class="detail-label">' + headers[index] + '</div><div class="detail-value">' + val + '</div>'; modalBody.appendChild(item); }); modal.classList.add('active'); } rows.forEach(function(row) { row.addEventListener('dblclick', function() { showModal(row); }); }); });
-    function closeModal() { document.getElementById('detailModal').classList.remove('active'); }
-  </script>
-</head>
-<body>
-  <div id='detailModal' class='modal-overlay' onclick='if(event.target === this) closeModal()'>
-    <div class='modal-card'>
-      <div class='modal-header'>
-        <h3 class='modal-title'>Detalle</h3><button class='btn' style='border:none' onclick='closeModal()'><svg width='20' height='20' fill='none' stroke='currentColor' stroke-width='2' viewBox='0 0 24 24'><path d='M18 6L6 18M6 6l12 12'></path></svg></button>
-      </div>
-      <div class='modal-body'></div>
-    </div>
-  </div>
-  <div class='page'>
-    <div class='header-container'>
-      <div class='title-area'>
-        <h1>${this.escapeHTML(fname)}</h1>
-        <div class='author-pill'>${this.escapeHTML(author)} <div class='subtitle-area'>Generado: ${timestamp}</div></div>
-      </div>
-      <div class='meta-row'>
-        <datalist id='search-options'></datalist>
-        <div class='search-floater'>
-          <div class='select-wrapper'><select id='filterCol' class='filter-select' onchange='onSelectorChange()'>${filterOptions}</select></div>
-          <div class='search-input-wrapper'><input type='text' id='search' list='search-options' autocomplete='on' class='search-input' onkeyup='filterTbl()' placeholder='Buscar...'></div>
-        </div>
-        <div class='actions-area'>
-          <div class='btn-group'>
-            <button class='btn btn-primary' onclick='toggleTheme()' title='Tema'>Tema</button>
-            <button class='btn btn-primary' onclick='dlXLS()' title='Exportar CSV'>CSV</button>
-            <button class='btn btn-primary' onclick='printRpt()' title='Imprimir'>Imprimir</button>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class='table-card'>
-      <div class='table-container'>
-        <table><thead><tr>${headersHtml}</tr></thead><tbody>${rowsHtml}${totalRowHtml}</tbody></table>
-      </div>
-    </div>
-  </div>
-</body>
-</html>`;
-
-      const url = URL.createObjectURL(new Blob([fullHtml], { type: "text/html" }));
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${fname}.html`;
-      a.click();
-    }
-    
-    this.showToast(`Exportado a ${format.toUpperCase()}`, "success");
-  }
-
-// --- LÓGICA PERSONALIZADA CSV ALMACÉN PT ---
-  openCsvMapper() {
-    this.els.exportMenu.classList.remove("show");
-    if (this.columns.length === 0) return this.showToast("No hay datos cargados", "error");
-
-    const selects = [
-      this.els.mapLocalidad, this.els.mapScanCode, this.els.mapProducto,
-      this.els.mapPedido, this.els.mapOrdenCompra
-    ];
-
-    // Limpiamos cualquier bloque de muestra antiguo que haya quedado en el HTML
-    document.querySelectorAll('.col-preview').forEach(el => el.remove());
-
-    selects.forEach((sel) => {
-      sel.innerHTML = '<option value="">-- Seleccionar Columna --</option>';
-      this.columns.forEach((col) => {
-        const opt = document.createElement("option");
-        opt.value = col; opt.innerText = col;
-        sel.appendChild(opt);
-      });
-
-      // Insertamos el span de muestra directamente AL LADO del número de etiqueta
-      let container = sel.closest('.mapping-row') || sel.parentElement;
-      let labelEl = container.querySelector('.mapping-label') || sel.previousElementSibling;
-      if (labelEl) {
-         let previewSpan = labelEl.querySelector('.inline-preview');
-         if (!previewSpan) {
-             previewSpan = document.createElement('span');
-             previewSpan.className = 'inline-preview';
-             labelEl.appendChild(previewSpan);
-         }
-      }
-
-      // Al cambiar la lista desplegable, se actualiza la muestra
-      sel.addEventListener('change', () => this.updateAllPreviews());
-    });
-
-    const autoSelect = (selectElement, keywords) => {
-      const options = Array.from(selectElement.options);
-      const found = options.find((opt) => keywords.some((k) => opt.text.toLowerCase().includes(k)));
-      if (found) selectElement.value = found.value;
-    };
-
-    autoSelect(this.els.mapLocalidad, ["localidad", "nom_tienda", "rs comprador", "local", "cliente", "ciudad", "sede"]);
-    autoSelect(this.els.mapScanCode, ["cód. empaque", "upc", "code", "codigo", "código", "ean", "sku"]);
-    autoSelect(this.els.mapProducto, ["producto", "descripcion", "descripción", "descripcion_larga", "sku_name", "item"]);
-    autoSelect(this.els.mapPedido, ["empaques pedidos", "pedido", "unidades", "cant", "solicitud"]);
-    autoSelect(this.els.mapOrdenCompra, ["orden", "num_oc", "compra", "oc", "po", "numero"]);
-
-    // Evento en vivo: Si el usuario escribe manualmente su localidad, actualiza la muestra
-    if (!this.mappedEventsBound) {
-        this.els.inputManualLocalidad.addEventListener('input', () => this.updateAllPreviews());
-        this.mappedEventsBound = true;
-    }
-
-    this.els.chkManualLocalidad.checked = false;
-    this.toggleLocalidadInput();
-    this.els.inputManualLocalidad.value = "";
-    
-    this.els.chkAutoOC.checked = false;
-    this.toggleAutoOC(); 
-    
-    this.els.csvMapModal.classList.add("active");
-    
-    // Ejecutar la actualización inicial un instante después para asegurar que el DOM esté listo
-    setTimeout(() => this.updateAllPreviews(), 50);
-  }
-
-  getSampleData(colName) {
-    if (!colName) return "";
-    const sampleRow = this.rawData.find(row => row[colName] !== undefined && row[colName] !== null && String(row[colName]).trim() !== "");
-    if (sampleRow) {
-        const val = String(sampleRow[colName]);
-        return val.length > 30 ? val.substring(0, 30) + "..." : val;
-    }
-    return "";
-  }
-
-  // Motor central que recalcula TODAS las muestras basándose en los checkboxes
-  updateAllPreviews() {
-    const updateSpan = (sel, text) => {
-        let container = sel.closest('.mapping-row') || sel.parentElement;
-        let labelEl = container.querySelector('.mapping-label') || sel.previousElementSibling;
-        if(labelEl) {
-            let span = labelEl.querySelector('.inline-preview');
-            if(span) {
-                if (!text || text === "") {
-                    span.innerHTML = ``;
-                } else {
-                    span.innerHTML = `(Muestra: <strong>${this.escapeHTML(text)}</strong>)`;
-                }
-            }
-        }
-    };
-
-    // 1. Localidad (Revisa el checkbox Fijo)
-    if (this.els.chkManualLocalidad.checked) {
-        let val = this.els.inputManualLocalidad.value.trim() || "Escribe un valor...";
-        updateSpan(this.els.mapLocalidad, val);
-    } else {
-        updateSpan(this.els.mapLocalidad, this.getSampleData(this.els.mapLocalidad.value));
-    }
-
-    // 2. Scan Code
-    updateSpan(this.els.mapScanCode, this.getSampleData(this.els.mapScanCode.value));
-
-    // 3. Producto X
-    updateSpan(this.els.mapProducto, this.getSampleData(this.els.mapProducto.value));
-
-    // 4. Pedido
-    updateSpan(this.els.mapPedido, this.getSampleData(this.els.mapPedido.value));
-
-    // 5. Orden Compra (Revisa el checkbox Automático)
-    if (this.els.chkAutoOC.checked) {
-        let valOC = this.els.previewAutoOC && this.els.previewAutoOC.value ? this.els.previewAutoOC.value : "ID Automático";
-        updateSpan(this.els.mapOrdenCompra, valOC);
-    } else {
-        updateSpan(this.els.mapOrdenCompra, this.getSampleData(this.els.mapOrdenCompra.value));
-    }
-  }
-
-  toggleLocalidadInput() {
-    if (this.els.chkManualLocalidad.checked) {
-      this.els.mapLocalidad.classList.add("hidden");
-      this.els.inputManualLocalidad.classList.remove("hidden");
-    } else {
-      this.els.mapLocalidad.classList.remove("hidden");
-      this.els.inputManualLocalidad.classList.add("hidden");
-    }
-    // Si marcamos o desmarcamos la casilla, forzamos actualización de la muestra
-    if(this.updateAllPreviews) this.updateAllPreviews();
-  }
-
-  toggleAutoOC() {
-    if (this.els.chkAutoOC.checked) {
-      this.els.mapOrdenCompra.classList.add("hidden");
-      this.els.previewAutoOC.classList.remove("hidden");
-      const now = new Date();
-      const pad = (n) => String(n).padStart(2, "0");
-      this.els.previewAutoOC.value = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
-    } else {
-      this.els.mapOrdenCompra.classList.remove("hidden");
-      this.els.previewAutoOC.classList.add("hidden");
-    }
-    // Si marcamos o desmarcamos la casilla, forzamos actualización de la muestra
-    if(this.updateAllPreviews) this.updateAllPreviews();
-  }
-
-
- 
-
-  generateCustomCSV() {
-    const isAutoOC = this.els.chkAutoOC.checked;
-    let autoOCValue = "";
-
-    if (isAutoOC) {
-      const now = new Date();
-      const pad = (n) => String(n).padStart(2, "0");
-      autoOCValue = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
-    }
-
-    const map = {
-      locCol: this.els.mapLocalidad.value,
-      scanCol: this.els.mapScanCode.value,
-      prodCol: this.els.mapProducto.value,
-      pedCol: this.els.mapPedido.value,
-      ocCol: this.els.mapOrdenCompra.value,
-      isManualLoc: this.els.chkManualLocalidad.checked,
-      manualLocVal: this.els.inputManualLocalidad.value.trim().toUpperCase()
-    };
-
-    if (!map.isManualLoc && !map.locCol) return this.showToast("Falta definir columna Localidad", "error");
-    if (map.isManualLoc && !map.manualLocVal) return this.showToast("Falta valor manual de Localidad", "error");
-    if (!map.scanCol) return this.showToast("Falta columna Scan Code", "error");
-    if (!map.prodCol) return this.showToast("Falta columna Producto", "error");
-    if (!map.pedCol) return this.showToast("Falta columna Pedido", "error");
-    if (!isAutoOC && !map.ocCol) return this.showToast("Falta columna Orden de Compra", "error");
-
-    const csvRows = [];
-    csvRows.push("LOCALIDAD,SCAN_COD,PRODUCTO X,PEDIDO,ORDEN DE COMPRA");
-
-   // Función que limpia el texto Y le aplica los ceros si la columna es Código
-    const clean = (txt, colName) => {
-      if (txt === null || txt === undefined) return "";
-      let str = String(txt).replace(/,/g, " ").replace(/[\r\n]+/g, " ").trim();
-      
-      if (colName && this.colSettings[colName] && this.colSettings[colName].type === "code" && this.colSettings[colName].padZeros > 0) {
-          str = str.padStart(this.colSettings[colName].padZeros, '0');
-      }
-      return str;
-    };
-
-    this.visibleData.forEach((row) => {
-      // Pasamos el nombre de la columna original a la función clean() para que sepa si debe rellenar
-      let valLoc = map.isManualLoc ? clean(map.manualLocVal, null) : clean(row[map.locCol], map.locCol);
-      let valScan = clean(row[map.scanCol], map.scanCol);
-      let valProd = clean(row[map.prodCol], map.prodCol);
-      let valPed = clean(row[map.pedCol], map.pedCol);
-      let valOC = isAutoOC ? clean(autoOCValue, null) : clean(row[map.ocCol], map.ocCol);
-
-      csvRows.push(
-        `${valLoc},${valScan},${valProd},${valPed},${valOC}`
-      );
-    });
-
-    const csvContent = "\uFEFF" + csvRows.join("\r\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-
-    const fname = this.els.reportTitle.value.trim() || "Reporte";
-    link.setAttribute("href", url);
-    link.setAttribute("download", `${fname}_custom.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    this.els.csvMapModal.classList.remove("active");
-    this.showToast("CSV generado correctamente", "success");
-  }
-
-  escapeHTML(str) {
-    if (str === null || str === undefined) return "";
-    return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-  }
-
-  toggleMenu(id) { document.getElementById(id).classList.toggle("show"); }
-  
-  toggleTheme() {
-    const html = document.documentElement;
-    const isDark = html.getAttribute("data-theme") === "dark";
-    html.setAttribute("data-theme", isDark ? "light" : "dark");
-    document.getElementById("themeIcon").className = isDark ? "ph ph-moon" : "ph ph-sun";
-  }
-
-setLoading(v) {
-    if (v) {
-      this.els.loadingState.classList.remove("hidden");
-      this.els.emptyState.classList.add("hidden");
-      this.els.tableWrapper.classList.add("hidden");
-    } else {
-      this.els.loadingState.classList.add("hidden");
-      // 🚀 MAGIA: Si ya tenemos columnas cargadas, quitamos la invisibilidad de la tabla
-      if (this.columns && this.columns.length > 0) {
-        this.els.tableWrapper.classList.remove("hidden");
-      }
-    }
-  }
-
-  getAlignClass(type) {
-    if (["number", "currency", "integer", "percent"].includes(type)) return "text-right";
-    if (["date", "datetime", "time"].includes(type)) return "text-center";
-    return "";
-  }
-
-formatValue(val, config, row = null) {
-    const type = config.type;
-    const decimals = config.decimals !== undefined ? config.decimals : 2;
-    const curr = config.currency || "PEN";
-
-    if (val === null || val === undefined || val === "") return "";
-
-    // 1. MAYÚSCULAS Y MINÚSCULAS
-    if (typeof val === "string" && config.textStyle && config.textStyle !== "none") {
-        if (config.textStyle === "uppercase") {
-            val = val.toUpperCase();
-        } else if (config.textStyle === "lowercase") {
-            val = val.toLowerCase();
-        } else if (config.textStyle === "capitalize") {
-            val = val.toLowerCase().replace(/\b\w/g, char => char.toUpperCase());
-        }
-    }
-    
-    // 2. 🚀 ENLACES (Aquí está la magia corregida y unificada)
-    if (type === "link" || (typeof val === "string" && val.startsWith("http"))) {
-      let displayTxt = val; // Por defecto muestra la URL larga
-      
-      // Aplicar máscara si el usuario lo configuró
-      if (config.linkMode === 'fixed' && config.linkText) {
-          displayTxt = config.linkText; // Ej: "Ver Documento"
-      } else if (config.linkMode === 'column' && config.linkCol && row && row[config.linkCol] !== undefined) {
-          displayTxt = row[config.linkCol]; // Ej: Muestra el Código del Producto
-      }
-      return `<a href="${val}" target="_blank" style="color:var(--accent); font-weight:bold; text-decoration:underline;">${this.escapeHTML(displayTxt)}</a>`;
-    }
-
-    // 3. TEXTOS Y CÓDIGOS
-    if (type === "text" || type === "code") {
-      let strVal = String(val);
-      if (type === "code" && config.padZeros > 0) {
-          strVal = strVal.padStart(config.padZeros, '0');
-      }
-      return strVal;
-    }
-
-    // 4. FECHAS
-    if (type === "date" || type === "datetime" || type === "time" || val instanceof Date) {
-      try {
-        let d = val instanceof Date ? val : new Date(val); 
-        if (isNaN(d.getTime())) return val;
-        if (type === "time") return d.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" });
-
-        const opts = {};
-        const style = config.dateStyle || "short";
-        
-        if (style === "short") { opts.day = "2-digit"; opts.month = "2-digit"; opts.year = "numeric"; }
-        else if (style === "medium") { opts.day = "numeric"; opts.month = "short"; opts.year = "numeric"; }
-        else if (style === "long") { opts.day = "numeric"; opts.month = "long"; opts.year = "numeric"; }
-        else if (style === "full") { opts.weekday = "long"; opts.day = "numeric"; opts.month = "long"; opts.year = "numeric"; }
-
-        if (type === "datetime") { opts.hour = "2-digit"; opts.minute = "2-digit"; }
-        return d.toLocaleString("es-PE", opts);
-      } catch (e) { return val; }
-    }
-
-    // 5. NÚMEROS (Monedas, Porcentajes, Enteros)
-    if (["number", "currency", "percent", "integer"].includes(type)) {
-      let numVal = typeof val === "number" ? val : parseFloat(String(val).replace(/,/g, '').trim());
-      if (isNaN(numVal)) return val;
-
-      if (type === "currency") return numVal.toLocaleString("es-PE", { style: "currency", currency: curr, minimumFractionDigits: decimals, maximumFractionDigits: decimals });
-      if (type === "percent") {
-        const pctVal = numVal > 1 ? numVal / 100 : numVal;
-        return pctVal.toLocaleString("es-PE", { style: "percent", minimumFractionDigits: decimals, maximumFractionDigits: decimals });
-      }
-      if (type === "integer") {
-        let intStr = parseInt(numVal).toString();
-        if (config.padZeros > 0) return intStr.padStart(config.padZeros, '0');
-        return parseInt(numVal).toLocaleString("es-PE");
-      }
-      return numVal.toLocaleString("es-PE", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
-    }
-    
-    // Por defecto
-    return String(val);
-  }
-
-
-showToast(msg, type = "info") {
-    const c = document.getElementById("toastContainer");
-    if (!c) return;
-
-    const t = document.createElement("div");
-    t.className = `toast toast-${type}`;
-    const icon = type === "success" ? "ph-check-circle" : type === "error" ? "ph-warning-circle" : "ph-info";
-    
-    // Le agregamos una transición nativa por si el CSS falla
-    t.style.transition = "opacity 0.4s ease, transform 0.4s ease";
-    
-    t.innerHTML = `<i class="ph ${icon}" style="font-size:20px; color:${type === "success" ? "var(--success)" : "var(--danger)"}"></i><span>${msg}</span>`;
-    c.appendChild(t);
-
-    // Temporizador de destrucción garantizada
-    setTimeout(() => {
-      t.style.opacity = "0"; // Se desvanece
-      t.style.transform = "translateX(100%)"; // Se desliza hacia afuera
-      
-      // Eliminamos el elemento del DOM 400ms después (cuando ya es invisible)
+  // PRE-CARGA EN SEGUNDO PLANO
+  if (!datosCargados && !isFetchingDashboard) {
       setTimeout(() => {
-        if (t.parentNode) t.remove();
-      }, 400);
-      
-    }, 3000); // Aparece en pantalla por 3 segundos
-  }
-
-  
-  loadPreferences() {
-    try {
-      const stored = localStorage.getItem('dataViewerPrefs');
-      return stored ? JSON.parse(stored) : null;
-    } catch (e) { return null; }
-  }
-
-  savePreferences() {
-    try {
-      const prefs = { pageSize: this.pageSize, density: this.densityMode || 'normal', colSettings: {} };
-      Object.keys(this.colSettings).forEach(col => {
-        prefs.colSettings[col] = {
-          hidden: this.colSettings[col].hidden,
-          type: this.colSettings[col].type,
-          decimals: this.colSettings[col].decimals,
-          currency: this.colSettings[col].currency || "PEN",
-          dateStyle: this.colSettings[col].dateStyle,
-          align: this.colSettings[col].align,
-          textStyle: this.colSettings[col].textStyle,
-         padZeros: this.colSettings[col].padZeros,
-          linkMode: this.colSettings[col].linkMode,
-          linkText: this.colSettings[col].linkText,
-          linkCol: this.colSettings[col].linkCol
-        };
-      });
-      localStorage.setItem('dataViewerPrefs', JSON.stringify(prefs));
-    } catch (e) {}
-  }
-
-  resetPreferences() {
-    if (confirm("¿Restaurar configuración visual de fábrica?")) {
-      localStorage.removeItem('dataViewerPrefs');
-      this.pageSize = 100;
-      const pageSizeSelect = document.getElementById('pageSize');
-      if(pageSizeSelect) pageSizeSelect.value = 100;
-
-      if (this.rawData && this.rawData.length > 0) {
-        this.initData(this.rawData, null);
-      }
-      this.showToast("Configuración restaurada", "success");
-    }
+          cargarDatosDashboard();
+      }, 300); 
   }
 }
 
-// =================================================================
-// 🚀 INICIALIZACIÓN Y CONFIGURACIÓN MÓVIL (CORREGIDO)
-// =================================================================
-document.addEventListener("DOMContentLoaded", () => {
-    try {
-        window.app = new DataViewerApp();
-    } catch (e) {
-        alert("Error crítico iniciando la app: " + e.message);
-    }
+// ==========================================
+// MOTOR DUAL OFFLINE-FIRST (INDEXEDDB) & REFRESH MANAGER
+// ==========================================
+const IDB_NAME = 'GenApps_DB_Residuos';
+const STORE_NAME = 'sync_queue';
+const IDB_VERSION = 1;
 
-    // 📱 CONFIGURACIÓN DEL MENÚ LATERAL MÓVIL PREMIUM
-    const headerRight = document.querySelector('.header-right');
-    const premiumHeader = document.querySelector('.premium-header');
-
-    // Limpiamos elementos viejos para evitar duplicados en recargas
-    document.querySelectorAll('.mobile-menu-overlay, .action-buttons-wrapper, .mobile-menu-btn').forEach(e => e.remove());
-
-    if (headerRight && premiumHeader) {
-
-        // 1. Crear el envoltorio
-        const wrapper = document.createElement('div');
-        wrapper.className = 'action-buttons-wrapper';
-
-        // 2. Cabecera del menú lateral (Solo visible en móviles)
-        wrapper.innerHTML = `
-           <div class="mobile-sidebar-header">
-               <span class="mobile-sidebar-title">Configuración</span>
-               <button class="close-sidebar-btn"><i class="ph ph-x" style="font-size: 24px;"></i></button>
-           </div>
-        `;
-
-        // 3. Extraer SOLO los botones (Dejamos el buscador quieto)
-        const childrenToMove = Array.from(headerRight.children).filter(el => 
-            !el.classList.contains('search-premium') && 
-            !el.classList.contains('search-unified-wrapper') &&
-            !el.classList.contains('brand-right') &&
-            !el.classList.contains('mobile-menu-btn')
-        );
-
-        childrenToMove.forEach(child => wrapper.appendChild(child));
-        
-        // 🚀 CORRECCIÓN: Adjuntamos los botones de vuelta a la cabecera para que se vean en PC
-        headerRight.appendChild(wrapper); 
-
-        // 4. Crear el botón hamburguesa
-        const hamburger = document.createElement('button');
-        hamburger.className = 'mobile-menu-btn';
-        hamburger.innerHTML = `<i class="ph ph-list" style="font-size: 24px;"></i>`;
-        headerRight.appendChild(hamburger);
-
-        // 5. Crear la cortina oscura de fondo
-        const overlay = document.createElement('div');
-        overlay.className = 'mobile-menu-overlay';
-        document.body.appendChild(overlay);
-
-        // 6. Lógica de apertura/cierre inteligente
-        const toggleMenu = () => {
-            const isOpen = wrapper.classList.toggle('open');
-            overlay.classList.toggle('active');
-            
-            // MAGIA: Elevamos la cabecera (y sus botones) por encima de la cortina oscura
-            premiumHeader.style.zIndex = isOpen ? '9999' : '50';
-        };
-        
-        hamburger.addEventListener('click', toggleMenu);
-        overlay.addEventListener('click', toggleMenu);
-        wrapper.querySelector('.close-sidebar-btn').addEventListener('click', toggleMenu);
-    }
+// Wrapper asíncrono en O(1) para IndexedDB (Cero dependencias)
+const dbPromise = new Promise((resolve, reject) => {
+    const request = indexedDB.open(IDB_NAME, IDB_VERSION);
+    request.onerror = () => reject('Error al abrir IndexedDB');
+    request.onsuccess = (e) => resolve(e.target.result);
+    request.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+            db.createObjectStore(STORE_NAME, { keyPath: '_localId' });
+        }
+    };
 });
+
+const dbUtil = {
+    async getAll() {
+        const db = await dbPromise;
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, 'readonly');
+            const req = tx.objectStore(STORE_NAME).getAll();
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+        });
+    },
+    async put(item) {
+        const db = await dbPromise;
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, 'readwrite');
+            const req = tx.objectStore(STORE_NAME).put(item);
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+        });
+    },
+    async delete(key) {
+        const db = await dbPromise;
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, 'readwrite');
+            const req = tx.objectStore(STORE_NAME).delete(key);
+            req.onsuccess = () => resolve();
+            req.onerror = () => reject(req.error);
+        });
+    }
+};
+
+const SyncManager = {
+    isSyncing: false,
+    
+    // Ahora devuelve una Promesa
+    async getQueue() {
+        try {
+            return await dbUtil.getAll();
+        } catch (e) {
+            console.error("Error leyendo IndexedDB:", e);
+            return [];
+        }
+    },
+    
+    // Inserción asíncrona sin bloquear el DOM
+    async enqueue(record) {
+        record._localId = Date.now().toString(); 
+        await dbUtil.put(record);
+        await this.updateBadge();
+    },
+    
+    async remove(localId) {
+        await dbUtil.delete(localId);
+    },
+    
+    async sync(forcePull = false) {
+        if (!navigator.onLine || this.isSyncing) return;
+        
+        const queue = await this.getQueue();
+        
+        if (queue.length === 0 && !forcePull) {
+            this.updateBadge();
+            return;
+        }
+
+        this.isSyncing = true; 
+        
+        // UI: Configurar estado de carga
+        const badge = document.getElementById('syncStatusBadge');
+        const badgeText = document.getElementById('syncStatusText');
+        const badgeIcon = document.getElementById('syncStatusIcon');
+        const btnForce = document.getElementById('btnForceSync');
+        const iconForce = document.getElementById('iconForceSync');
+        
+        if (badge) badge.classList.remove('hidden');
+        if (badgeIcon) badgeIcon.className = 'ph-fill ph-arrows-clockwise text-blue-400 animate-spin inline-block text-xl';
+        
+        if (btnForce) {
+            btnForce.disabled = true;
+            iconForce.classList.add('animate-spin');
+        }
+
+        let hasErrors = false;
+
+        // FASE 1: PUSH (Subir a GAS)
+        if (queue.length > 0) {
+            if (badgeText) badgeText.textContent = `Subiendo ${queue.length} registro(s)...`;
+            for (const record of queue) {
+                try {
+                    const payload = { ...record };
+                    delete payload._localId; 
+                    
+                    const response = await fetch(SCRIPT_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    const res = await response.json();
+                    if (res.status === 'success') {
+                        await this.remove(record._localId); // Borrado en DB
+                        const localTag = document.getElementById(`sync-tag-${record._localId}`);
+                        if (localTag) localTag.innerHTML = '<i class="ph-fill ph-cloud-check text-green-500" title="Sincronizado"></i>';
+                    } else {
+                        hasErrors = true;
+                    }
+                } catch (e) {
+                    hasErrors = true;
+                    break; 
+                }
+            }
+        }
+
+        // FASE 2: PULL (Refrescar Dashboard)
+        if (!hasErrors && (forcePull || queue.length > 0)) {
+            if (badgeText) badgeText.textContent = 'Actualizando panel...';
+            try {
+                datosCargados = false; 
+                isFetchingDashboard = false; 
+                await cargarDatosDashboard(forcePull); 
+            } catch (e) {
+                hasErrors = true;
+            }
+        }
+
+        // Restaurar UI
+        if (badgeIcon) badgeIcon.classList.remove('animate-spin');
+        if (iconForce) iconForce.classList.remove('animate-spin');
+        if (btnForce) btnForce.disabled = false;
+        
+        const remainingQueue = await this.getQueue();
+        
+        if (!hasErrors && remainingQueue.length === 0) {
+            if (badgeIcon) badgeIcon.className = 'ph-fill ph-check-circle text-green-400 text-xl';
+            if (badgeText) badgeText.textContent = '¡Datos actualizados!';
+            setTimeout(() => { if(badge) badge.classList.add('hidden'); }, 3500);
+        } else {
+            if (badgeIcon) badgeIcon.className = 'ph-fill ph-warning-circle text-yellow-400 text-xl';
+            if (badgeText) badgeText.textContent = 'Red inestable. Reintentaremos luego.';
+            setTimeout(() => this.updateBadge(), 4000);
+        }
+        
+        this.isSyncing = false;
+        this.updateBadge(); 
+    },
+    
+    async updateBadge() {
+        const queue = await this.getQueue();
+        const badge = document.getElementById('syncStatusBadge');
+        const badgeText = document.getElementById('syncStatusText');
+        const badgeIcon = document.getElementById('syncStatusIcon');
+        
+        const btnForce = document.getElementById('btnForceSync');
+        const countForce = document.getElementById('countForceSync');
+        const txtForce = document.getElementById('txtForceSync');
+        
+        if (!badge || !badgeIcon) return; // Defensive programming
+
+        if (queue.length > 0) {
+            if (!this.isSyncing) {
+                badge.classList.remove('hidden');
+                badgeIcon.className = 'ph-fill ph-cloud-slash text-yellow-400 text-xl';
+                if (badgeText) badgeText.textContent = `${queue.length} registro(s) pendiente(s)`;
+            }
+            
+            if (btnForce) {
+                btnForce.className = 'flex bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-700/50 px-3 py-1.5 rounded-lg items-center gap-2 text-sm font-medium transition-all shadow-sm hover:bg-amber-100 dark:hover:bg-amber-900/50';
+                if (txtForce) txtForce.textContent = "Sincronizar";
+                if (countForce) {
+                    countForce.classList.remove('hidden');
+                    countForce.textContent = queue.length;
+                }
+            }
+        } else {
+            if (!badgeIcon.classList.contains('animate-spin') && badgeText && !badgeText.textContent.includes('actualizados')) {
+                 badge.classList.add('hidden');
+            }
+            if (btnForce && !this.isSyncing) {
+                btnForce.className = 'flex bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 px-3 py-1.5 rounded-lg items-center gap-2 text-sm font-medium transition-all shadow-sm hover:bg-gray-100 dark:hover:bg-gray-700/80';
+                if (txtForce) txtForce.textContent = "Actualizar";
+                if (countForce) countForce.classList.add('hidden');
+            }
+        }
+    }
+};
+
+
+// ==========================================
+// TRIGGERS DE SINCRONIZACIÓN (BLINDAJE TRIPLE)
+// ==========================================
+window.addEventListener('online', () => SyncManager.sync(false));
+window.addEventListener('offline', () => SyncManager.updateBadge());
+
+document.addEventListener('DOMContentLoaded', () => {
+    const btnForce = document.getElementById('btnForceSync');
+    if(btnForce) {
+        btnForce.addEventListener('click', () => SyncManager.sync(true));
+    }
+    // Inicializar el badge en la carga de la página
+    SyncManager.updateBadge();
+});
+
+// Polling asíncrono
+setInterval(async () => {
+    if (navigator.onLine && !SyncManager.isSyncing) {
+        const queue = await SyncManager.getQueue();
+        if (queue.length > 0) {
+            SyncManager.sync(false);
+        }
+    }
+}, 20000);
+
+// ==========================================
+// UTILIDADES DE EXTRACCIÓN Y FORMATO 
+// ==========================================
+function formatearFechaEstandar(fechaStr) {
+  if (!fechaStr || fechaStr === '-') return '-';
+  if (fechaStr.includes('T')) fechaStr = fechaStr.split('T')[0];
+  const partes = fechaStr.split(/[-/]/);
+  if (partes.length === 3) {
+    if (partes[0].length === 4) return `${partes[2]}/${partes[1]}/${partes[0]}`;
+    return `${partes[0].padStart(2, '0')}/${partes[1].padStart(2, '0')}/${partes[2]}`;
+  }
+  return fechaStr;
+}
+
+function formatearHora24(horaStr) {
+  if (!horaStr || horaStr === '-') return '-';
+  horaStr = String(horaStr).trim();
+  const lowerHora = horaStr.toLowerCase();
+  const isPM = lowerHora.includes('pm');
+  const isAM = lowerHora.includes('am');
+  
+  let timeStr = lowerHora.replace(/[a-z]/ig, '').trim(); 
+  let partes = timeStr.split(':');
+  
+  if (partes.length >= 2) {
+    let h = parseInt(partes[0], 10);
+    const m = partes[1].padStart(2, '0');
+    const s = (partes[2] || '00').replace(/[^0-9]/g, '').padStart(2, '0');
+    
+    if (isNaN(h)) return horaStr;
+    if (isPM && h < 12) h += 12;
+    if (isAM && h === 12) h = 0;
+    
+    return `${String(h).padStart(2, '0')}:${m}:${s}`;
+  }
+  return horaStr;
+}
+
+function obtenerUrlImagen(reg) {
+  if (!reg) return '';
+  if (reg['IMAGEN']) return String(reg['IMAGEN']);
+  if (reg['Imagen']) return String(reg['Imagen']);
+  if (reg['imagen']) return String(reg['imagen']);
+  
+  for (const key in reg) {
+    const kLower = key.toLowerCase();
+    if (kLower.includes('imagen') || kLower.includes('foto') || kLower.includes('link') || kLower.includes('url')) {
+       const val = reg[key];
+       if (val && String(val).trim() !== '') {
+           return String(val);
+       }
+    }
+  }
+  return '';
+}
+
+function obtenerObservaciones(reg) {
+  if (!reg) return '';
+  if (reg['OBSERVACIONES:'] !== undefined) return reg['OBSERVACIONES:'];
+  if (reg['OBSERVACIONES'] !== undefined) return reg['OBSERVACIONES'];
+  if (reg['observaciones:'] !== undefined) return reg['observaciones:'];
+  if (reg['observaciones'] !== undefined) return reg['observaciones'];
+  if (reg['Observaciones'] !== undefined) return reg['Observaciones'];
+
+  for (const key in reg) {
+    const kLower = key.toLowerCase();
+    if (kLower.includes('observacion') || kLower.includes('detalle') || kLower.includes('comentario')) {
+       return reg[key] || '';
+    }
+  }
+  return '';
+}
+
+function actualizarTimestamp() {
+  const now = new Date();
+  
+  // Formato ISO para el input type="date" (YYYY-MM-DD)
+  const day = String(now.getDate()).padStart(2, '0');
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const year = now.getFullYear();
+  const dateStr = `${year}-${month}-${day}`;
+  
+  // Formato para el input type="time" (HH:MM:SS)
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  const timeStr = `${hours}:${minutes}:${seconds}`;
+  
+  const inputFecha = document.getElementById('fechaRegistro');
+  const inputHora = document.getElementById('horaRegistro');
+  
+  if (inputFecha) inputFecha.value = dateStr;
+  if (inputHora) inputHora.value = timeStr;
+}
+
+function inicializarFiltrosFechas() {
+  const tzoffset = (new Date()).getTimezoneOffset() * 60000;
+  const localISOTime = (new Date(Date.now() - tzoffset)).toISOString().split('T')[0];
+  
+  document.getElementById('filtroFechaInicio').value = localISOTime;
+  document.getElementById('filtroFechaFin').value = localISOTime;
+
+  document.getElementById('filtroFechaInicio').addEventListener('blur', cargarDatosDashboard);
+  document.getElementById('filtroFechaFin').addEventListener('blur', cargarDatosDashboard);
+  document.getElementById('filtroFechaInicio').addEventListener('keydown', cargarDatosDashboard);
+  document.getElementById('filtroFechaFin').addEventListener('keydown', cargarDatosDashboard);
+  document.getElementById('filtroArea').addEventListener('change', aplicarFiltros);
+  document.getElementById('filtroTipo').addEventListener('change', aplicarFiltros);
+}
+
+
+// ==========================================
+// NAVEGACIÓN (TABS)
+// ==========================================
+const tabs = {
+  registro: { btn: document.getElementById('tabRegistro'), vista: document.getElementById('vistaRegistro') },
+  revision: { btn: document.getElementById('tabRevision'), vista: document.getElementById('vistaRevision') },
+  dashboard: { btn: document.getElementById('tabDashboard'), vista: document.getElementById('vistaDashboard') }
+};
+
+function cambiarVista(vistaActiva) {
+  Object.values(tabs).forEach(tab => {
+    tab.btn.classList.remove('text-green-600', 'dark:text-green-400', 'border-b-2', 'border-green-600', 'dark:border-green-400');
+    tab.btn.classList.add('text-gray-500', 'dark:text-gray-400');
+    tab.vista.classList.add('hidden');
+  });
+
+  tabs[vistaActiva].btn.classList.add('text-green-600', 'dark:text-green-400', 'border-b-2', 'border-green-600', 'dark:border-green-400');
+  tabs[vistaActiva].btn.classList.remove('text-gray-500', 'dark:text-gray-400');
+  tabs[vistaActiva].vista.classList.remove('hidden');
+}
+
+tabs.registro.btn.addEventListener('click', () => cambiarVista('registro'));
+
+tabs.revision.btn.addEventListener('click', async () => {
+  cambiarVista('revision');
+  if (!datosCargados) {
+    await cargarDatosDashboard();
+  } else {
+    // Si ya cargaron de fondo, simplemente inyectamos a la tabla
+    renderizarMisRegistros();
+  }
+});
+
+tabs.dashboard.btn.addEventListener('click', () => {
+  cambiarVista('dashboard');
+  if (!datosCargados) {
+    cargarDatosDashboard();
+  } else {
+    aplicarFiltros(); 
+    // FIX: Obligamos a revelar el contenedor que fue cargado en segundo plano
+    const dashContent = document.getElementById('dashboardContent');
+    if(dashContent) dashContent.classList.remove('hidden');
+  }
+});
+
+// ==========================================
+// LOGICA DEL DASHBOARD Y OBTENCIÓN DE DATOS
+// ==========================================
+// FIX: Aceptamos boolean (true) desde el botón, o el evento nativo si es un input
+async function cargarDatosDashboard(eventOrForce) {
+  let isForced = false;
+  
+  if (eventOrForce === true) {
+      isForced = true;
+  } else if (eventOrForce && eventOrForce.type === 'keydown') {
+      if (eventOrForce.key !== 'Enter') return; 
+      if (document.activeElement) document.activeElement.blur();
+  }
+
+  // Seguro anti-colisiones
+  if (isFetchingDashboard) return;
+
+  const fInicioStr = document.getElementById('filtroFechaInicio').value;
+  const fFinStr = document.getElementById('filtroFechaFin').value;
+
+  if (!fInicioStr || !fFinStr) return;
+
+  const extraerAnio = (fecha) => {
+    const match = fecha.match(/\d{4}/);
+    return match ? parseInt(match[0], 10) : 0;
+  };
+
+  const yearInicio = extraerAnio(fInicioStr);
+  const yearFin = extraerAnio(fFinStr);
+
+  if (yearInicio < 2000 || yearInicio > 2100) return; 
+  if (yearFin < 2000 || yearFin > 2100) return; 
+
+  const containerLoadingDash = document.getElementById('dashboardLoading');
+  const containerContentDash = document.getElementById('dashboardContent');
+  
+  const containerLoadingRev = document.getElementById('revisionLoading');
+  const containerContentRev = document.getElementById('revisionContent');
+  const emptyStateRev = document.getElementById('emptyRevisionState');
+
+  const isRevActive = !document.getElementById('vistaRevision').classList.contains('hidden');
+  const isDashActive = !document.getElementById('vistaDashboard').classList.contains('hidden');
+
+  if (isRevActive) {
+      if (containerContentRev) containerContentRev.classList.add('hidden');
+      if (emptyStateRev) emptyStateRev.classList.add('hidden');
+      if (containerLoadingRev) containerLoadingRev.classList.remove('hidden');
+  } else if (isDashActive) {
+      if (containerContentDash) containerContentDash.classList.add('hidden');
+      if (containerLoadingDash) containerLoadingDash.classList.remove('hidden');
+  }
+
+  isFetchingDashboard = true; 
+
+  try {
+    const [response] = await Promise.all([
+      fetch(SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ 
+          action: 'getDatos',
+          fechaInicio: fInicioStr, 
+          fechaFin: fFinStr,
+          forceRefresh: isForced // FIX: Le avisamos al Backend que destruya la caché
+        })
+      }),
+      new Promise(resolve => setTimeout(resolve, 600))
+    ]);
+    
+    const result = await response.json();
+    if (result.status === 'success') {
+      todosLosRegistros = result.data; 
+      datosCargados = true;
+      
+      if (isRevActive) renderizarMisRegistros(); 
+      if (isDashActive) aplicarFiltros(); 
+      
+    } else {
+      throw new Error(result.message || "Error al obtener datos");
+    }
+  } catch (error) {
+    console.error("Error Dashboard:", error);
+    if (isDashActive || isRevActive) alert("No se pudieron cargar los datos. Verifica tu red.");
+  } finally {
+    isFetchingDashboard = false; 
+    
+    if (containerLoadingRev) containerLoadingRev.classList.add('hidden');
+    if (containerLoadingDash) containerLoadingDash.classList.add('hidden');
+    
+    if (containerContentDash) containerContentDash.classList.remove('hidden');
+  }
+}
+
+
+function aplicarFiltros() {
+  if (!datosCargados) return;
+
+  const filtroArea = document.getElementById('filtroArea').value;
+  const filtroTipo = document.getElementById('filtroTipo').value;
+
+  const registrosFiltrados = todosLosRegistros.filter(reg => {
+    const rArea = reg.area || reg.AREA;
+    const rTipo = reg.tipo || reg.TIPO;
+    
+    if (filtroArea !== 'TODAS' && rArea !== filtroArea) return false;
+    if (filtroTipo !== 'TODOS' && rTipo !== filtroTipo) return false;
+    
+    return true; 
+  });
+
+  registrosFiltradosActuales = registrosFiltrados; 
+  procesarDatosParaGraficos(registrosFiltrados);
+}
+
+function procesarDatosParaGraficos(registros) {
+  let totalPeso = 0;
+  let totalBolsas = 0;
+  let areasAgrupadas = {};
+  let tiposAgrupados = {};
+
+  registros.forEach(reg => {
+    const rPeso = Number(reg.peso || reg.PESO) || 0;
+    const rBolsas = Number(reg.bolsas || reg['BOLSAS USADAS'] || reg.BOLSAS_USADAS) || 0;
+    const rArea = reg.area || reg.AREA;
+    const rTipo = reg.tipo || reg.TIPO;
+    
+    totalPeso += rPeso;
+    totalBolsas += rBolsas;
+
+    if (areasAgrupadas[rArea]) areasAgrupadas[rArea] += rPeso;
+    else areasAgrupadas[rArea] = rPeso;
+
+    if (tiposAgrupados[rTipo]) tiposAgrupados[rTipo] += rPeso;
+    else tiposAgrupados[rTipo] = rPeso;
+  });
+
+  const areasKeys = Object.keys(areasAgrupadas).filter(k => areasAgrupadas[k] > 0).sort((a,b) => areasAgrupadas[b] - areasAgrupadas[a]);
+  const areasValues = areasKeys.map(k => areasAgrupadas[k].toFixed(2));
+  const areasLabelsMulti = areasKeys.map((k, i) => [k, `${areasValues[i]} kg`]);
+
+  const tiposKeys = Object.keys(tiposAgrupados).filter(k => tiposAgrupados[k] > 0);
+  const tiposValues = tiposKeys.map(k => tiposAgrupados[k].toFixed(2));
+  const tiposLabelsMulti = tiposKeys.map((k, i) => `${k}: ${tiposValues[i]} kg`);
+
+  document.getElementById('kpiPeso').textContent = totalPeso.toFixed(2) + ' kg';
+  document.getElementById('kpiBolsas').textContent = totalBolsas;
+  document.getElementById('kpiRegistros').textContent = registros.length;
+
+  dibujarGraficoAreas(areasLabelsMulti, areasValues);
+  dibujarGraficoTipos(tiposLabelsMulti, tiposValues);
+}
+
+Chart.defaults.font.family = 'sans-serif';
+
+function dibujarGraficoAreas(labels, data) {
+  const ctx = document.getElementById('chartArea').getContext('2d');
+  if (chartAreaInstancia) chartAreaInstancia.destroy();
+  
+  const isDark = document.documentElement.classList.contains('dark');
+  const textColor = isDark ? '#cbd5e1' : '#475569';
+
+  chartAreaInstancia = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Kg de Residuos',
+        data: data,
+        backgroundColor: 'rgba(34, 197, 94, 0.8)',
+        borderColor: 'rgb(22, 163, 74)',
+        borderWidth: 1,
+        borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { 
+        y: { beginAtZero: true, ticks: {color: textColor} },
+        x: { ticks: { font: { weight: '600' }, color: textColor } }
+      },
+      animation: false
+    }
+  });
+}
+
+function dibujarGraficoTipos(labels, data) {
+  const ctx = document.getElementById('chartTipo').getContext('2d');
+  if (chartTipoInstancia) chartTipoInstancia.destroy();
+  
+  const isDark = document.documentElement.classList.contains('dark');
+  const textColor = isDark ? '#cbd5e1' : '#475569';
+
+  const coloresTipos = labels.map(tipo => {
+    if(tipo.includes('Organico') || tipo.includes('ORGANICO')) return '#22c55e'; 
+    if(tipo.includes('Plastico') || tipo.includes('PLASTICO')) return '#3b82f6'; 
+    if(tipo.includes('Carton') || tipo.includes('CARTON')) return '#eab308'; 
+    return '#6b7280'; 
+  });
+
+  chartTipoInstancia = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: labels,
+      datasets: [{
+        data: data,
+        backgroundColor: coloresTipos,
+        borderWidth: isDark ? 0 : 2,
+        hoverOffset: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { color: textColor} } },
+      animation: false
+    }
+  });
+}
+
+// ==========================================
+// EXPORTAR E IMPRIMIR REPORTE
+// ==========================================
+document.getElementById('btnExportarExcel').addEventListener('click', () => {
+  if (registrosFiltradosActuales.length === 0) {
+    alert("No hay registros para exportar con los filtros actuales.");
+    return;
+  }
+
+  const datosExcel = registrosFiltradosActuales.map(reg => {
+    return {
+      'Fecha': formatearFechaEstandar(reg.fecha || reg.FECHA),
+      'Hora': formatearHora24(reg.hora || reg.HORA),
+      'Supervisor': reg.supervisor || reg.SUPERVISOR || '-',
+      'Área': reg.area || reg.AREA || '-',
+      'Tipo de Residuo': reg.tipo || reg.TIPO || '-',
+      'Peso (Kg)': reg.peso || reg.PESO || 0,
+      'Bolsas Utilizadas': reg.bolsas || reg['BOLSAS USADAS'] || reg.BOLSAS_USADAS || 0,
+      'Observaciones': obtenerObservaciones(reg) || '',
+      'Imagen (Link)': obtenerUrlImagen(reg) || 'Sin Imagen'
+    };
+  });
+
+  const worksheet = XLSX.utils.json_to_sheet(datosExcel);
+  const workbook = XLSX.utils.book_new();
+
+  worksheet['!cols'] = [
+    {wch: 12}, {wch: 10}, {wch: 30}, {wch: 20}, {wch: 20},
+    {wch: 12}, {wch: 15}, {wch: 40}, {wch: 50}
+  ];
+
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Residuos");
+  XLSX.writeFile(workbook, `Reporte_Residuos_${new Date().toISOString().split('T')[0]}.xlsx`);
+});
+
+document.getElementById('btnPrint').addEventListener('click', () => {
+  const selArea = document.getElementById('filtroArea');
+  const selTipo = document.getElementById('filtroTipo');
+
+  document.getElementById('printFInicio').textContent = document.getElementById('filtroFechaInicio').value;
+  document.getElementById('printFFin').textContent = document.getElementById('filtroFechaFin').value;
+  document.getElementById('printFArea').textContent = selArea.options[selArea.selectedIndex].text;
+  document.getElementById('printFTipo').textContent = selTipo.options[selTipo.selectedIndex].text;
+  
+  const nombreAutor = AppState.user ? (AppState.user.nombre || AppState.user.usuario) : "Supervisor";
+  document.getElementById('printFirmaNombre').textContent = nombreAutor;
+
+  window.print();
+});
+
+// ==========================================
+// LÓGICA DE LA VISTA: MIS REGISTROS (EDICIÓN)
+// ==========================================
+function renderizarMisRegistros() {
+  const tbody = document.getElementById('tablaMisRegistros');
+  const emptyState = document.getElementById('emptyRevisionState');
+  const revContent = document.getElementById('revisionContent'); // NUEVO
+  
+  if (!tbody || !emptyState) return;
+  tbody.innerHTML = '';
+  
+  if(!AppState.user) return;
+
+  const misRegistros = todosLosRegistros.filter(r => {
+    const autorEmail = String(r.email || r.supervisor).trim().toLowerCase();
+    const sesionEmail = String(AppState.user.email || AppState.user.usuario).trim().toLowerCase();
+    const sesionNombre = String(AppState.user.nombre).trim().toLowerCase();
+    return autorEmail === sesionEmail || autorEmail === sesionNombre;
+  });
+  
+  if (misRegistros.length === 0) {
+    emptyState.classList.remove('hidden');
+    if (revContent) revContent.classList.add('hidden'); // Ocultar tabla si no hay nada
+    return;
+  }
+  
+  emptyState.classList.add('hidden');
+  if (revContent) revContent.classList.remove('hidden'); // Mostrar tabla si hay datos
+  
+  misRegistros.sort((a, b) => Number(b.id) - Number(a.id));
+  
+  // (El resto del forEach() se mantiene exactamente igual...)
+  misRegistros.forEach(reg => {
+    let colorTipo = "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200";
+    const tipo = String(reg.tipo || reg.TIPO || '');
+    if(tipo.includes("Organico")) colorTipo = "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400";
+    else if(tipo.includes("Plastico")) colorTipo = "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400";
+    else if(tipo.includes("Carton")) colorTipo = "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400";
+    
+    const tr = document.createElement('tr');
+    tr.className = "hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors";
+    tr.innerHTML = `
+      <td class="px-4 py-3 whitespace-nowrap border-b dark:border-gray-700">
+        <div class="font-medium text-gray-900 dark:text-gray-100">${formatearFechaEstandar(reg.fecha || reg.FECHA)}</div>
+        <div class="text-xs text-gray-500 dark:text-gray-400">${formatearHora24(reg.hora || reg.HORA)}</div>
+      </td>
+      <td class="px-4 py-3 whitespace-nowrap border-b dark:border-gray-700">${reg.area || reg.AREA}</td>
+      <td class="px-4 py-3 whitespace-nowrap border-b dark:border-gray-700">
+        <span class="px-2 py-1 text-[10px] rounded-full font-medium ${colorTipo}">${tipo}</span>
+      </td>
+      <td class="px-4 py-3 whitespace-nowrap text-center font-medium border-b dark:border-gray-700">${reg.peso || reg.PESO}</td>
+      <td class="px-4 py-3 whitespace-nowrap text-center text-gray-500 border-b dark:border-gray-700">${reg.bolsas || reg.BOLSAS_USADAS || reg['BOLSAS USADAS'] || 0}</td>
+      <td class="px-4 py-3 whitespace-nowrap text-center border-b dark:border-gray-700">
+        <button onclick="abrirModalEdicion('${reg.id}')" class="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/40 p-2 rounded-full transition-colors" title="Editar">
+          <i class="ph ph-pencil-simple text-lg"></i>
+        </button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+window.abrirModalEdicion = function(id) {
+  if (!navigator.onLine) {
+    alert("Para editar registros necesitas conexión a internet.");
+    return;
+  }
+
+  const registro = todosLosRegistros.find(r => String(r.id) === String(id));
+  if (!registro) return;
+  
+  document.getElementById('editId').value = registro.id;
+  document.getElementById('editArea').value = registro.area || registro.AREA;
+  document.getElementById('editTipo').value = registro.tipo || registro.TIPO;
+  document.getElementById('editPeso').value = registro.peso || registro.PESO || 0;
+  document.getElementById('editBolsas').value = registro.bolsas || registro.BOLSAS_USADAS || registro['BOLSAS USADAS'] || 1;
+  document.getElementById('editObservaciones').value = obtenerObservaciones(registro);
+  
+  document.getElementById('modalEdicion').classList.remove('hidden');
+};
+
+window.cerrarModalEdicion = function() {
+  document.getElementById('modalEdicion').classList.add('hidden');
+};
+
+document.getElementById('formEdicionRegistro').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  
+  const btnGuardar = document.getElementById('btnGuardarEdicion');
+  const originalText = btnGuardar.innerHTML;
+  btnGuardar.disabled = true;
+ btnGuardar.innerHTML = '<i class="ph ph-spinner animate-spin inline-block text-xl"></i> Guardando...';
+  
+  const valEmail = AppState.user.email || AppState.user.usuario; // Fallback por si el hub no manda email
+  
+  const payload = {
+    action: 'editarRegistro',
+    id: document.getElementById('editId').value,
+    supervisorEmail: valEmail, 
+    area: document.getElementById('editArea').value,
+    tipo: document.getElementById('editTipo').value,
+    peso: parseFloat(document.getElementById('editPeso').value),
+    bolsas: parseInt(document.getElementById('editBolsas').value),
+    observaciones: document.getElementById('editObservaciones').value
+  };
+
+  try {
+    const response = await fetch(SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    });
+    
+    const result = await response.json();
+    
+    if (result.success || result.status === 'success') {
+      const index = todosLosRegistros.findIndex(r => String(r.id) === String(payload.id));
+      if (index !== -1) {
+        todosLosRegistros[index] = { ...todosLosRegistros[index], ...payload };
+      }
+      renderizarMisRegistros();
+      aplicarFiltros(); 
+      cerrarModalEdicion();
+    } else {
+      alert("Error: " + result.message);
+    }
+  } catch (error) {
+    console.error("Error actualizando registro:", error);
+    alert("Ocurrió un error de conexión al actualizar.");
+  } finally {
+    btnGuardar.disabled = false;
+    btnGuardar.innerHTML = originalText;
+  }
+});
+
+
+// ==========================================
+// FORMULARIO DE REGISTRO Y ENVÍO HÍBRIDO
+// ==========================================
+const imagenInput = document.getElementById('imagen');
+const fileNameDisplay = document.getElementById('fileNameDisplay');
+const imagePlaceholder = document.getElementById('imagePlaceholder');
+const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+const imagePreview = document.getElementById('imagePreview');
+const removeImageBtn = document.getElementById('removeImageBtn');
+
+let imageBase64 = '';
+let imageMimeType = '';
+let imageName = '';
+
+// ==========================================
+// CAPTURA Y PROCESAMIENTO ASÍNCRONO DE EVIDENCIA
+// ==========================================
+imagenInput.addEventListener('change', async function(e) {
+  const file = e.target.files[0];
+  if (file) {
+    // UI: Estado de carga en el placeholder (UX Premium)
+    imagePlaceholder.innerHTML = `
+      <i class="ph ph-spinner animate-spin mx-auto text-4xl text-green-500"></i>
+      <p class="text-xs text-gray-500 mt-2">Optimizando evidencia...</p>
+    `;
+    
+    try {
+      // --- PASO CLAVE: PROCESAMIENTO EN <CANVAS> ---
+      // Ejecutamos la compresión instantánea en el Frontend
+      const { base64, type } = await procesarYComprimirImagen(file);
+      
+      // Actualizamos variables globales con datos ligeros
+      imageBase64 = base64;
+      imageMimeType = type; // Ahora será 'image/jpeg' siempre
+      imageName = file.name.replace(/\.[^/.]+$/, "") + "_opt.jpg"; // Renombramos para trazabilidad
+      
+      // UI: Actualizar vista previa con la imagen ya COMPRIMIDA
+      // Usamos el Base64 ligero para la vista previa, garantizando fluidez del DOM
+      imagePreview.src = `data:${type};base64,${base64}`;
+      fileNameDisplay.textContent = imageName;
+      
+      // Restaurar UI de placeholders y mostrar preview
+      imagePlaceholder.classList.add('hidden');
+      imagePreviewContainer.classList.remove('hidden');
+      imagePreviewContainer.classList.add('flex');
+      
+    } catch (error) {
+      console.error("Error procesando imagen:", error);
+      alert("No se pudo procesar la imagen. Intenta tomar otra foto o subir un archivo más ligero.");
+      resetImageUI();
+    } finally {
+      // Restaurar el HTML original del placeholder por si acaso
+      if (imagePlaceholder.innerHTML.includes('ph-spinner')) {
+         imagePlaceholder.innerHTML = `
+          <i class="ph ph-camera mx-auto text-4xl text-gray-400 dark:text-gray-500"></i>
+          <div class="flex text-sm justify-center">
+            <label for="imagen" class="relative cursor-pointer bg-white dark:bg-gray-800 rounded-md font-medium text-green-600 dark:text-green-400 hover:text-green-500 px-3 py-2 border border-green-200 dark:border-gray-600 shadow-sm transition-all hover:shadow">
+              <span><i class="ph ph-camera-plus mr-1"></i> Tomar foto o subir</span>
+            </label>
+          </div>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Formatos soportados: PNG, JPG</p>
+        `;
+      }
+    }
+    
+  } else {
+    resetImageUI();
+  }
+});
+
+removeImageBtn.addEventListener('click', () => resetImageUI());
+
+function resetImageUI() {
+  imagenInput.value = '';
+  imagePreview.src = '';
+  imagePlaceholder.classList.remove('hidden');
+  imagePreviewContainer.classList.add('hidden');
+  imagePreviewContainer.classList.remove('flex');
+  imageBase64 = '';
+  imageMimeType = '';
+  imageName = '';
+  document.getElementById('observaciones').value = '';
+}
+
+const form = document.getElementById('residuosForm');
+const submitBtn = document.getElementById('submitBtn');
+const successMessage = document.getElementById('successMessage');
+const registrosContainer = document.getElementById('registrosContainer');
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  
+  if(!AppState.isSessionVerified) return alert("Sesión no validada por el Hub GenApps.");
+
+  const btnOriginalHtml = submitBtn.innerHTML;
+  submitBtn.disabled = true;
+  submitBtn.innerHTML = '<i class="ph ph-spinner animate-spin inline-block text-xl"></i> <span>Guardando...</span>';
+  
+  // 1. Extraemos y formateamos la Fecha (De YYYY-MM-DD a DD/MM/YYYY para el Backend)
+  const rawFecha = document.getElementById('fechaRegistro').value;
+  const partesFecha = rawFecha.split('-');
+  const fechaVal = partesFecha.length === 3 ? `${partesFecha[2]}/${partesFecha[1]}/${partesFecha[0]}` : rawFecha;
+  
+  // 2. Extraemos la hora
+  const horaVal = document.getElementById('horaRegistro').value;
+  
+  const valEmail = AppState.user.email || AppState.user.usuario;
+
+  const formData = {
+    action: 'registrar',
+    supervisor: valEmail, 
+    area: document.getElementById('area').value,
+    tipo: document.getElementById('tipo').value,
+    peso: document.getElementById('peso').value,
+    bolsas: document.getElementById('bolsas').value,
+    fecha: fechaVal,
+    hora: horaVal,
+    observaciones: document.getElementById('observaciones').value,
+    imagenBase64: imageBase64,
+    imagenMimeType: imageMimeType,
+    imagenNombre: imageName
+  };
+
+ // 1. UI OPTIMISTA: Encolamos en IndexedDB
+  await SyncManager.enqueue(formData);
+  agregarRegistroAUi(formData, true);
+  
+  // 2. Feedback visual persistente (4 segundos)
+  successMessage.innerHTML = '<i class="ph-fill ph-check-circle text-xl mr-2 text-green-600 dark:text-green-400"></i> ¡Registro capturado!';
+  successMessage.classList.remove('opacity-0');
+  
+  // Limpiamos timeouts previos por si el usuario presiona "Guardar" varias veces seguidas
+  if (window.successTimeout) clearTimeout(window.successTimeout);
+  window.successTimeout = setTimeout(() => successMessage.classList.add('opacity-0'), 4000);
+  
+  // 3. Limpiamos y preparamos para el siguiente registro instantáneamente
+  document.getElementById('peso').value = '';
+  document.getElementById('bolsas').value = '1';
+  resetImageUI();
+  actualizarTimestamp();
+  
+  // HABILITAMOS EL BOTÓN DE INMEDIATO
+  submitBtn.disabled = false;
+  submitBtn.innerHTML = btnOriginalHtml;
+
+  // 4. Disparamos la sincronización silenciosa (Fire and Forget)
+  SyncManager.sync();
+});
+
+function agregarRegistroAUi(data, isPending = false) {
+  if (registrosContainer.querySelector('.italic')) {
+    registrosContainer.innerHTML = '';
+  }
+  const colorTipo = data.tipo === 'Organico' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' :
+    data.tipo === 'Plastico' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300';
+  
+  const supervisorCorto = data.supervisor.split('@')[0];
+  const idTemporal = data._localId || Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
+  const fotoIcon = data.imagenBase64 ? '<i class="ph-fill ph-image text-green-500" title="Foto adjunta"></i>' : '';
+  const fechaMostrar = formatearFechaEstandar(data.fecha);
+  const horaMostrar = formatearHora24(data.hora);
+
+  const statusIcon = isPending 
+    ? `<span id="sync-tag-${idTemporal}"><i class="ph-fill ph-cloud-slash text-yellow-500 ml-1" title="Pendiente de red"></i></span>`
+    : `<span id="sync-tag-${idTemporal}"><i class="ph-fill ph-cloud-check text-green-500 ml-1" title="Sincronizado"></i></span>`;
+
+  const html = `
+      <div class="p-4 rounded-lg border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors fade-in">
+          <div class="flex justify-between items-start mb-2">
+              <span class="text-xs font-mono text-gray-500 dark:text-gray-400">#${idTemporal.substring(idTemporal.length - 6)} ${fotoIcon} ${statusIcon}</span>
+              <span class="text-xs px-2 py-1 rounded-full font-medium ${colorTipo}">${data.tipo}</span>
+          </div>
+          <p class="font-medium text-gray-900 dark:text-gray-100">${data.area}</p>
+          <div class="mt-2 text-sm text-gray-600 dark:text-gray-400 flex justify-between">
+              <span>${data.peso} kg</span>
+              <span>${data.bolsas} bolsa(s)</span>
+          </div>
+          <div class="mt-2 text-xs text-gray-500 flex justify-between items-center border-t border-gray-200 dark:border-gray-700 pt-2">
+              <span class="truncate max-w-[120px]" title="${data.supervisor}">${supervisorCorto}</span>
+              <span>${fechaMostrar} ${horaMostrar}</span>
+          </div>
+      </div>
+  `;
+  registrosContainer.insertAdjacentHTML('afterbegin', html);
+}
+
+/**
+ * Procesa una imagenFile (File objeto) usando <canvas> para redimensionar y comprimir.
+ * @param {File} imageFile - El archivo original capturado del input.
+ * @returns {Promise<{base64: string, type: string}>} - Promesa con los datos optimizados.
+ */
+function procesarYComprimirImagen(imageFile) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    
+    // 1. Leer archivo original como DataURL
+    reader.readAsDataURL(imageFile);
+    
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      
+      img.onload = () => {
+        // 2. Crear Canvas Oculto
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        let width = img.width;
+        let height = img.height;
+        
+        // 3. Calcular Redimensionado Proporcional (Aspect Ratio)
+        if (width > MAX_IMAGE_WIDTH) {
+          height = Math.round((height * MAX_IMAGE_WIDTH) / width);
+          width = MAX_IMAGE_WIDTH;
+        }
+        
+        // 4. Configurar dimensiones del Canvas y dibujar
+        canvas.width = width;
+        canvas.height = height;
+        
+        // Volcar imagen al canvas (esto ya aplica suavizado nativo)
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // 5. Exportar a Base64 optimizado (JPEG forzado para máxima compresión)
+        // .toDataURL(type, quality) -> quality es clave aquí.
+        const optimizedBase64DataUrl = canvas.toDataURL('image/jpeg', IMAGE_QUALITY);
+        
+        // Extraer solo la cadena Base64 pura para el Backend
+        const finalBase64 = optimizedBase64DataUrl.split(',')[1];
+        
+        // Liberar memoria explícitamente (Buena práctica en móviles)
+        canvas.width = 0; canvas.height = 0; 
+
+        resolve({
+          base64: finalBase64,
+          type: 'image/jpeg' // Forzamos JPEG en la salida optimizada
+        });
+      };
+      
+      img.onerror = (err) => reject('Error cargando imagen en objeto Image: ' + err);
+    };
+    
+    reader.onerror = (err) => reject('Error leyendo archivo original: ' + err);
+  });
+}
