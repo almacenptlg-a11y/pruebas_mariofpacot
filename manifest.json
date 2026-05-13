@@ -1,0 +1,17 @@
+{
+  "name": "GenApps | La Genovesa",
+  "short_name": "GenApps",
+  "description": "Plataforma Central de Aplicaciones de La Genovesa",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f9fafb",
+  "theme_color": "#e01f36",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

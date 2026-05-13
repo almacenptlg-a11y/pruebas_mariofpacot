@@ -1,688 +1,785 @@
-// ==========================================
-// CONFIGURACIÓN DE GOOGLE APPS SCRIPT
-// ==========================================
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzYcfPzxhhlU4WOC0g8UvOUTQtypRNTvPYGGGpcMPPw9PuJPxsKirGPrg2G1csBDVdH/exec';
+const API_URL = "https://script.google.com/macros/s/AKfycbxLJYQe6QZCiDARD1I5ngkqS3hjfzT1oYki9rlClbNpFf-fjLwXv_Lhp_TOcjLgOTZt/exec";
 
-const savedTheme = sessionStorage.getItem('moduloResiduosTheme');
-if (savedTheme === 'dark') document.documentElement.classList.add('dark');
-
-const MAX_IMAGE_WIDTH = 1024; 
-const IMAGE_QUALITY = 0.7;    
-
-const AppState = { user: null, isSessionVerified: false };
-let chartAreaInstancia = null;
-let chartTipoInstancia = null;
-let datosCargados = false; 
-let isFetchingDashboard = false;
-let todosLosRegistros = []; 
-let registrosFiltradosActuales = []; 
-
-window.addEventListener('message', (event) => {
-  const { type, user, theme } = event.data || {};
-  if (type === 'THEME_UPDATE') {
-      document.documentElement.classList.toggle('dark', theme === 'dark');
-      sessionStorage.setItem('moduloResiduosTheme', theme); 
-  }
-  if (type === 'SESSION_SYNC' && user) {
-      document.documentElement.classList.toggle('dark', theme === 'dark');
-      if (theme) sessionStorage.setItem('moduloResiduosTheme', theme); 
-      AppState.user = user;
-      AppState.isSessionVerified = true;
-      sessionStorage.setItem('moduloResiduosUser', JSON.stringify(user));
-      mostrarAplicacion();
-  }
-});
-
+// === CICLO DE VIDA ===
 document.addEventListener('DOMContentLoaded', () => {
-  actualizarTimestamp();
-  inicializarFiltrosFechas();
-  const savedUser = sessionStorage.getItem('moduloResiduosUser');
-  if (savedUser) {
-      AppState.user = JSON.parse(savedUser);
-      AppState.isSessionVerified = true;
-      mostrarAplicacion();
-  }
-  window.parent.postMessage({ type: 'MODULO_LISTO' }, '*');
-  setTimeout(() => {
-      if (!AppState.isSessionVerified) {
-          const statusTxt = document.getElementById('txt-usuario-activo');
-          if (statusTxt) statusTxt.innerHTML = '<i class="ph ph-warning text-red-500"></i> Esperando autorización del Hub...';
-      }
-  }, 4000);
-  SyncManager.updateBadge();
-});
+    initTheme();
+    checkAuthState();
+    bindLoginEvents();
+    bindOnboardingEvents();
+    bindCredentialsEvents();
+    
+    initBotonesFlotantes(); // <-- ¡Asegúrate de que esta línea esté aquí!
 
-function mostrarAplicacion() {
-  const appContainer = document.getElementById('appContainer');
-  if (appContainer) appContainer.classList.remove('hidden');
-  
-  if (AppState.user) {
-      const nombreMostrar = AppState.user.nombre || AppState.user.usuario || 'Usuario';
-      const rolMostrar = AppState.user.rol || AppState.user.area || 'Supervisor';
-      const txtUsuario = document.getElementById('txt-usuario-activo');
-      if (txtUsuario) txtUsuario.innerHTML = `<i class="ph ph-user-check"></i> ${nombreMostrar} | ${rolMostrar}`;
-  }
-
-  const rolesPrivilegiados = ['JEFE', 'GERENTE', 'ADMINISTRADOR', 'CALIDAD'];
-  const rolUser = (AppState.user?.rol || '').toUpperCase();
-  const tabDash = document.getElementById('tabDashboard');
-  
-  if (tabDash) {
-      if (rolesPrivilegiados.includes(rolUser)) tabDash.classList.remove('hidden');
-      else tabDash.classList.add('hidden'); 
-  }
-
-  if (!datosCargados && !isFetchingDashboard) setTimeout(() => cargarDatosDashboard(), 300); 
-}
-
-// ==========================================
-// MOTOR DUAL OFFLINE-FIRST (INDEXEDDB)
-// ==========================================
-const IDB_NAME = 'GenApps_DB_Residuos';
-const STORE_NAME = 'sync_queue';
-const IDB_VERSION = 1;
-
-const dbPromise = new Promise((resolve, reject) => {
-    const request = indexedDB.open(IDB_NAME, IDB_VERSION);
-    request.onerror = () => reject('Error al abrir IndexedDB');
-    request.onsuccess = (e) => resolve(e.target.result);
-    request.onupgradeneeded = (e) => {
-        const db = e.target.result;
-        if (!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME, { keyPath: '_localId' });
-    };
-});
-
-const dbUtil = {
-    async getAll() {
-        const db = await dbPromise;
-        return new Promise((resolve, reject) => {
-            const req = db.transaction(STORE_NAME, 'readonly').objectStore(STORE_NAME).getAll();
-            req.onsuccess = () => resolve(req.result);
-            req.onerror = () => reject(req.error);
-        });
-    },
-    async put(item) {
-        const db = await dbPromise;
-        return new Promise((resolve, reject) => {
-            const req = db.transaction(STORE_NAME, 'readwrite').objectStore(STORE_NAME).put(item);
-            req.onsuccess = () => resolve(req.result);
-            req.onerror = () => reject(req.error);
-        });
-    },
-    async delete(key) {
-        const db = await dbPromise;
-        return new Promise((resolve, reject) => {
-            const req = db.transaction(STORE_NAME, 'readwrite').objectStore(STORE_NAME).delete(key);
-            req.onsuccess = () => resolve();
-            req.onerror = () => reject(req.error);
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js').catch(err => console.error(err));
         });
     }
-};
+});
 
-const SyncManager = {
-    isSyncing: false,
-    async getQueue() { try { return await dbUtil.getAll(); } catch(e) { return []; } },
-    async enqueue(record) {
-        record._localId = Date.now().toString(); 
-        await dbUtil.put(record);
-        await this.updateBadge();
-    },
-    async remove(localId) { await dbUtil.delete(localId); },
-    async sync(forcePull = false) {
-        if (!navigator.onLine || this.isSyncing) return;
-        const queue = await this.getQueue();
-        if (queue.length === 0 && !forcePull) { this.updateBadge(); return; }
+function initTheme() {
+    const isDark = localStorage.getItem('genTheme') === 'dark';
+    if (isDark) document.documentElement.classList.add('dark');
+    actualizarIconoTema(isDark);
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (metaTheme) metaTheme.setAttribute("content", isDark ? "#111827" : "#e01f36");
+}
 
-        this.isSyncing = true; 
-        const badge = document.getElementById('syncStatusBadge');
-        const badgeText = document.getElementById('syncStatusText');
-        const badgeIcon = document.getElementById('syncStatusIcon');
-        const btnForce = document.getElementById('btnForceSync');
-        const iconForce = document.getElementById('iconForceSync');
-        
-        if (badge) badge.classList.remove('hidden');
-        if (badgeIcon) badgeIcon.className = 'ph-fill ph-arrows-clockwise text-blue-400 animate-spin inline-block text-xl';
-        if (btnForce) { btnForce.disabled = true; iconForce.classList.add('animate-spin'); }
-
-        let hasErrors = false;
-        if (queue.length > 0) {
-            if (badgeText) badgeText.textContent = `Subiendo ${queue.length} registro(s)...`;
-            for (const record of queue) {
-                try {
-                    const payload = { ...record }; delete payload._localId; 
-                    const response = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
-                    const res = await response.json();
-                    if (res.status === 'success') {
-                        await this.remove(record._localId); 
-                        const localTag = document.getElementById(`sync-tag-${record._localId}`);
-                        if (localTag) localTag.innerHTML = '<i class="ph-fill ph-cloud-check text-green-500" title="Sincronizado"></i>';
-                    } else hasErrors = true;
-                } catch (e) { hasErrors = true; break; }
-            }
-        }
-
-        // FASE 2: Bypass de Caché si forcePull es verdadero
-        if (!hasErrors && (forcePull || queue.length > 0)) {
-            if (badgeText) badgeText.textContent = 'Actualizando panel...';
-            try {
-                datosCargados = false; isFetchingDashboard = false; 
-                await cargarDatosDashboard(forcePull); // Envía true a la función
-            } catch (e) { hasErrors = true; }
-        }
-
-        if (badgeIcon) badgeIcon.classList.remove('animate-spin');
-        if (iconForce) iconForce.classList.remove('animate-spin');
-        if (btnForce) btnForce.disabled = false;
-        
-        const remainingQueue = await this.getQueue();
-        if (!hasErrors && remainingQueue.length === 0) {
-            if (badgeIcon) badgeIcon.className = 'ph-fill ph-check-circle text-green-400 text-xl';
-            if (badgeText) badgeText.textContent = '¡Datos actualizados!';
-            setTimeout(() => { if(badge) badge.classList.add('hidden'); }, 3500);
-        } else {
-            if (badgeIcon) badgeIcon.className = 'ph-fill ph-warning-circle text-yellow-400 text-xl';
-            if (badgeText) badgeText.textContent = 'Red inestable. Reintentaremos luego.';
-            setTimeout(() => this.updateBadge(), 4000);
-        }
-        this.isSyncing = false;
-        this.updateBadge(); 
-    },
-    async updateBadge() {
-        const queue = await this.getQueue();
-        const badge = document.getElementById('syncStatusBadge');
-        const badgeText = document.getElementById('syncStatusText');
-        const badgeIcon = document.getElementById('syncStatusIcon');
-        const btnForce = document.getElementById('btnForceSync');
-        const countForce = document.getElementById('countForceSync');
-        const txtForce = document.getElementById('txtForceSync');
-        
-        if (!badge || !badgeIcon) return; 
-
-        if (queue.length > 0) {
-            if (!this.isSyncing) {
-                badge.classList.remove('hidden');
-                badgeIcon.className = 'ph-fill ph-cloud-slash text-yellow-400 text-xl';
-                if (badgeText) badgeText.textContent = `${queue.length} registro(s) pendiente(s)`;
-            }
-            if (btnForce) {
-                btnForce.className = 'flex bg-amber-50 text-amber-700 border border-amber-200 px-3 py-1.5 rounded-lg items-center gap-2 text-sm font-medium';
-                if (txtForce) txtForce.textContent = "Sincronizar";
-                if (countForce) { countForce.classList.remove('hidden'); countForce.textContent = queue.length; }
-            }
-        } else {
-            if (!badgeIcon.classList.contains('animate-spin') && badgeText && !badgeText.textContent.includes('actualizados')) badge.classList.add('hidden');
-            if (btnForce && !this.isSyncing) {
-                btnForce.className = 'flex bg-gray-50 text-gray-600 border border-gray-200 px-3 py-1.5 rounded-lg items-center gap-2 text-sm font-medium';
-                if (txtForce) txtForce.textContent = "Actualizar";
-                if (countForce) countForce.classList.add('hidden');
-            }
-        }
+function toggleTheme() {
+    const isDark = document.documentElement.classList.toggle('dark');
+    const themeStr = isDark ? 'dark' : 'light';
+    localStorage.setItem('genTheme', isDark ? 'dark' : 'light');
+    actualizarIconoTema(isDark);
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (metaTheme) metaTheme.setAttribute("content", isDark ? "#111827" : "#e01f36");
+    const iframe = document.getElementById('appViewer');
+    if (iframe && iframe.contentWindow) {
+        iframe.contentWindow.postMessage({ type: 'THEME_UPDATE', theme: themeStr }, '*');
     }
-};
+}
 
-window.addEventListener('online', () => SyncManager.sync(false));
-window.addEventListener('offline', () => SyncManager.updateBadge());
-document.addEventListener('DOMContentLoaded', () => {
-    const btnForce = document.getElementById('btnForceSync');
-    if(btnForce) btnForce.addEventListener('click', () => SyncManager.sync(true));
-    SyncManager.updateBadge();
-});
-setInterval(async () => {
-    if (navigator.onLine && !SyncManager.isSyncing) {
-        const queue = await SyncManager.getQueue();
-        if (queue.length > 0) SyncManager.sync(false);
+function actualizarIconoTema(isDark) {
+    const dropdownBtn = document.getElementById('dropdown-theme-btn');
+    
+    if (dropdownBtn) {
+        dropdownBtn.innerHTML = isDark
+            ? `<i class="ph-fill ph-sun text-xl text-amber-400"></i> Tema Claro`
+            : `<i class="ph-fill ph-moon text-xl text-gray-600"></i> Tema Oscuro`;
     }
-}, 20000);
-
-// ==========================================
-// UTILIDADES 
-// ==========================================
-function formatearFechaEstandar(fechaStr) {
-  if (!fechaStr || fechaStr === '-') return '-';
-  if (fechaStr.includes('T')) fechaStr = fechaStr.split('T')[0];
-  const partes = fechaStr.split(/[-/]/);
-  if (partes.length === 3) {
-    if (partes[0].length === 4) return `${partes[2]}/${partes[1]}/${partes[0]}`;
-    return `${partes[0].padStart(2, '0')}/${partes[1].padStart(2, '0')}/${partes[2]}`;
-  }
-  return fechaStr;
 }
 
-function formatearHora24(horaStr) {
-  if (!horaStr || horaStr === '-') return '-';
-  horaStr = String(horaStr).trim();
-  const isPM = horaStr.toLowerCase().includes('pm');
-  const isAM = horaStr.toLowerCase().includes('am');
-  let partes = horaStr.toLowerCase().replace(/[a-z]/ig, '').trim().split(':');
-  
-  if (partes.length >= 2) {
-    let h = parseInt(partes[0], 10);
-    const m = partes[1].padStart(2, '0');
-    const s = (partes[2] || '00').replace(/[^0-9]/g, '').padStart(2, '0');
-    if (isNaN(h)) return horaStr;
-    if (isPM && h < 12) h += 12;
-    if (isAM && h === 12) h = 0;
-    return `${String(h).padStart(2, '0')}:${m}:${s}`;
-  }
-  return horaStr;
+// === MÁQUINA DE ESTADOS ===
+function checkAuthState() {
+    const userStr = localStorage.getItem('genUser');
+    const loginView = document.getElementById('login-view');
+    const hubView = document.getElementById('hub-view');
+
+    if (userStr) {
+        loginView.classList.add('hidden');
+        hubView.classList.remove('hidden');
+        initHub(JSON.parse(userStr));
+    } else {
+        hubView.classList.add('hidden');
+        loginView.classList.remove('hidden');
+        const form = document.getElementById('loginForm');
+        if (form) form.reset();
+    }
 }
 
-function obtenerUrlImagen(reg) {
-  if (!reg) return '';
-  for (const key in reg) {
-    if (key.toLowerCase().match(/(imagen|foto|link|url)/) && reg[key]) return String(reg[key]);
-  }
-  return '';
+// === LOGIN ===
+function bindLoginEvents() {
+    const form = document.getElementById('loginForm');
+    if (!form) return;
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (document.activeElement) document.activeElement.blur(); // Ocultar teclado en móviles
+        
+        const btn = document.getElementById('btnSubmit');
+        const err = document.getElementById('errorMsg');
+
+        btn.innerHTML = '<i class="ph ph-spinner animate-spin text-xl"></i> Conectando...';
+        btn.disabled = true;
+        err.classList.add('hidden');
+
+        const payload = {
+            action: 'login',
+            user: document.getElementById('username').value,
+            pass: document.getElementById('password').value
+        };
+
+        try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) throw new Error("Error al conectar con el servidor.");
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                localStorage.setItem('genUser', JSON.stringify(data.user));
+                localStorage.setItem('genAppsCatalog', JSON.stringify(data.apps));
+                checkAuthState();
+            } else if (data.status === 'require_profile') {
+                // SE ACTIVA EL ONBOARDING
+                abrirModalOnboarding(data.tempUser);
+            } else {
+                throw new Error(data.message);
+            }
+        } catch (error) {
+            err.textContent = error.message || "Error inesperado.";
+            err.classList.remove('hidden');
+        } finally {
+            btn.innerHTML = 'Ingresar';
+            btn.disabled = false;
+        }
+    });
 }
 
-function obtenerObservaciones(reg) {
-  if (!reg) return '';
-  for (const key in reg) {
-    if (key.toLowerCase().match(/(observacion|detalle|comentario)/)) return reg[key] || '';
-  }
-  return '';
+// === ONBOARDING (NUEVO) ===
+function abrirModalOnboarding(usuario) {
+    document.getElementById('onboardUserTemp').value = usuario;
+    const modal = document.getElementById('onboardingModal');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
 }
 
-function actualizarTimestamp() {
-  const now = new Date();
-  const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
-  
-  if (document.getElementById('fechaRegistro')) document.getElementById('fechaRegistro').value = dateStr;
-  if (document.getElementById('horaRegistro')) document.getElementById('horaRegistro').value = timeStr;
+function bindOnboardingEvents() {
+    const form = document.getElementById('formOnboarding');
+    if (!form) return;
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('btnOnboardSubmit');
+        const originalText = btn.innerHTML;
+
+        const payload = {
+            action: 'completeProfile',
+            user: document.getElementById('onboardUserTemp').value,
+            nombre: document.getElementById('onboardNombre').value,
+            correo: document.getElementById('onboardCorreo').value
+        };
+
+        btn.innerHTML = '<i class="ph ph-spinner animate-spin text-xl"></i> Guardando...';
+        btn.disabled = true;
+
+        try {
+            const response = await fetch(API_URL, { method: 'POST', body: JSON.stringify(payload) });
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                document.getElementById('onboardingModal').classList.add('hidden');
+                document.getElementById('onboardingModal').classList.remove('flex');
+
+                // AUTOLOGIN TRUCO: Volvemos a presionar el botón de Iniciar Sesión automáticamente
+                document.getElementById('btnSubmit').click();
+            } else {
+                throw new Error(data.message);
+            }
+        } catch (error) {
+            alert("Error: " + error.message);
+        } finally {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    });
 }
 
-function inicializarFiltrosFechas() {
-  const tzoffset = (new Date()).getTimezoneOffset() * 60000;
-  const localISOTime = (new Date(Date.now() - tzoffset)).toISOString().split('T')[0];
-  
-  document.getElementById('filtroFechaInicio').value = localISOTime;
-  document.getElementById('filtroFechaFin').value = localISOTime;
+// === CREDENCIALES ===
+function bindCredentialsEvents() {
+    const form = document.getElementById('formCredenciales');
+    if (!form) return;
 
-  document.getElementById('filtroFechaInicio').addEventListener('blur', cargarDatosDashboard);
-  document.getElementById('filtroFechaFin').addEventListener('blur', cargarDatosDashboard);
-  document.getElementById('filtroFechaInicio').addEventListener('keydown', cargarDatosDashboard);
-  document.getElementById('filtroFechaFin').addEventListener('keydown', cargarDatosDashboard);
-  
-  // FIX: Conectar filtros múltiples a ambas vistas
-  document.getElementById('filtroArea').addEventListener('change', () => { aplicarFiltros(); renderizarMisRegistros(); });
-  document.getElementById('filtroTipo').addEventListener('change', () => { aplicarFiltros(); renderizarMisRegistros(); });
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = form.querySelector('button[type="submit"]');
+        const originalText = btn.innerHTML;
+
+        const userStr = localStorage.getItem('genUser');
+        if (!userStr) return;
+        const currentUser = JSON.parse(userStr);
+
+        const payload = {
+            action: 'updateCredentials',
+            currentUser: currentUser.usuario,
+            newUser: document.getElementById('newUsername').value,
+            newPass: document.getElementById('newPassword').value
+        };
+
+        btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Guardando...';
+        btn.disabled = true;
+
+        try {
+            const response = await fetch(API_URL, { method: 'POST', body: JSON.stringify(payload) });
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                closeCredentialsModal();
+                showSystemModal('alert', 'Credenciales Actualizadas', '¡Tus datos se guardaron con éxito!\nPor seguridad, iniciaremos tu sesión nuevamente.', () => {
+                    logout(); // Ahora invoca al logout modificado
+                });
+            } else {
+                showSystemModal('error', 'Error al actualizar', data.message);
+            }
+        } catch (error) {
+            showSystemModal('error', 'Error de conexión', error.message);
+        } finally {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    });
 }
 
-// ==========================================
-// NAVEGACIÓN Y BARRA GLOBAL
-// ==========================================
-const tabs = {
-  registro: { btn: document.getElementById('tabRegistro'), vista: document.getElementById('vistaRegistro') },
-  revision: { btn: document.getElementById('tabRevision'), vista: document.getElementById('vistaRevision') },
-  dashboard: { btn: document.getElementById('tabDashboard'), vista: document.getElementById('vistaDashboard') }
-};
 
-function cambiarVista(vistaActiva) {
-  Object.values(tabs).forEach(tab => {
-    tab.btn.classList.remove('text-green-600', 'dark:text-green-400', 'border-b-2');
-    tab.btn.classList.add('text-gray-500', 'dark:text-gray-400');
-    tab.vista.classList.add('hidden');
-  });
+function renderWelcomeBanner(nombre) {
+    const horaLocal = new Date().getHours();
+    let saludo, svgIcon, colorCls, bgGlow;
 
-  tabs[vistaActiva].btn.classList.add('text-green-600', 'dark:text-green-400', 'border-b-2');
-  tabs[vistaActiva].btn.classList.remove('text-gray-500', 'dark:text-gray-400');
-  tabs[vistaActiva].vista.classList.remove('hidden');
+    if (horaLocal >= 5 && horaLocal < 12) {
+        saludo = "Buenos días"; colorCls = "text-amber-500"; bgGlow = "bg-amber-100 dark:bg-amber-900/30";
+        svgIcon = `<svg viewBox="0 0 24 24" fill="none" class="w-16 h-16 sm:w-20 sm:h-20 animate-[spin_12s_linear_infinite] drop-shadow-lg"><path d="M12 4V2M12 22v-2M4 12H2m20 0h-2m-2.05-6.95l1.41-1.41M4.64 19.36l1.41-1.41M19.36 19.36l-1.41-1.41M6.05 6.05L4.64 4.64M16 12a4 4 0 11-8 0 4 4 0 018 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    } else if (horaLocal >= 12 && horaLocal < 19) {
+        saludo = "Buenas tardes"; colorCls = "text-orange-500"; bgGlow = "bg-orange-100 dark:bg-orange-900/30";
+        svgIcon = `<svg viewBox="0 0 24 24" fill="none" class="w-16 h-16 sm:w-20 sm:h-20 animate-[bounce_3s_infinite] drop-shadow-lg"><path d="M8 17a4 4 0 110-8c0-.44.07-.87.2-1.28A5.5 5.5 0 0113.5 3 5.5 5.5 0 0119 8.5c0 .17 0 .33-.03.5A4 4 0 1116 17H8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    } else {
+        saludo = "Buenas noches"; colorCls = "text-indigo-500 dark:text-indigo-400"; bgGlow = "bg-indigo-100 dark:bg-indigo-900/30";
+        svgIcon = `<svg viewBox="0 0 24 24" fill="none" class="w-16 h-16 sm:w-20 sm:h-20 animate-pulse drop-shadow-lg"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    }
 
-  // FIX: Mostrar barra de filtros si no estamos en Registro
-  const barraFiltros = document.getElementById('barraFiltrosGlobales');
-  if (barraFiltros) {
-      if (vistaActiva === 'registro') barraFiltros.classList.add('hidden');
-      else barraFiltros.classList.remove('hidden');
-  }
-}
-
-tabs.registro.btn.addEventListener('click', () => cambiarVista('registro'));
-tabs.revision.btn.addEventListener('click', async () => {
-  cambiarVista('revision');
-  if (!datosCargados) await cargarDatosDashboard();
-  else renderizarMisRegistros();
-});
-tabs.dashboard.btn.addEventListener('click', () => {
-  cambiarVista('dashboard');
-  if (!datosCargados) cargarDatosDashboard();
-  else {
-    aplicarFiltros(); 
-    const dashContent = document.getElementById('dashboardContent');
-    if(dashContent) dashContent.classList.remove('hidden');
-  }
-});
-
-// ==========================================
-// LOGICA DE DATOS (DASHBOARD Y REVISIÓN)
-// ==========================================
-async function cargarDatosDashboard(eventOrForce) {
-  let isForced = false;
-  if (eventOrForce === true) isForced = true;
-  else if (eventOrForce && eventOrForce.type === 'keydown') {
-      if (eventOrForce.key !== 'Enter') return; 
-      if (document.activeElement) document.activeElement.blur();
-  }
-
-  if (isFetchingDashboard) return;
-
-  const fInicioStr = document.getElementById('filtroFechaInicio').value;
-  const fFinStr = document.getElementById('filtroFechaFin').value;
-  if (!fInicioStr || !fFinStr) return;
-
-  const yearInicio = parseInt(fInicioStr.substring(0, 4), 10);
-  const yearFin = parseInt(fFinStr.substring(0, 4), 10);
-  if (yearInicio < 2000 || yearInicio > 2100 || yearFin < 2000 || yearFin > 2100) return; 
-
-  const isRevActive = !document.getElementById('vistaRevision').classList.contains('hidden');
-  const isDashActive = !document.getElementById('vistaDashboard').classList.contains('hidden');
-
-  if (isRevActive) {
-      document.getElementById('revisionContent')?.classList.add('hidden');
-      document.getElementById('emptyRevisionState')?.classList.add('hidden');
-      document.getElementById('revisionLoading')?.classList.remove('hidden');
-  } else if (isDashActive) {
-      document.getElementById('dashboardContent')?.classList.add('hidden');
-      document.getElementById('dashboardLoading')?.classList.remove('hidden');
-  }
-
-  isFetchingDashboard = true; 
-
-  try {
-    const [response] = await Promise.all([
-      fetch(SCRIPT_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ 
-          action: 'getDatos',
-          fechaInicio: fInicioStr, 
-          fechaFin: fFinStr,
-          forceRefresh: isForced // CACHE BUSTING ACTIVO
-        })
-      }),
-      new Promise(resolve => setTimeout(resolve, 600))
-    ]);
-    
-    const result = await response.json();
-    if (result.status === 'success') {
-      todosLosRegistros = result.data; 
-      datosCargados = true;
-      if (isRevActive) renderizarMisRegistros(); 
-      if (isDashActive) aplicarFiltros(); 
-    } else throw new Error(result.message);
-  } catch (error) {
-    if (isDashActive || isRevActive) alert("No se pudieron cargar los datos. Verifica tu red.");
-  } finally {
-    isFetchingDashboard = false; 
-    document.getElementById('revisionLoading')?.classList.add('hidden');
-    document.getElementById('dashboardLoading')?.classList.add('hidden');
-    document.getElementById('dashboardContent')?.classList.remove('hidden');
-  }
-}
-
-function aplicarFiltros() {
-  if (!datosCargados) return;
-  const filtroArea = document.getElementById('filtroArea').value;
-  const filtroTipo = document.getElementById('filtroTipo').value;
-
-  const registrosFiltrados = todosLosRegistros.filter(reg => {
-    const rArea = reg.area || reg.AREA;
-    const rTipo = reg.tipo || reg.TIPO;
-    if (filtroArea !== 'TODAS' && rArea !== filtroArea) return false;
-    if (filtroTipo !== 'TODOS' && rTipo !== filtroTipo) return false;
-    return true; 
-  });
-
-  registrosFiltradosActuales = registrosFiltrados; 
-  procesarDatosParaGraficos(registrosFiltrados);
-}
-
-function procesarDatosParaGraficos(registros) {
-  let totalPeso = 0; let totalBolsas = 0;
-  let areasAgrupadas = {}; let tiposAgrupados = {};
-
-  registros.forEach(reg => {
-    const rPeso = Number(reg.peso || reg.PESO) || 0;
-    const rBolsas = Number(reg.bolsas || reg['BOLSAS USADAS'] || reg.BOLSAS_USADAS) || 0;
-    const rArea = reg.area || reg.AREA;
-    const rTipo = reg.tipo || reg.TIPO;
-    
-    totalPeso += rPeso; totalBolsas += rBolsas;
-    areasAgrupadas[rArea] = (areasAgrupadas[rArea] || 0) + rPeso;
-    tiposAgrupados[rTipo] = (tiposAgrupados[rTipo] || 0) + rPeso;
-  });
-
-  const areasKeys = Object.keys(areasAgrupadas).filter(k => areasAgrupadas[k] > 0).sort((a,b) => areasAgrupadas[b] - areasAgrupadas[a]);
-  const areasValues = areasKeys.map(k => areasAgrupadas[k].toFixed(2));
-  const areasLabelsMulti = areasKeys.map((k, i) => [k, `${areasValues[i]} kg`]);
-
-  const tiposKeys = Object.keys(tiposAgrupados).filter(k => tiposAgrupados[k] > 0);
-  const tiposValues = tiposKeys.map(k => tiposAgrupados[k].toFixed(2));
-  const tiposLabelsMulti = tiposKeys.map((k, i) => `${k}: ${tiposValues[i]} kg`);
-
-  document.getElementById('kpiPeso').textContent = totalPeso.toFixed(2) + ' kg';
-  document.getElementById('kpiBolsas').textContent = totalBolsas;
-  document.getElementById('kpiRegistros').textContent = registros.length;
-
-  dibujarGraficoAreas(areasLabelsMulti, areasValues);
-  dibujarGraficoTipos(tiposLabelsMulti, tiposValues);
-}
-
-Chart.defaults.font.family = 'sans-serif';
-
-function dibujarGraficoAreas(labels, data) {
-  const ctx = document.getElementById('chartArea').getContext('2d');
-  if (chartAreaInstancia) chartAreaInstancia.destroy();
-  const isDark = document.documentElement.classList.contains('dark');
-  
-  chartAreaInstancia = new Chart(ctx, {
-    type: 'bar',
-    data: { labels: labels, datasets: [{ data: data, backgroundColor: 'rgba(34, 197, 94, 0.8)', borderRadius: 4 }] },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, animation: false,
-               scales: { y: { ticks: {color: isDark ? '#cbd5e1' : '#475569'} }, x: { ticks: {color: isDark ? '#cbd5e1' : '#475569'} } } }
-  });
-}
-
-function dibujarGraficoTipos(labels, data) {
-  const ctx = document.getElementById('chartTipo').getContext('2d');
-  if (chartTipoInstancia) chartTipoInstancia.destroy();
-  const isDark = document.documentElement.classList.contains('dark');
-
-  const coloresTipos = labels.map(tipo => {
-    if(tipo.includes('Organico')) return '#22c55e'; 
-    if(tipo.includes('Plastico')) return '#3b82f6'; 
-    if(tipo.includes('Carton')) return '#eab308'; 
-    return '#6b7280'; 
-  });
-
-  chartTipoInstancia = new Chart(ctx, {
-    type: 'doughnut',
-    data: { labels: labels, datasets: [{ data: data, backgroundColor: coloresTipos, borderWidth: isDark ? 0 : 2 }] },
-    options: { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { position: 'bottom', labels: {color: isDark ? '#cbd5e1' : '#475569'} } } }
-  });
-}
-
-// ==========================================
-// RENDERIZAR MIS REGISTROS (CON FILTROS)
-// ==========================================
-function renderizarMisRegistros() {
-  const tbody = document.getElementById('tablaMisRegistros');
-  const emptyState = document.getElementById('emptyRevisionState');
-  const revContent = document.getElementById('revisionContent'); 
-  if (!tbody || !emptyState) return;
-  tbody.innerHTML = '';
-  if(!AppState.user) return;
-
-  const filtroArea = document.getElementById('filtroArea').value;
-  const filtroTipo = document.getElementById('filtroTipo').value;
-
-  const misRegistros = todosLosRegistros.filter(r => {
-    const autorEmail = String(r.email || r.supervisor).trim().toLowerCase();
-    const sesionEmail = String(AppState.user.email || AppState.user.usuario).trim().toLowerCase();
-    const esAutor = (autorEmail === sesionEmail || autorEmail === String(AppState.user.nombre).trim().toLowerCase());
-    
-    const pasaArea = filtroArea === 'TODAS' || (r.area || r.AREA) === filtroArea;
-    const pasaTipo = filtroTipo === 'TODOS' || (r.tipo || r.TIPO) === filtroTipo;
-
-    return esAutor && pasaArea && pasaTipo;
-  });
-  
-  if (misRegistros.length === 0) {
-    emptyState.classList.remove('hidden');
-    if (revContent) revContent.classList.add('hidden'); 
-    return;
-  }
-  
-  emptyState.classList.add('hidden');
-  if (revContent) revContent.classList.remove('hidden'); 
-  misRegistros.sort((a, b) => Number(b.id) - Number(a.id));
-  
-  misRegistros.forEach(reg => {
-    let colorTipo = "bg-gray-100 text-gray-800";
-    const tipo = String(reg.tipo || reg.TIPO || '');
-    if(tipo.includes("Organico")) colorTipo = "bg-green-100 text-green-800";
-    else if(tipo.includes("Plastico")) colorTipo = "bg-blue-100 text-blue-800";
-    else if(tipo.includes("Carton")) colorTipo = "bg-yellow-100 text-yellow-800";
-    
-    const tr = document.createElement('tr');
-    tr.className = "hover:bg-gray-50 dark:hover:bg-gray-700/50";
-    tr.innerHTML = `
-      <td class="px-4 py-3 whitespace-nowrap border-b dark:border-gray-700">
-        <div class="font-medium">${formatearFechaEstandar(reg.fecha)}</div><div class="text-xs text-gray-500">${formatearHora24(reg.hora)}</div>
-      </td>
-      <td class="px-4 py-3 whitespace-nowrap border-b dark:border-gray-700">${reg.area || reg.AREA}</td>
-      <td class="px-4 py-3 whitespace-nowrap border-b dark:border-gray-700"><span class="px-2 py-1 text-[10px] rounded-full font-medium ${colorTipo}">${tipo}</span></td>
-      <td class="px-4 py-3 whitespace-nowrap text-center font-medium border-b dark:border-gray-700">${reg.peso || reg.PESO}</td>
-      <td class="px-4 py-3 whitespace-nowrap text-center text-gray-500 border-b dark:border-gray-700">${reg.bolsas || 0}</td>
-      <td class="px-4 py-3 whitespace-nowrap text-center border-b dark:border-gray-700">
-        <button onclick="abrirModalEdicion('${reg.id}')" class="text-green-600 p-2 rounded-full"><i class="ph ph-pencil-simple text-lg"></i></button>
-      </td>
+    // APLICANDO DISEÑO DE TEXTO FLOTANTE SIN BLOQUE DE FONDO Y WIDGETS (Tipografía Premium)
+    document.getElementById('welcome-banner').innerHTML = `
+        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sm:gap-6 relative w-full">
+            <div class="flex items-center gap-4 sm:gap-6 relative">
+                <div class="absolute -left-10 -top-10 w-48 h-48 rounded-full ${bgGlow} opacity-40 blur-3xl pointer-events-none"></div>
+                <div class="${colorCls} z-10 transform scale-75 sm:scale-100 origin-left drop-shadow-xl transition-transform hover:scale-110 duration-500 ease-out">${svgIcon}</div>
+                <div class="z-10 flex-1">
+                    <h2 class="text-3xl sm:text-5xl font-black text-gray-800 dark:text-white tracking-tight leading-none drop-shadow-md">
+                        ${saludo}, <span class="text-transparent bg-clip-text bg-gradient-to-r from-brand-600 to-amber-500 drop-shadow-sm">${nombre}</span>
+                    </h2>
+                    <p class="text-gray-600 dark:text-gray-300 mt-2 font-bold text-[14px] sm:text-xl drop-shadow-sm">¿Qué módulo vamos a gestionar hoy?</p>
+                </div>
+            </div>
+            
+            <!-- Widgets Laterales Premium -->
+            <div class="flex flex-wrap lg:flex-nowrap items-center gap-3 sm:gap-4 z-10 pr-2 pb-2 pointer-events-auto mt-4 md:mt-0">
+                <!-- Clima -->
+                <a href="https://open-meteo.com/" target="_blank" title="Datos por Open-Meteo" class="flex items-center gap-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl px-4 py-3 rounded-2xl border border-white/60 dark:border-gray-700/50 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.2)] hover:shadow-lg transition-all group transform hover:-translate-y-1 duration-300">
+                    <div class="w-10 h-10 rounded-[12px] bg-sky-100 dark:bg-sky-900/40 flex items-center justify-center text-sky-500 dark:text-sky-400 group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300 shadow-inner">
+                        <i id="weather-icon" class="ph ph-cloud-sun text-2xl animate-pulse"></i>
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest flex items-center gap-1">Tacna <i class="ph ph-drop text-sky-400"></i><span id="weather-hum">--%</span></span>
+                        <span id="weather-temp" class="text-[16px] font-black text-gray-800 dark:text-gray-100 leading-tight">--°C</span>
+                    </div>
+                </a>
+                
+                <!-- Divisas -->
+                <a href="https://www.exchangerate-api.com" target="_blank" title="Datos por ExchangeRate-API" class="flex items-center gap-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl px-4 py-3 rounded-2xl border border-white/60 dark:border-gray-700/50 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.2)] hover:shadow-lg transition-all group transform hover:-translate-y-1 duration-300">
+                    <div class="w-10 h-10 rounded-[12px] bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:scale-110 group-hover:-rotate-6 transition-transform duration-300 shadow-inner">
+                        <i class="ph ph-currency-dollar text-2xl"></i>
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">USD/PEN</span>
+                        <span id="currency-rate" class="text-[16px] font-black text-gray-800 dark:text-gray-100 leading-tight">S/ --</span>
+                    </div>
+                </a>
+            </div>
+        </div>
     `;
-    tbody.appendChild(tr);
-  });
+
+    fetchWidgetsData();
 }
 
-// ==========================================
-// EXPORTACIÓN, EDICIÓN Y REGISTRO (FORMULARIO)
-// ==========================================
-document.getElementById('btnExportarExcel').addEventListener('click', () => { /* Tu código previo de Excel intacto... */ });
-document.getElementById('btnPrint').addEventListener('click', () => { window.print(); });
-
-window.abrirModalEdicion = function(id) {
-  if (!navigator.onLine) return alert("Para editar registros necesitas conexión a internet.");
-  const registro = todosLosRegistros.find(r => String(r.id) === String(id));
-  if (!registro) return;
-  document.getElementById('editId').value = registro.id;
-  document.getElementById('editArea').value = registro.area || registro.AREA;
-  document.getElementById('editTipo').value = registro.tipo || registro.TIPO;
-  document.getElementById('editPeso').value = registro.peso || 0;
-  document.getElementById('editBolsas').value = registro.bolsas || 1;
-  document.getElementById('editObservaciones').value = obtenerObservaciones(registro);
-  document.getElementById('modalEdicion').classList.remove('hidden');
-};
-
-window.cerrarModalEdicion = function() { document.getElementById('modalEdicion').classList.add('hidden'); };
-
-document.getElementById('formEdicionRegistro').addEventListener('submit', async function(e) {
-  e.preventDefault();
-  const btn = document.getElementById('btnGuardarEdicion'); const txt = btn.innerHTML;
-  btn.disabled = true; btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i>';
-  const valEmail = AppState.user.email || AppState.user.usuario;
-  
-  const payload = { action: 'editarRegistro', id: document.getElementById('editId').value, supervisorEmail: valEmail, area: document.getElementById('editArea').value, tipo: document.getElementById('editTipo').value, peso: parseFloat(document.getElementById('editPeso').value), bolsas: parseInt(document.getElementById('editBolsas').value), observaciones: document.getElementById('editObservaciones').value };
-
-  try {
-    const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) }).then(r=>r.json());
-    if (res.success || res.status === 'success') {
-      const idx = todosLosRegistros.findIndex(r => String(r.id) === String(payload.id));
-      if (idx !== -1) todosLosRegistros[idx] = { ...todosLosRegistros[idx], ...payload };
-      renderizarMisRegistros(); aplicarFiltros(); cerrarModalEdicion();
-    } else alert("Error: " + res.message);
-  } catch (error) { alert("Error de red."); } finally { btn.disabled = false; btn.innerHTML = txt; }
-});
-
-const imagenInput = document.getElementById('imagen');
-let imageBase64 = ''; let imageMimeType = ''; let imageName = '';
-
-imagenInput.addEventListener('change', async function(e) {
-  const file = e.target.files[0];
-  if (file) {
-    document.getElementById('imagePlaceholder').innerHTML = `<i class="ph ph-spinner animate-spin text-4xl"></i>`;
+async function fetchWidgetsData() {
     try {
-      const { base64, type } = await procesarYComprimirImagen(file);
-      imageBase64 = base64; imageMimeType = type; imageName = file.name.replace(/\.[^/.]+$/, "") + "_opt.jpg";
-      document.getElementById('imagePreview').src = `data:${type};base64,${base64}`;
-      document.getElementById('fileNameDisplay').textContent = imageName;
-      document.getElementById('imagePlaceholder').classList.add('hidden');
-      document.getElementById('imagePreviewContainer').classList.remove('hidden');
-      document.getElementById('imagePreviewContainer').classList.add('flex');
-    } catch (e) { resetImageUI(); }
-  }
-});
-document.getElementById('removeImageBtn').addEventListener('click', resetImageUI);
+        const weatherRes = await fetch("https://api.open-meteo.com/v1/forecast?latitude=-18.01&longitude=-70.25&current=temperature_2m,relative_humidity_2m");
+        if (weatherRes.ok) {
+            const wData = await weatherRes.json();
+            document.getElementById('weather-temp').textContent = Math.round(wData.current.temperature_2m) + "°C";
+            document.getElementById('weather-hum').textContent = Math.round(wData.current.relative_humidity_2m) + "%";
+            document.getElementById('weather-icon').classList.remove('animate-pulse');
+        }
+    } catch (e) { console.warn("Clima no disponible", e); }
 
-function resetImageUI() {
-  imagenInput.value = ''; imageBase64 = ''; imageMimeType = ''; imageName = '';
-  document.getElementById('imagePreview').src = '';
-  document.getElementById('imagePlaceholder').classList.remove('hidden');
-  document.getElementById('imagePreviewContainer').classList.add('hidden');
-  document.getElementById('imagePlaceholder').innerHTML = `<i class="ph ph-camera text-4xl"></i><div class="mt-2"><label for="imagen" class="cursor-pointer font-medium text-green-600">Subir foto</label></div>`;
+    try {
+        const currencyRes = await fetch("https://api.exchangerate-api.com/v4/latest/USD");
+        if (currencyRes.ok) {
+            const cData = await currencyRes.json();
+            if (cData.rates.PEN) {
+                document.getElementById('currency-rate').textContent = "S/ " + cData.rates.PEN.toFixed(3);
+            }
+        }
+    } catch (e) { console.warn("Divisas no disponibles", e); }
 }
 
-document.getElementById('residuosForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  if(!AppState.isSessionVerified) return;
-  const btn = document.getElementById('submitBtn'); const txt = btn.innerHTML;
-  btn.disabled = true; btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Guardando...';
-  
-  const rawF = document.getElementById('fechaRegistro').value.split('-');
-  const fVal = rawF.length===3 ? `${rawF[2]}/${rawF[1]}/${rawF[0]}` : rawF;
-  const hVal = document.getElementById('horaRegistro').value;
-  
-  const formData = {
-    action: 'registrar', supervisor: AppState.user.email || AppState.user.usuario, 
-    area: document.getElementById('area').value, tipo: document.getElementById('tipo').value, 
-    peso: document.getElementById('peso').value, bolsas: document.getElementById('bolsas').value, 
-    fecha: fVal, hora: hVal, observaciones: document.getElementById('observaciones').value,
-    imagenBase64: imageBase64, imagenMimeType: imageMimeType, imagenNombre: imageName
-  };
+// === LÓGICA DEL HUB ===
+function initHub(currentUser) {
+    const menu = document.getElementById('appMenu');
+    const cardsContainer = document.getElementById('cards-container');
+    const floatingBtn = document.getElementById('floating-menu-btn');
+    const APPS_CATALOG = JSON.parse(localStorage.getItem('genAppsCatalog')) || [];
 
-  await SyncManager.enqueue(formData);
-  agregarRegistroAUi(formData, true);
-  
-  const msg = document.getElementById('successMessage');
-  msg.classList.remove('opacity-0');
-  setTimeout(() => msg.classList.add('opacity-0'), 4000);
-  
-  document.getElementById('peso').value = ''; document.getElementById('bolsas').value = '1';
-  resetImageUI(); actualizarTimestamp();
-  
-  btn.disabled = false; btn.innerHTML = txt;
-  SyncManager.sync();
-});
+    // Hacemos el botón flotante visible
+    if(floatingBtn) floatingBtn.classList.replace('hidden', 'flex');
 
-function agregarRegistroAUi(data, isPending = false) {
-  const container = document.getElementById('registrosContainer');
-  if (container.querySelector('.italic')) container.innerHTML = '';
-  const statusIcon = isPending ? `<span id="sync-tag-${data._localId}"><i class="ph-fill ph-cloud-slash text-yellow-500"></i></span>` : `<i class="ph-fill ph-cloud-check text-green-500"></i>`;
-  const html = `<div class="p-4 rounded-lg border bg-gray-50 mb-2 fade-in">
-      <div class="flex justify-between items-start mb-2"><span class="text-xs font-mono text-gray-500">Enviado ${statusIcon}</span><span class="text-xs px-2 py-1 bg-green-100 rounded-full">${data.tipo}</span></div>
-      <p class="font-medium">${data.area}</p><div class="text-sm text-gray-600 mt-1">${data.peso} kg</div></div>`;
-  container.insertAdjacentHTML('afterbegin', html);
+    menu.innerHTML = '';
+    cardsContainer.innerHTML = '';
+    renderWelcomeBanner(currentUser.nombre.split(' ')[0]);
+
+    // === TARJETA DE PERFIL INTERACTIVA (DROPDOWN) ===
+    menu.innerHTML += `
+        <div class="relative mb-6">
+            <button onclick="toggleUserMenu()" class="w-full flex items-center gap-3 p-3 bg-white/50 dark:bg-gray-800/40 backdrop-blur-md rounded-2xl border border-gray-200/50 dark:border-gray-700/50 shadow-sm hover:shadow-md hover:bg-white dark:hover:bg-gray-800 transition-all focus:outline-none group">
+                <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-white flex items-center justify-center font-black text-xl shadow-inner drop-shadow-md">
+                    ${currentUser.nombre.charAt(0)}
+                </div>
+                <div class="flex flex-col overflow-hidden flex-1 text-left">
+                    <span class="text-[14px] font-bold text-gray-800 dark:text-white truncate">${currentUser.nombre}</span>
+                    <span class="text-[10px] font-bold text-brand-600 dark:text-brand-400 uppercase tracking-widest mt-0.5">${currentUser.rol || currentUser.area}</span>
+                </div>
+                <div class="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-700/50 text-gray-500 group-hover:bg-gray-200 dark:group-hover:bg-gray-700 transition-colors">
+                    <i id="user-menu-icon" class="ph ph-caret-down text-lg transition-transform duration-300"></i>
+                </div>
+            </button>
+
+            <div id="user-dropdown" class="absolute top-[105%] left-0 right-0 bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden transform opacity-0 scale-95 pointer-events-none transition-all duration-200 z-50 origin-top">
+                <div class="p-2 space-y-1">
+                    <button id="dropdown-theme-btn" onclick="toggleTheme()" class="w-full flex items-center gap-3 p-3 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors text-sm font-medium"></button>
+                    
+                    <button onclick="openCredentialsModal(); toggleUserMenu();" class="w-full flex items-center gap-3 p-3 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors text-sm font-medium">
+                        <i class="ph ph-key text-xl"></i> Credenciales
+                    </button>
+                    
+                    <div class="h-px bg-gray-100 dark:bg-gray-700/50 my-1 mx-2"></div>
+                    
+                    <button onclick="logout()" class="w-full flex items-center gap-3 p-3 rounded-xl text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-colors text-sm font-bold">
+                        <i class="ph ph-sign-out text-xl"></i> Cerrar Sesión
+                    </button>
+                </div>
+            </div>
+        </div>
+        <p class="px-2 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-3">Módulos Operativos</p>
+    `;
+    
+    // Forzamos la actualización del icono del tema para que el nuevo botón se dibuje bien
+    const isDark = document.documentElement.classList.contains('dark');
+    actualizarIconoTema(isDark);
+
+    APPS_CATALOG.forEach(app => {
+        const urlImagenOptimizada = optimizarLinkImagen(app.imagen);
+
+        // Menú Lateral
+        const btn = document.createElement('button');
+        btn.className = 'w-full flex items-center gap-3 p-2.5 mb-1.5 rounded-xl text-gray-600 dark:text-gray-400 hover:bg-brand-50 dark:hover:bg-gray-800 hover:text-brand-700 dark:hover:text-brand-400 transition-all group menu-btn border border-transparent hover:border-brand-100 dark:hover:border-gray-700';
+        btn.dataset.id = app.id;
+        btn.innerHTML = `<div class="w-10 h-10 rounded-lg bg-white dark:bg-gray-700 shadow-sm border border-gray-100 dark:border-gray-600 flex-shrink-0 overflow-hidden flex items-center justify-center group-hover:border-brand-300 transition-all"><img src="${urlImagenOptimizada}" class="w-full h-full object-contain p-1.5 transition-transform duration-300 group-hover:scale-110" onerror="this.outerHTML='<i class=\\'ph ph-app-window text-xl\\'></i>'"></div><div class="flex flex-col items-start text-left overflow-hidden flex-1"><span class="text-[13px] font-bold truncate w-full transition-transform duration-300 group-hover:translate-x-1">${app.titulo}</span></div>`;
+        btn.onclick = () => { loadApp(app, currentUser); toggleMenu(); };
+        menu.appendChild(btn);
+
+        // Tarjetas Principales (Dashboard)
+        const card = document.createElement('div');
+        card.className = 'group relative aspect-[4/5] sm:aspect-[3/4] bg-white dark:bg-gray-900 rounded-[2rem] sm:rounded-[2.5rem] overflow-hidden shadow-lg hover:shadow-[0_20px_50px_-10px_rgba(224,31,54,0.15)] dark:hover:shadow-[0_20px_50px_-10px_rgba(0,0,0,0.5)] cursor-pointer transition-all duration-700 ease-[cubic-bezier(0.25,1,0.5,1)] border border-gray-200 dark:border-white/10 flex flex-col justify-end transform hover:-translate-y-3';
+        card.onclick = () => loadApp(app, currentUser);
+        card.innerHTML = `
+            <div class="absolute inset-0 z-0 transition-transform duration-700 ease-[cubic-bezier(0.25,1,0.5,1)] group-hover:scale-110 flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-950">
+                <img src="${urlImagenOptimizada}" class="w-full h-full object-cover opacity-80 dark:opacity-60 group-hover:opacity-100 transition-opacity duration-700 mix-blend-multiply dark:mix-blend-normal">
+            </div>
+            <div class="absolute inset-x-0 bottom-0 h-[80%] bg-gradient-to-t from-white/95 via-white/80 dark:from-black/95 dark:via-black/50 to-transparent z-10"></div>
+            <div class="relative z-20 p-6 sm:p-8 translate-y-4 group-hover:translate-y-0 transition-transform duration-700 flex flex-col justify-end h-full w-full">
+                <div class="w-8 h-1 bg-brand-500 rounded-full mb-4 opacity-0 group-hover:opacity-100 transition-opacity duration-700 delay-100"></div>
+                <h3 class="font-black text-xl sm:text-2xl text-gray-800 dark:text-white leading-tight mb-2 tracking-wide w-full line-clamp-2">${app.titulo}</h3>
+                <div class="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-all duration-700 w-full">
+                    <p class="overflow-hidden text-[13px] sm:text-[14px] text-gray-600 dark:text-gray-300 font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-150 line-clamp-3 w-full">${app.info || 'Módulo operativo.'}</p>
+                </div>
+            </div>
+        `;
+        cardsContainer.appendChild(card);
+    });
+
+    const appGuardada = sessionStorage.getItem('genCurrentApp');
+    if (appGuardada) {
+        const appToLoad = APPS_CATALOG.find(a => a.id === appGuardada);
+        if (appToLoad) loadApp(appToLoad, currentUser);
+        else showHome(); 
+    } else {
+        showHome();
+    }
 }
 
-function procesarYComprimirImagen(imageFile) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader(); reader.readAsDataURL(imageFile);
-    reader.onload = (e) => {
-      const img = new Image(); img.src = e.target.result;
-      img.onload = () => {
-        const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
-        let width = img.width; let height = img.height;
-        if (width > MAX_IMAGE_WIDTH) { height = Math.round((height * MAX_IMAGE_WIDTH) / width); width = MAX_IMAGE_WIDTH; }
-        canvas.width = width; canvas.height = height; ctx.drawImage(img, 0, 0, width, height);
-        resolve({ base64: canvas.toDataURL('image/jpeg', IMAGE_QUALITY).split(',')[1], type: 'image/jpeg' });
-      };
+function showHome(desdeBotonAtras = false) {
+    document.getElementById('home-dashboard').classList.remove('hidden');
+    document.getElementById('iframe-container').classList.add('hidden');
+    document.getElementById('appViewer').src = "about:blank";
+    
+    // Resalta el botón correcto
+    document.querySelectorAll('.menu-btn').forEach(btn => btn.classList.remove('bg-brand-50', 'text-brand-700', 'border-brand-100', 'dark:bg-gray-800'));
+    sessionStorage.removeItem('genCurrentApp');
+
+    if (!desdeBotonAtras) {
+        history.pushState({ vista: 'home' }, '', '#home');
+    }
+}
+
+function loadApp(app, user) {
+   if (!app.link) return showSystemModal('error', 'Enlace Inválido', 'El administrador no ha configurado la URL para este módulo.');
+    sessionStorage.setItem('genCurrentApp', app.id);
+    history.pushState({ vista: 'modulo', id: app.id }, '', `#${app.id}`);
+
+    let urlSegura = app.link;
+    try {
+        const urlObj = new URL(app.link);
+        urlObj.searchParams.append('email', user.email);
+        urlObj.searchParams.append('rol', user.rol);
+        urlObj.searchParams.append('jefatura', user.jefatura || '');
+        urlObj.searchParams.append('t', Date.now());
+        urlSegura = urlObj.toString();
+    } catch (e) {
+        urlSegura = `${app.link}${app.link.includes('?') ? '&' : '?'}email=${encodeURIComponent(user.email)}&rol=${user.rol}&t=${Date.now()}`;
+    }
+
+    if (['appsheet.com', 'galaxycont.com', 'plesk.page'].some(dominio => urlSegura.includes(dominio))) {
+        const ancho = window.innerWidth * 0.8;
+        const alto = window.innerHeight * 0.8;
+        const izquierda = (window.innerWidth - ancho) / 2;
+        const arriba = (window.innerHeight - alto) / 2;
+        window.open(urlSegura, '_blank', `width=${ancho},height=${alto},top=${arriba},left=${izquierda},toolbar=no,menubar=no,scrollbars=yes,resizable=yes,status=no`);
+        showHome(true); 
+        return; 
+    }
+
+    // === MODO INMERSIVO: Mostrar Iframe, el botón flotante se queda intacto ===
+    document.getElementById('home-dashboard').classList.add('hidden');
+    document.getElementById('iframe-container').classList.remove('hidden');
+
+    const iframe = document.getElementById('appViewer');
+    const loader = document.getElementById('loader');
+
+    loader.classList.remove('hidden');
+
+    document.querySelectorAll('.menu-btn').forEach(btn => {
+        btn.classList.remove('bg-brand-50', 'text-brand-700', 'border-brand-100', 'dark:bg-gray-800');
+        if (btn.dataset.id === app.id) btn.classList.add('bg-brand-50', 'text-brand-700', 'border-brand-100', 'dark:bg-gray-800');
+    });
+
+    iframe.onload = () => { loader.classList.add('hidden'); };
+    iframe.src = urlSegura;
+}
+
+// === NUEVA LÓGICA HÍBRIDA DEL LOGO ===
+function handleLogoClick() {
+    const sidebar = document.getElementById('sidebar');
+    const estaCerrado = sidebar.classList.contains('-translate-x-full');
+    const logo = document.getElementById('main-logo');
+
+    if (estaCerrado) {
+        // 1. Si el menú está oculto -> El logo sirve para ABRIRLO
+        toggleMenu();
+    } else {
+        // 2. Si el menú ya está abierto -> El logo sirve para IR A INICIO y CERRARLO
+        showHome();
+
+        // Efecto visual de regreso al HUB
+        if (logo) {
+            logo.classList.add('-scale-x-100');
+            setTimeout(() => logo.classList.remove('-scale-x-100'), 700);
+        }
+
+        toggleMenu();
+    }
+}
+
+function toggleMenu() {
+    const s = document.getElementById('sidebar'), o = document.getElementById('sidebarOverlay');
+    const logo = document.getElementById('main-logo');
+
+    s.classList.toggle('-translate-x-full');
+    o.classList.toggle('hidden');
+
+    // Animación Premium al Logo cuando se abre/cierra
+    if (logo) {
+        logo.classList.toggle('-rotate-90');
+        logo.classList.toggle('scale-75');
+        logo.classList.toggle('opacity-70');
+    }
+}
+
+
+// === LÓGICA DEL MINI-MODAL DE USUARIO ===
+function toggleUserMenu() {
+    const dropdown = document.getElementById('user-dropdown');
+    const icon = document.getElementById('user-menu-icon');
+    
+    if (dropdown.classList.contains('opacity-0')) {
+        // Abrir
+        dropdown.classList.remove('opacity-0', 'scale-95', 'pointer-events-none');
+        dropdown.classList.add('opacity-100', 'scale-100', 'pointer-events-auto');
+        icon.classList.add('rotate-180'); // Gira la flechita hacia arriba
+    } else {
+        // Cerrar
+        dropdown.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
+        dropdown.classList.remove('opacity-100', 'scale-100', 'pointer-events-auto');
+        icon.classList.remove('rotate-180'); // Restaura la flechita
+    }
+}
+
+function openCredentialsModal() {
+    const m = document.getElementById('credentialsModal');
+    const userStr = localStorage.getItem('genUser');
+    
+    if (userStr) {
+        document.getElementById('newUsername').value = JSON.parse(userStr).usuario;
+    }
+    document.getElementById('newPassword').value = '';
+    
+    m.classList.remove('hidden'); 
+    m.classList.add('flex');
+    
+    // Animación fluida de entrada
+    requestAnimationFrame(() => {
+        m.classList.remove('opacity-0');
+        m.children[0].classList.remove('scale-95');
+    });
+    
+    toggleMenu(); // Cerramos el sidebar
+}
+
+function closeCredentialsModal() {
+    const m = document.getElementById('credentialsModal');
+    
+    // Animación fluida de salida
+    m.classList.add('opacity-0');
+    m.children[0].classList.add('scale-95');
+    
+    setTimeout(() => {
+        m.classList.remove('flex');
+        m.classList.add('hidden');
+    }, 300);
+}
+
+function logout() {
+    showSystemModal('confirm', '¿Cerrar Sesión?', 'Estás a punto de salir de la plataforma. Tendrás que volver a ingresar tus credenciales.', () => {
+        localStorage.removeItem('genUser'); 
+        localStorage.removeItem('genAppsCatalog');
+        document.getElementById('appViewer').src = "about:blank"; 
+        checkAuthState();
+        
+        // Escondemos el menú y el sidebar si estaban abiertos
+        const dropdown = document.getElementById('user-dropdown');
+        if(dropdown) dropdown.classList.add('opacity-0', 'pointer-events-none');
+        const sidebar = document.getElementById('sidebar');
+        if(sidebar && !sidebar.classList.contains('-translate-x-full')) toggleMenu();
+    });
+}
+
+function optimizarLinkImagen(url) {
+    if (!url) return "";
+    if (url.includes("drive.google.com")) {
+        const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/id=([a-zA-Z0-9_-]+)/);
+        if (match && match[1]) return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w800`;
+    }
+    return url;
+}
+
+// === COMUNICACIÓN CON MICRO-FRONTENDS (HANDSHAKE) ===
+window.addEventListener("message", (event) => {
+    if (event.data && event.data.type === 'MODULO_LISTO') {
+        console.log("GENAPPS: Módulo Iframe listo. Inyectando sesión y catálogo...");
+
+        const sessionStr = localStorage.getItem('genUser');
+        const catalogStr = localStorage.getItem('genAppsCatalog'); // Extraemos el catálogo
+
+        if (sessionStr) {
+            const iframe = document.getElementById('appViewer');
+
+            if (iframe && iframe.contentWindow) {
+                iframe.contentWindow.postMessage({
+                    type: 'SESSION_SYNC',
+                    user: JSON.parse(sessionStr),
+                    theme: localStorage.getItem('genTheme') || 'light',
+                    catalog: catalogStr ? JSON.parse(catalogStr) : [] // Lo enviamos al Iframe
+                }, '*');
+            }
+        }
+    }
+});
+
+window.addEventListener('popstate', (event) => {
+    showHome(true);
+});
+
+// === MOTOR DE MODALES DEL SISTEMA (Reemplaza alert y confirm) ===
+function showSystemModal(type, title, message, onConfirmCallback) {
+    const modal = document.getElementById('systemModal');
+    const iconEl = document.getElementById('sysModalIcon');
+    const titleEl = document.getElementById('sysModalTitle');
+    const msgEl = document.getElementById('sysModalMessage');
+    const btnsEl = document.getElementById('sysModalButtons');
+
+    titleEl.textContent = title;
+    msgEl.innerHTML = message.replace('\n', '<br>'); // Respeta saltos de línea
+    btnsEl.innerHTML = ''; // Limpiamos botones
+    
+    if (type === 'confirm') {
+        iconEl.className = 'w-16 h-16 rounded-2xl flex items-center justify-center mb-4 text-4xl bg-gradient-to-br from-amber-400 to-amber-600 text-white shadow-inner';
+        iconEl.innerHTML = '<i class="ph ph-warning-circle"></i>';
+        
+        btnsEl.innerHTML = `
+            <button id="sysBtnCancel" class="flex-1 py-3 px-4 rounded-xl font-bold text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">Cancelar</button>
+            <button id="sysBtnConfirm" class="flex-1 py-3 px-4 rounded-xl font-bold text-white bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-700 hover:to-brand-600 transition-all shadow-lg shadow-brand-500/30">Sí, salir</button>
+        `;
+
+        document.getElementById('sysBtnCancel').onclick = () => closeSystemModal();
+        document.getElementById('sysBtnConfirm').onclick = () => {
+            closeSystemModal();
+            if(onConfirmCallback) onConfirmCallback();
+        };
+    } else {
+        // Modal tipo 'alert' o 'error'
+        const isError = type === 'error';
+        iconEl.className = `w-16 h-16 rounded-2xl flex items-center justify-center mb-4 text-4xl text-white shadow-inner ${isError ? 'bg-gradient-to-br from-brand-500 to-brand-700' : 'bg-gradient-to-br from-sky-400 to-sky-600'}`;
+        iconEl.innerHTML = isError ? '<i class="ph ph-x-circle"></i>' : '<i class="ph ph-info"></i>';
+        
+        btnsEl.innerHTML = `
+            <button id="sysBtnConfirm" class="w-full py-3 px-4 rounded-xl font-bold text-white bg-gray-800 hover:bg-gray-900 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200 transition-colors shadow-lg">Entendido</button>
+        `;
+        document.getElementById('sysBtnConfirm').onclick = () => closeSystemModal();
+    }
+
+    // Mostrar con animación
+    modal.classList.remove('hidden');
+    requestAnimationFrame(() => {
+        modal.classList.remove('opacity-0');
+        modal.children[0].classList.remove('scale-95');
+    });
+}
+
+function closeSystemModal() {
+    const modal = document.getElementById('systemModal');
+    modal.classList.add('opacity-0');
+    modal.children[0].classList.add('scale-95');
+    setTimeout(() => modal.classList.add('hidden'), 300);
+}
+
+// === BOTÓN FLOTANTE DRAGGABLE Y CLIC (UNIFICADO PC Y MÓVIL) ===
+function initBotonesFlotantes() {
+    const floatBtn = document.getElementById('floating-menu-btn');
+    if (!floatBtn) return;
+
+    let isDragging = false;
+    let isMouseDown = false;
+    let startX, startY, initialX, initialY;
+
+    // Helper: Obtener coordenadas sin importar si es dedo o ratón
+    const getClientX = (e) => e.touches ? e.touches[0].clientX : e.clientX;
+    const getClientY = (e) => e.touches ? e.touches[0].clientY : e.clientY;
+
+    const dragStart = (e) => {
+        // Ignorar clics derechos en PC
+        if (e.type === 'mousedown' && e.button !== 0) return; 
+
+        isMouseDown = true;
+        isDragging = false;
+        initialX = getClientX(e);
+        initialY = getClientY(e);
+        
+        const rect = floatBtn.getBoundingClientRect();
+        startX = rect.left;
+        startY = rect.top;
+        
+        floatBtn.style.transition = 'none'; // Movimiento fluido sin delay
+        floatBtn.style.cursor = 'grabbing'; // Cambiar el cursor en PC
     };
-  });
+
+    const dragMove = (e) => {
+        if (!isMouseDown) return;
+
+        const currentX = getClientX(e);
+        const currentY = getClientY(e);
+        const dx = currentX - initialX;
+        const dy = currentY - initialY;
+
+        // Umbral de 5px para diferenciar un clic tembloroso de un arrastre real
+        if (!isDragging && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) {
+            isDragging = true;
+        }
+
+        if (isDragging) {
+            e.preventDefault(); // Evitar seleccionar texto o hacer scroll de fondo
+            
+            // Delimitar para que no se salga de la pantalla
+            const maxX = window.innerWidth - floatBtn.offsetWidth;
+            const maxY = window.innerHeight - floatBtn.offsetHeight;
+            
+            let newX = Math.max(0, Math.min(startX + dx, maxX));
+            let newY = Math.max(0, Math.min(startY + dy, maxY));
+            
+            floatBtn.style.left = `${newX}px`;
+            floatBtn.style.top = `${newY}px`;
+            floatBtn.style.right = 'auto';
+            floatBtn.style.bottom = 'auto';
+        }
+    };
+
+    const dragEnd = () => {
+        isMouseDown = false;
+        floatBtn.style.transition = ''; // Recuperar animaciones de hover
+        floatBtn.style.cursor = 'pointer';
+        
+        if (isDragging) {
+            // Un pequeño retraso para evitar que se dispare el 'click' al soltar el botón
+            setTimeout(() => { isDragging = false; }, 100);
+        }
+    };
+
+    // 1. EVENTOS DE RATÓN (PC)
+    floatBtn.addEventListener('mousedown', dragStart);
+    document.addEventListener('mousemove', dragMove, { passive: false });
+    document.addEventListener('mouseup', dragEnd);
+
+    // 2. EVENTOS TÁCTILES (Móvil)
+    floatBtn.addEventListener('touchstart', dragStart, { passive: true });
+    document.addEventListener('touchmove', dragMove, { passive: false });
+    document.addEventListener('touchend', dragEnd);
+
+    // 3. EVENTO CLIC (Abrir menú)
+    floatBtn.addEventListener('click', (e) => {
+        if (!isDragging) {
+            toggleMenu();
+        } else {
+            e.preventDefault(); // Bloquear si fue un arrastre
+        }
+    });
+}
+
+// === GESTOS TÁCTILES (SWIPE NATIVO LATERAL PARA PANELES) ===
+let touchStartX = 0;
+let touchStartY = 0;
+
+document.addEventListener('touchstart', e => {
+    touchStartX = e.changedTouches[0].screenX;
+    touchStartY = e.changedTouches[0].screenY;
+}, {passive: true});
+
+document.addEventListener('touchend', e => {
+    const touchEndX = e.changedTouches[0].screenX;
+    const touchEndY = e.changedTouches[0].screenY;
+    handleSwipeGesture(touchEndX, touchEndY);
+}, {passive: true});
+
+function handleSwipeGesture(endX, endY) {
+    const diffX = endX - touchStartX;
+    const diffY = endY - touchStartY;
+    const absDiffX = Math.abs(diffX);
+    const absDiffY = Math.abs(diffY);
+    
+    // Si el movimiento fue más vertical que horizontal (ej. scrolling natural)
+    if (absDiffY > absDiffX) {
+        return;
+    }
+
+    // Umbral mínimo de swipe (evita toques accidentales)
+    if (absDiffX < 50) return;
+
+    const sidebar = document.getElementById('sidebar');
+    
+    // Verificamos si el modal existe en el DOM
+    if (!sidebar) return;
+
+    const isSidebarOpen = !sidebar.classList.contains('-translate-x-full');
+
+    if (diffX > 0) {
+        // SWIPE RIGHT (Hacia la derecha -> )
+        if (!isSidebarOpen && touchStartX < 30) {
+            // Abrir menú principal arrastrando desde el borde izquierdo
+            toggleMenu();
+        }
+    } else {
+        // SWIPE LEFT (Hacia la izquierda <- )
+        if (isSidebarOpen) {
+            // Cerrar menú principal arrastrándolo a la izquierda
+            toggleMenu();
+        }
+    }
 }
